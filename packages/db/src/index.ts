@@ -64,3 +64,15 @@ export {
   getSessionPlan,
   getSessionAgentReview,
 } from "./dual-loop.js";
+export {
+  createCheckpoint,
+  getCheckpoint,
+  listCheckpoints,
+  resumeCheckpoint,
+  consumeCheckpoint,
+  gcCheckpoints,
+  countCheckpointsForSession,
+  DEFAULT_CHECKPOINT_MAX_PER_SESSION,
+  type SessionCheckpoint,
+  type CheckpointStatus,
+} from "./checkpoints.js";

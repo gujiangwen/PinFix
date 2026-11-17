@@ -16,6 +16,7 @@ import { adminRoutes } from "./routes/admin.js";
 import { dxRoutes } from "./routes/dx.js";
 import { locationRoutes } from "./routes/location.js";
 import { acceptanceGateRoutes } from "./routes/acceptance-gate.js";
+import { checkpointRoutes } from "./routes/checkpoints.js";
 import { wsRoutes } from "./routes/ws.js";
 import { SessionWsHub } from "./ws-hub.js";
 
@@ -72,6 +73,7 @@ export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
   await app.register(dxRoutes, { db, cfg });
   await app.register(locationRoutes, { db });
   await app.register(acceptanceGateRoutes, { db, hub, cfg });
+  await app.register(checkpointRoutes, { db, cfg });
   await app.register(wsRoutes, { db, hub, token: cfg.token });
 
   return { app, db, hub };
