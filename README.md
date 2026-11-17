@@ -2,7 +2,7 @@
 
 Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Agent Loop daemon + Admin.
 
-**Milestone 6** adds an in-page **acceptance overlay**: Diff summary, verify result, recalled knowledge, Refine timeline, and a distilled knowledge card after Accept. M5 DX + M4 Admin remain available.
+**Milestone 7** adds **reliable source location**: sniff confidence waterfall (Fiber/Vue → source map → Vite → selector memory → human), extension confidence badge + one-click file correct, and `source_location_hints` / `selector_map` knowledge. M6 acceptance overlay hosts the confidence UI.
 
 ## Stack
 
@@ -102,7 +102,12 @@ DX APIs:
 ```bash
 ./scripts/smoke-m5.sh
 ./scripts/smoke-m6.sh   # acceptance read-model + distilled_knowledge
+./scripts/smoke-m7.sh   # locate + files + source-correct round-trip
 ```
+
+### Source location (M7)
+
+Pick shows a **confidence badge** (`high|medium|low`) and file candidate. Low/medium offers **纠正文件** (searches `GET /v1/projects/:id/files`). Correcting calls `POST /v1/sessions/:id/source-correct`, which updates sniff `location`, upserts `source_location_hints`, and writes a `selector_map` knowledge card. Re-locate with the same selector returns high confidence from memory.
 
 ### Acceptance overlay (M6)
 
@@ -148,6 +153,7 @@ Tabs:
 Daemon must be running:
 
 ```bash
+./scripts/smoke-m7.sh   # locate + source-correct + hints/knowledge
 ./scripts/smoke-m6.sh   # acceptance overlay read-model + distill card
 ./scripts/smoke-m5.sh   # DX status + ensure-fixture + bootstrap gate
 ./scripts/smoke-m4.sh   # Admin APIs + recall order + AGENTS.md sync

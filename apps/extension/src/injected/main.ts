@@ -1,4 +1,7 @@
-import { sniffElement } from "@sightloop/sniff";
+import {
+  sniffElement,
+  collectPageSourceMappingUrls,
+} from "@sightloop/sniff";
 import {
   EXT_SOURCE,
   PAGE_SOURCE,
@@ -44,6 +47,12 @@ function install(): void {
         // Prefer deepest non-SightLoop element.
         const target = resolveTarget(el);
         const result = sniffElement(target) as unknown as Record<string, unknown>;
+        try {
+          const maps = collectPageSourceMappingUrls(document);
+          if (maps.length) result.source_mapping_urls = maps;
+        } catch {
+          /* ignore map collection failures */
+        }
         post({
           source: PAGE_SOURCE,
           type: "sl.sniff_result",

@@ -16,6 +16,7 @@ type ProjectRow = {
   mode: "hmr" | "pr";
   default_branch: string;
   markup_workspace: string | null;
+  dev_server_origin?: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -41,6 +42,7 @@ function rowToProject(row: ProjectRow): Project {
     mode: row.mode,
     default_branch: row.default_branch,
     markup_workspace: row.markup_workspace,
+    dev_server_origin: row.dev_server_origin ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -78,6 +80,7 @@ export function createProject(
     mode: input.mode ?? "hmr",
     default_branch: input.default_branch ?? "main",
     markup_workspace: input.markup_workspace ?? null,
+    dev_server_origin: input.dev_server_origin ?? null,
     created_at: now,
     updated_at: now,
   };
@@ -85,10 +88,10 @@ export function createProject(
   db.prepare(
     `INSERT INTO projects (
       id, name, repo_path, origin_pattern, verify_cmd, file_whitelist,
-      mode, default_branch, markup_workspace, created_at, updated_at
+      mode, default_branch, markup_workspace, dev_server_origin, created_at, updated_at
     ) VALUES (
       @id, @name, @repo_path, @origin_pattern, @verify_cmd, @file_whitelist,
-      @mode, @default_branch, @markup_workspace, @created_at, @updated_at
+      @mode, @default_branch, @markup_workspace, @dev_server_origin, @created_at, @updated_at
     )`,
   ).run({
     ...project,
@@ -119,6 +122,10 @@ export function updateProject(
       patch.markup_workspace !== undefined
         ? patch.markup_workspace
         : existing.markup_workspace,
+    dev_server_origin:
+      patch.dev_server_origin !== undefined
+        ? patch.dev_server_origin
+        : (existing.dev_server_origin ?? null),
     repo_path: patch.repo_path ?? existing.repo_path,
     updated_at: Date.now(),
   };
@@ -133,6 +140,7 @@ export function updateProject(
       mode = @mode,
       default_branch = @default_branch,
       markup_workspace = @markup_workspace,
+      dev_server_origin = @dev_server_origin,
       updated_at = @updated_at
     WHERE id = @id`,
   ).run({

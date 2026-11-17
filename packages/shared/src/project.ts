@@ -26,6 +26,8 @@ export const ProjectSchema = z.object({
   mode: ProjectModeSchema,
   default_branch: z.string().min(1).max(200).default("main"),
   markup_workspace: z.string().nullable(),
+  /** Optional Vite/dev server origin for module-graph locate (e.g. http://localhost:5175). */
+  dev_server_origin: z.string().max(512).nullable().optional(),
   created_at: z.number().int(),
   updated_at: z.number().int(),
 });
@@ -41,6 +43,7 @@ export const CreateProjectInputSchema = z.object({
   mode: ProjectModeSchema.default("hmr"),
   default_branch: z.string().min(1).max(200).optional(),
   markup_workspace: z.string().nullable().optional(),
+  dev_server_origin: z.string().max(512).nullable().optional(),
 });
 
 export type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
@@ -54,6 +57,7 @@ export const UpdateProjectInputSchema = z
     mode: ProjectModeSchema.optional(),
     default_branch: z.string().min(1).max(200).optional(),
     markup_workspace: z.string().nullable().optional(),
+    dev_server_origin: z.string().max(512).nullable().optional(),
     /** Changing repo_path re-runs allowed-roots checks. */
     repo_path: z.string().min(1).optional(),
   })

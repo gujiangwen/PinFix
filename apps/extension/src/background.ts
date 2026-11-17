@@ -509,6 +509,86 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
         data: SESSION_STATUS.get(message.sessionId) ?? null,
       };
     }
+    case "source_correct": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(
+        settings,
+        `/v1/sessions/${message.sessionId}/source-correct`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            file: message.file,
+            ...(message.line != null ? { line: message.line } : {}),
+            ...(message.note ? { note: message.note } : {}),
+            ...(message.selector ? { selector: message.selector } : {}),
+            ...(message.fingerprint
+              ? { fingerprint: message.fingerprint }
+              : {}),
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
+    }
+    case "search_files": {
+      const settings = await loadSettings();
+      if (!settings.projectId) {
+        throw new Error("No project bound — run DX wizard first");
+      }
+      const q = encodeURIComponent(message.query ?? "");
+      const limit = message.limit ?? 20;
+      const res = await daemonFetch(
+        settings,
+        `/v1/projects/${settings.projectId}/files?q=${q}&limit=${limit}`,
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
+    }
+    case "locate_source": {
+      const settings = await loadSettings();
+      if (!settings.projectId) {
+        throw new Error("No project bound — run DX wizard first");
+      }
+      const res = await daemonFetch(
+        settings,
+        `/v1/projects/${settings.projectId}/locate`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            ...(message.selector ? { selector: message.selector } : {}),
+            ...(message.fingerprint
+              ? { fingerprint: message.fingerprint }
+              : {}),
+            ...(message.component_name
+              ? { component_name: message.component_name }
+              : {}),
+            ...(message.source_mapping_urls
+              ? { source_mapping_urls: message.source_mapping_urls }
+              : {}),
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
+    }
     case "toggle_pick": {
       return { ok: true };
     }

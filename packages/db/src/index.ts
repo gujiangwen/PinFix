@@ -40,3 +40,10 @@ export {
   isVecReady,
 } from "./vectors.js";
 export { embedText, embedKnowledgeCard, EMBED_DIM, EMBED_MODEL_ID } from "./embed.js";
+export {
+  listLocationHints,
+  findLocationHint,
+  upsertLocationHint,
+  bumpLocationHintHit,
+  getLocationHint,
+} from "./location-hints.js";

@@ -6,3 +6,4 @@ export * from "./health.js";
 export * from "./admin.js";
 export * from "./dx.js";
 export * from "./viz.js";
+export * from "./location.js";

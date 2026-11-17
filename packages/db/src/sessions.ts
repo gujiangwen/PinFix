@@ -183,6 +183,8 @@ export type SessionPatch = {
   annotation_ref?: string | null;
   git_base_sha?: string | null;
   temp_commit_sha?: string | null;
+  /** Replace the sniff portion of sniff_json (keeps annotation envelope). */
+  sniff?: unknown;
 };
 
 export function updateSession(
@@ -209,16 +211,54 @@ export function updateSession(
         : existing.temp_commit_sha,
     updated_at: Date.now(),
   };
-  db.prepare(
-    `UPDATE sessions SET
-      status = @status,
-      step_count = @step_count,
-      annotation_ref = @annotation_ref,
-      git_base_sha = @git_base_sha,
-      temp_commit_sha = @temp_commit_sha,
-      updated_at = @updated_at
-    WHERE id = @id`,
-  ).run({ id, ...next });
+
+  let sniffJson: string | null = null;
+  if (patch.sniff !== undefined) {
+    const row = db
+      .prepare(`SELECT sniff_json FROM sessions WHERE id = ?`)
+      .get(id) as { sniff_json: string | null } | undefined;
+    const envelope = parseSniff(row?.sniff_json ?? null) as {
+      sniff?: unknown;
+      annotation?: unknown;
+    } | null;
+    const nextEnvelope = {
+      sniff: patch.sniff,
+      ...(envelope &&
+      typeof envelope === "object" &&
+      "annotation" in envelope &&
+      envelope.annotation
+        ? { annotation: envelope.annotation }
+        : existing.annotation
+          ? { annotation: existing.annotation }
+          : {}),
+    };
+    sniffJson = JSON.stringify(nextEnvelope);
+  }
+
+  if (sniffJson != null) {
+    db.prepare(
+      `UPDATE sessions SET
+        status = @status,
+        step_count = @step_count,
+        annotation_ref = @annotation_ref,
+        git_base_sha = @git_base_sha,
+        temp_commit_sha = @temp_commit_sha,
+        sniff_json = @sniff_json,
+        updated_at = @updated_at
+      WHERE id = @id`,
+    ).run({ id, ...next, sniff_json: sniffJson });
+  } else {
+    db.prepare(
+      `UPDATE sessions SET
+        status = @status,
+        step_count = @step_count,
+        annotation_ref = @annotation_ref,
+        git_base_sha = @git_base_sha,
+        temp_commit_sha = @temp_commit_sha,
+        updated_at = @updated_at
+      WHERE id = @id`,
+    ).run({ id, ...next });
+  }
   return getSession(db, id);
 }
 

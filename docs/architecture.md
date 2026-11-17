@@ -12,6 +12,8 @@
 
 **M6:** Acceptance overlay — session read-model (`timeline`, `diff_summary`, `verify`, `recall_hits`, `latest_knowledge`) + WS `session.verify` / `recall` / `timeline` / `knowledge_distilled`.
 
+**M7:** Reliable source location — sniff `location` + confidence waterfall (Fiber/Vue → source map → Vite module-graph → selector memory → human); `source_location_hints`; `GET files` / `POST locate` / `POST source-correct` / `GET source-maps`; extension confidence badge + one-click correct.
+
 ## Extension worlds
 
 | Script | World | Role |
@@ -34,8 +36,20 @@ Bridge: `window.postMessage` with `source: sightloop-ext|sightloop-page` + nonce
 | `GET` | `/v1/admin/metrics` | Basic metrics |
 | `GET` | `/v1/admin/audit` | Security audit log |
 | `POST` | `/v1/projects/:id/knowledge/sync-agents` | Sync pinned/selected cards into repo `AGENTS.md` |
+| `GET` | `/v1/projects/:id/files?q=` | Whitelist-scoped file search (M7 correct UI) |
+| `POST` | `/v1/projects/:id/locate` | Source location waterfall (hints / maps / Vite / heuristic) |
+| `GET` | `/v1/projects/:id/source-maps` | List `source_location_hints` |
+| `POST` | `/v1/sessions/:id/source-correct` | Human correct → sniff + hints + `selector_map` knowledge |
 
 WS events: `session.status`, `session.step`, `session.awaiting_review`, `session.terminal`, `security.alert`.
+
+## Source location waterfall (M7)
+
+1. React `_debugSource` / Vue `__file` → `confidence` high  
+2. Inline / local `.map` sources (repo-only; no remote map fetch)  
+3. Optional Vite `dev_server_origin` module-graph heuristic  
+4. `source_location_hints` (selector / fingerprint memory)  
+5. Human correct → hints + `kind=selector_map` knowledge for Retrieve reuse
 
 ## Retrieve dual-loop (M4)
 

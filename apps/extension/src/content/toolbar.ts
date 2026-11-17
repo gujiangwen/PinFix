@@ -10,6 +10,45 @@ function labelFromSniff(sniff: Record<string, unknown>): string {
   return framework;
 }
 
+type LocInfo = {
+  file: string;
+  line?: number | null;
+  confidence?: number;
+  confidence_level?: string;
+  method?: string;
+};
+
+function readLocation(sniff: unknown): LocInfo | null {
+  if (!sniff || typeof sniff !== "object" || Array.isArray(sniff)) return null;
+  const loc = (sniff as { location?: LocInfo }).location;
+  if (!loc || typeof loc.file !== "string") return null;
+  return loc;
+}
+
+function locationHtml(loc: LocInfo | null): string {
+  if (!loc) {
+    return `<div class="sl-loc"><div class="sl-loc-hint">无源码定位</div></div>`;
+  }
+  const level = (loc.confidence_level ?? "low").toLowerCase();
+  const unsure = level !== "high";
+  return `
+    <div class="sl-loc" data-ref="loc">
+      <div class="sl-loc-row">
+        <span class="sl-badge ${escapeHtml(level)}">${escapeHtml(level)}</span>
+        <span class="sl-loc-file" title="${escapeHtml(loc.method ?? "")}">${escapeHtml(loc.file)}${loc.line != null ? `:${loc.line}` : ""}</span>
+      </div>
+      ${unsure ? `<div class="sl-loc-hint">可能不准确 · method=${escapeHtml(loc.method ?? "unknown")}</div>` : `<div class="sl-loc-hint">method=${escapeHtml(loc.method ?? "")}</div>`}
+      <div class="sl-row">
+        <button class="sl-btn" data-action="correct-file" type="button">纠正文件</button>
+      </div>
+      <div data-ref="correct-panel" hidden>
+        <input class="sl-loc-search" data-ref="file-q" placeholder="搜索仓内文件…" />
+        <div class="sl-loc-results" data-ref="file-results"></div>
+      </div>
+    </div>
+  `;
+}
+
 export class SightLoopToolbar {
   private host: HTMLDivElement;
   private shadow: ShadowRoot;
@@ -63,6 +102,10 @@ export class SightLoopToolbar {
         <div class="sl-review-title">验收</div>
         <div class="sl-review-summary" data-ref="review-summary"></div>
         <div class="sl-viz" data-ref="viz">
+          <section class="sl-viz-block">
+            <h4>源码定位</h4>
+            <div data-ref="loc-summary" class="sl-viz-body muted">暂无 location</div>
+          </section>
           <section class="sl-viz-block">
             <h4>Diff 摘要</h4>
             <div data-ref="diff-summary" class="sl-viz-body muted">加载中…</div>
@@ -237,14 +280,16 @@ export class SightLoopToolbar {
     this.hideBubble();
     const bubble = document.createElement("div");
     bubble.className = "sl-bubble";
-    const top = Math.min(y + 12, window.innerHeight - 220);
-    const left = Math.min(x + 12, window.innerWidth - 300);
+    const top = Math.min(y + 12, window.innerHeight - 280);
+    const left = Math.min(x + 12, window.innerWidth - 340);
     bubble.style.top = `${Math.max(8, top)}px`;
     bubble.style.left = `${Math.max(8, left)}px`;
 
-    const preview = JSON.stringify(item.sniff, null, 2).slice(0, 600);
+    const loc = readLocation(item.sniff);
+    const preview = JSON.stringify(item.sniff, null, 2).slice(0, 400);
     bubble.innerHTML = `
       <h3>${escapeHtml(item.label)}</h3>
+      ${locationHtml(loc)}
       <pre>${escapeHtml(preview)}</pre>
       <textarea placeholder="Annotation note (optional)" data-ref="note"></textarea>
       <div class="sl-row">
@@ -253,6 +298,8 @@ export class SightLoopToolbar {
         <button class="sl-btn" data-action="dismiss">Dismiss</button>
       </div>
     `;
+
+    this.bindCorrectUi(bubble, item);
 
     bubble.addEventListener("click", (e) => {
       const action = (e.target as HTMLElement | null)
@@ -281,6 +328,171 @@ export class SightLoopToolbar {
 
     this.shadow.querySelector(".sl-root")!.appendChild(bubble);
     this.bubble = bubble;
+
+    // Best-effort daemon locate upgrade when confidence is low/medium.
+    void this.maybeUpgradeLocation(item, bubble);
+  }
+
+  private bindCorrectUi(root: HTMLElement, item: PickItem): void {
+    root.addEventListener("click", (e) => {
+      const action = (e.target as HTMLElement | null)
+        ?.closest("[data-action]")
+        ?.getAttribute("data-action");
+      if (action !== "correct-file") return;
+      e.stopPropagation();
+      const panel = root.querySelector(
+        '[data-ref="correct-panel"]',
+      ) as HTMLElement | null;
+      if (!panel) return;
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) {
+        const input = panel.querySelector(
+          '[data-ref="file-q"]',
+        ) as HTMLInputElement | null;
+        input?.focus();
+        void this.runFileSearch(root, item, input?.value ?? "");
+      }
+    });
+
+    root
+      .querySelector('[data-ref="file-q"]')
+      ?.addEventListener("input", (e) => {
+        const q = (e.target as HTMLInputElement).value;
+        void this.runFileSearch(root, item, q);
+      });
+  }
+
+  private async runFileSearch(
+    root: HTMLElement,
+    item: PickItem,
+    query: string,
+  ): Promise<void> {
+    const resultsEl = root.querySelector(
+      '[data-ref="file-results"]',
+    ) as HTMLElement | null;
+    if (!resultsEl) return;
+    resultsEl.innerHTML = `<div class="sl-loc-hint">搜索中…</div>`;
+    const res = await sendRuntime({
+      type: "search_files",
+      query,
+      limit: 12,
+    });
+    if (!res.ok) {
+      resultsEl.innerHTML = `<div class="sl-loc-hint">${escapeHtml(res.error)}</div>`;
+      return;
+    }
+    const files =
+      ((res.data as { files?: string[] } | undefined)?.files as string[]) ?? [];
+    if (!files.length) {
+      resultsEl.innerHTML = `<div class="sl-loc-hint">无匹配（检查 whitelist）</div>`;
+      return;
+    }
+    resultsEl.innerHTML = files
+      .map(
+        (f) =>
+          `<button type="button" data-pick-file="${escapeHtml(f)}">${escapeHtml(f)}</button>`,
+      )
+      .join("");
+    resultsEl.querySelectorAll("[data-pick-file]").forEach((btn) => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const file = (btn as HTMLElement).getAttribute("data-pick-file");
+        if (!file) return;
+        void this.applyHumanCorrect(item, file, root);
+      });
+    });
+  }
+
+  private async applyHumanCorrect(
+    item: PickItem,
+    file: string,
+    root: HTMLElement,
+  ): Promise<void> {
+    const sniff =
+      item.sniff && typeof item.sniff === "object" && !Array.isArray(item.sniff)
+        ? ({ ...(item.sniff as Record<string, unknown>) } as Record<
+            string,
+            unknown
+          >)
+        : ({} as Record<string, unknown>);
+    sniff.location = {
+      file,
+      line: null,
+      column: null,
+      confidence: 1,
+      confidence_level: "high",
+      method: "human",
+    };
+    item.sniff = sniff;
+    item.label = labelFromSniff(sniff);
+
+    const locHost = root.querySelector('[data-ref="loc"]');
+    if (locHost) {
+      locHost.outerHTML = locationHtml(readLocation(sniff));
+      this.bindCorrectUi(root, item);
+    }
+
+    if (this.activeSessionId) {
+      const selector =
+        typeof sniff.selector === "string" ? sniff.selector : undefined;
+      const fingerprint =
+        typeof sniff.fingerprint === "string" ? sniff.fingerprint : undefined;
+      const res = await sendRuntime({
+        type: "source_correct",
+        sessionId: this.activeSessionId,
+        file,
+        selector,
+        fingerprint,
+        note: item.note || undefined,
+      });
+      if (!res.ok) {
+        this.setStatus(`纠正失败：${escapeHtml(res.error)}`);
+        return;
+      }
+      this.setStatus(
+        `已纠正为 <strong>${escapeHtml(file)}</strong>（已写入 hints + knowledge）`,
+      );
+      return;
+    }
+
+    this.setStatus(
+      `已选择 <strong>${escapeHtml(file)}</strong> — Submit 后会写入映射`,
+    );
+  }
+
+  private async maybeUpgradeLocation(
+    item: PickItem,
+    bubble: HTMLElement,
+  ): Promise<void> {
+    const loc = readLocation(item.sniff);
+    if (!loc || loc.confidence_level === "high") return;
+    const sniff =
+      item.sniff && typeof item.sniff === "object" && !Array.isArray(item.sniff)
+        ? (item.sniff as Record<string, unknown>)
+        : null;
+    if (!sniff) return;
+    const stack = sniff.componentStack as Array<{ name?: string }> | undefined;
+    const res = await sendRuntime({
+      type: "locate_source",
+      selector: typeof sniff.selector === "string" ? sniff.selector : undefined,
+      fingerprint:
+        typeof sniff.fingerprint === "string" ? sniff.fingerprint : undefined,
+      component_name: stack?.[0]?.name,
+      source_mapping_urls: Array.isArray(sniff.source_mapping_urls)
+        ? (sniff.source_mapping_urls as string[])
+        : undefined,
+    });
+    if (!res.ok) return;
+    const next = (res.data as { location?: LocInfo } | undefined)?.location;
+    if (!next?.file) return;
+    if ((next.confidence ?? 0) <= (loc.confidence ?? 0)) return;
+    sniff.location = next;
+    item.sniff = sniff;
+    const locHost = bubble.querySelector('[data-ref="loc"]');
+    if (locHost) {
+      locHost.outerHTML = locationHtml(next);
+      this.bindCorrectUi(bubble, item);
+    }
   }
 
   private hideBubble(): void {
@@ -364,12 +576,35 @@ export class SightLoopToolbar {
     };
     const session = data.started ?? data.session;
     this.rememberSession(session);
+    await this.persistHumanLocationIfNeeded(item, session?.id);
     this.setStatus(
       session
         ? `Session ${escapeHtml(session.id.slice(0, 8))}… → ${escapeHtml(session.status)}`
         : "Session created",
     );
     this.togglePick(false);
+  }
+
+  private async persistHumanLocationIfNeeded(
+    item: PickItem,
+    sessionId?: string,
+  ): Promise<void> {
+    if (!sessionId) return;
+    const loc = readLocation(item.sniff);
+    if (!loc || loc.method !== "human") return;
+    const sniff =
+      item.sniff && typeof item.sniff === "object" && !Array.isArray(item.sniff)
+        ? (item.sniff as Record<string, unknown>)
+        : {};
+    await sendRuntime({
+      type: "source_correct",
+      sessionId,
+      file: loc.file,
+      selector: typeof sniff.selector === "string" ? sniff.selector : undefined,
+      fingerprint:
+        typeof sniff.fingerprint === "string" ? sniff.fingerprint : undefined,
+      note: item.note || undefined,
+    });
   }
 
   private async submitBatch(): Promise<void> {
@@ -612,6 +847,22 @@ export class SightLoopToolbar {
       .join("");
   }
 
+  private renderLocationSummary(sniff: unknown): void {
+    const el = this.reviewEl.querySelector(
+      '[data-ref="loc-summary"]',
+    ) as HTMLElement | null;
+    if (!el) return;
+    const loc = readLocation(sniff);
+    if (!loc) {
+      el.className = "sl-viz-body muted";
+      el.textContent = "暂无 location";
+      return;
+    }
+    const level = (loc.confidence_level ?? "low").toLowerCase();
+    el.className = "sl-viz-body";
+    el.innerHTML = `<div class="sl-loc-row"><span class="sl-badge ${escapeHtml(level)}">${escapeHtml(level)}</span> <code>${escapeHtml(loc.file)}${loc.line != null ? `:${loc.line}` : ""}</code></div><div class="muted">method=${escapeHtml(loc.method ?? "")}</div>`;
+  }
+
   private renderDiffSummary(
     summary: {
       files?: Array<{ path: string; additions: number; deletions: number }>;
@@ -654,6 +905,7 @@ export class SightLoopToolbar {
       return;
     }
     const data = res.data as {
+      session?: { sniff?: unknown };
       diff_summary?: {
         files?: Array<{ path: string; additions: number; deletions: number }>;
         additions?: number;
@@ -673,6 +925,7 @@ export class SightLoopToolbar {
         body_preview?: string;
       } | null;
     };
+    this.renderLocationSummary(data.session?.sniff);
     const diffRes = await sendRuntime({ type: "get_diff", sessionId });
     const patch =
       diffRes.ok

@@ -111,6 +111,23 @@ export type RuntimeMessage =
   | { type: "get_diff"; sessionId: string }
   | { type: "get_session"; sessionId: string }
   | { type: "subscribe_session"; sessionId: string }
+  | {
+      type: "source_correct";
+      sessionId: string;
+      file: string;
+      line?: number;
+      note?: string;
+      selector?: string;
+      fingerprint?: string;
+    }
+  | { type: "search_files"; query: string; limit?: number }
+  | {
+      type: "locate_source";
+      selector?: string;
+      fingerprint?: string;
+      component_name?: string;
+      source_mapping_urls?: string[];
+    }
   | { type: "toggle_pick" }
   | { type: "pick_state"; active: boolean };
 
