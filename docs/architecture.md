@@ -14,6 +14,8 @@
 
 **M7:** Reliable source location — sniff `location` + confidence waterfall (Fiber/Vue → source map → Vite module-graph → selector memory → human); `source_location_hints`; `GET files` / `POST locate` / `POST source-correct` / `GET source-maps`; extension confidence badge + one-click correct.
 
+**M8a:** Playwright acceptance gate (fixture-only) — `@sightloop/acceptance-gate` compiles structured expects → Scenario IR; DOM + screenshot (pixelmatch) + console/network; Accept hard-blocked unless gate passed; WS `session.acceptance_gate`.
+
 ## Extension worlds
 
 | Script | World | Role |
@@ -40,8 +42,18 @@ Bridge: `window.postMessage` with `source: sightloop-ext|sightloop-page` + nonce
 | `POST` | `/v1/projects/:id/locate` | Source location waterfall (hints / maps / Vite / heuristic) |
 | `GET` | `/v1/projects/:id/source-maps` | List `source_location_hints` |
 | `POST` | `/v1/sessions/:id/source-correct` | Human correct → sniff + hints + `selector_map` knowledge |
+| `POST` | `/v1/sessions/:id/acceptance-gate/run` | Run Playwright fixture gate (M8a) |
+| `GET` | `/v1/sessions/:id/acceptance-gate` | Latest gate run |
+| `GET` | `/v1/sessions/:id/acceptance-gate/runs/:runId/artifacts/:name` | Gate artifacts (png/json) |
 
-WS events: `session.status`, `session.step`, `session.awaiting_review`, `session.terminal`, `security.alert`.
+WS events: `session.status`, `session.step`, `session.awaiting_review`, `session.acceptance_gate`, `session.terminal`, `security.alert`.
+
+## Browser acceptance gate (M8a)
+
+1. Compile `annotation.expects` → Scenario IR (loopback fixture URL only).  
+2. Headless Chromium: goto → wait/assert DOM → screenshot vs baseline → console/network collectors.  
+3. First screenshot pass auto-creates baseline; later diffs use `maxDiffPixelRatio=0.01`.  
+4. `POST review{accept}` → 409 `acceptance_gate_failed` unless latest run `passed` (force_accept off by default).
 
 ## Source location waterfall (M7)
 

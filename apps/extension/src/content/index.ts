@@ -37,6 +37,13 @@ chrome.runtime.onMessage.addListener((message) => {
       message.knowledge ?? {},
     );
   }
+  if (message?.type === "session_acceptance_gate") {
+    toolbar.onAcceptanceGate(
+      String(message.sessionId ?? ""),
+      String(message.status ?? ""),
+      message.report_summary ?? null,
+    );
+  }
 });
 
 window.addEventListener(

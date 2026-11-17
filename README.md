@@ -2,7 +2,7 @@
 
 Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Agent Loop daemon + Admin.
 
-**Milestone 7** adds **reliable source location**: sniff confidence waterfall (Fiber/Vue → source map → Vite → selector memory → human), extension confidence badge + one-click file correct, and `source_location_hints` / `selector_map` knowledge. M6 acceptance overlay hosts the confidence UI.
+**Milestone 8a** adds a **Playwright browser acceptance gate** (fixture-only): DOM/screenshot/console/network checks before Accept; failed gate → HTTP 409. M7 source location and M6 overlay remain.
 
 ## Stack
 
@@ -103,7 +103,19 @@ DX APIs:
 ./scripts/smoke-m5.sh
 ./scripts/smoke-m6.sh   # acceptance read-model + distilled_knowledge
 ./scripts/smoke-m7.sh   # locate + files + source-correct round-trip
+./scripts/smoke-m8a.sh  # Playwright fixture gate + Accept 409/200
 ```
+
+### Playwright acceptance gate (M8a)
+
+Install Chromium once (Daemon runs Playwright locally — not in the extension):
+
+```bash
+pnpm --filter @sightloop/acceptance-gate exec playwright install chromium
+pnpm dev:fixture   # http://127.0.0.1:5175 — or any loopback fixture origin
+```
+
+On `awaiting_review`, Daemon auto-runs the gate (fixture URL only). Overlay shows **浏览器验收**; Accept requires a **passed** run (`require_pass_to_accept`). Structured `annotation.expects` (selector + type) are required to compile the scenario.
 
 ### Source location (M7)
 
@@ -153,6 +165,7 @@ Tabs:
 Daemon must be running:
 
 ```bash
+./scripts/smoke-m8a.sh  # Playwright fixture gate (fail→409, pass→Accept)
 ./scripts/smoke-m7.sh   # locate + source-correct + hints/knowledge
 ./scripts/smoke-m6.sh   # acceptance overlay read-model + distill card
 ./scripts/smoke-m5.sh   # DX status + ensure-fixture + bootstrap gate
@@ -161,6 +174,8 @@ Daemon must be running:
 ./scripts/smoke-m2.sh
 ./scripts/smoke-m1.sh
 ```
+
+Requires: `pnpm --filter @sightloop/acceptance-gate exec playwright install chromium` before smoke-m8a.
 
 ## Agent Loop + review (curl)
 

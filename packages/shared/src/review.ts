@@ -6,6 +6,8 @@ export type ReviewDecision = z.infer<typeof ReviewDecisionSchema>;
 export const ReviewInputSchema = z.object({
   decision: ReviewDecisionSchema,
   note: z.string().max(8000).optional(),
+  /** Skip browser acceptance gate (only when project.allow_force_accept). */
+  force_accept: z.boolean().optional(),
 });
 export type ReviewInput = z.infer<typeof ReviewInputSchema>;
 

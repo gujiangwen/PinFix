@@ -67,6 +67,8 @@ export class SightLoopToolbar {
     temp_commit_sha?: string | null;
     mode?: string;
   } | null = null;
+  private gateRefineDraft: string | null = null;
+  private gateStatus: string | null = null;
 
   constructor() {
     this.host = document.createElement("div");
@@ -103,6 +105,14 @@ export class SightLoopToolbar {
         <div class="sl-review-summary" data-ref="review-summary"></div>
         <div class="sl-viz" data-ref="viz">
           <section class="sl-viz-block">
+            <h4>浏览器验收</h4>
+            <div data-ref="gate-summary" class="sl-viz-body muted">尚未运行</div>
+            <div class="sl-row" style="margin-top:6px">
+              <button class="sl-btn" data-action="rerun-gate" type="button">重新跑 Playwright</button>
+              <button class="sl-btn" data-action="gate-to-refine" type="button" hidden>填入 Refine</button>
+            </div>
+          </section>
+          <section class="sl-viz-block">
             <h4>源码定位</h4>
             <div data-ref="loc-summary" class="sl-viz-body muted">暂无 location</div>
           </section>
@@ -115,7 +125,7 @@ export class SightLoopToolbar {
             </details>
           </section>
           <section class="sl-viz-block">
-            <h4>Verify</h4>
+            <h4>命令验证</h4>
             <div data-ref="verify-summary" class="sl-viz-body muted">无 verify_cmd 或尚未运行</div>
           </section>
           <section class="sl-viz-block">
@@ -161,6 +171,8 @@ export class SightLoopToolbar {
       if (action === "accept") void this.review("accept");
       if (action === "refine") void this.review("refine");
       if (action === "revert") void this.review("revert");
+      if (action === "rerun-gate") void this.rerunAcceptanceGate();
+      if (action === "gate-to-refine") this.fillRefineFromGate();
       if (action === "dismiss-distill") this.hideDistill();
     });
 
@@ -744,6 +756,28 @@ export class SightLoopToolbar {
     this.showDistill(knowledge);
   }
 
+  onAcceptanceGate(
+    sessionId: string,
+    status: string,
+    reportSummary: {
+      failed_checks?: string[];
+      failed_steps?: Array<{ id: string; message: string }>;
+      refine_note_draft?: string;
+    } | null,
+  ): void {
+    if (this.activeSessionId && this.activeSessionId !== sessionId) return;
+    this.renderGateSummary({
+      status,
+      report: reportSummary
+        ? {
+            failed_checks: reportSummary.failed_checks,
+            failed_steps: reportSummary.failed_steps,
+            refine_note_draft: reportSummary.refine_note_draft,
+          }
+        : null,
+    });
+  }
+
   private hideDistill(): void {
     const el = this.reviewEl.querySelector(
       '[data-ref="distill"]',
@@ -906,6 +940,14 @@ export class SightLoopToolbar {
     }
     const data = res.data as {
       session?: { sniff?: unknown };
+      acceptance_gate?: {
+        status?: string;
+        report?: {
+          failed_checks?: string[];
+          failed_steps?: Array<{ id: string; message: string }>;
+          refine_note_draft?: string;
+        } | null;
+      } | null;
       diff_summary?: {
         files?: Array<{ path: string; additions: number; deletions: number }>;
         additions?: number;
@@ -925,6 +967,7 @@ export class SightLoopToolbar {
         body_preview?: string;
       } | null;
     };
+    this.renderGateSummary(data.acceptance_gate ?? null);
     this.renderLocationSummary(data.session?.sniff);
     const diffRes = await sendRuntime({ type: "get_diff", sessionId });
     const patch =
@@ -945,11 +988,115 @@ export class SightLoopToolbar {
     if (data.latest_knowledge) this.showDistill(data.latest_knowledge);
   }
 
+  private renderGateSummary(
+    gate: {
+      status?: string;
+      report?: {
+        failed_checks?: string[];
+        failed_steps?: Array<{ id: string; message: string }>;
+        refine_note_draft?: string;
+      } | null;
+    } | null,
+  ): void {
+    const el = this.reviewEl.querySelector(
+      '[data-ref="gate-summary"]',
+    ) as HTMLElement | null;
+    const fillBtn = this.reviewEl.querySelector(
+      '[data-action="gate-to-refine"]',
+    ) as HTMLButtonElement | null;
+    const acceptBtn = this.reviewEl.querySelector(
+      '[data-action="accept"]',
+    ) as HTMLButtonElement | null;
+    if (!el) return;
+    this.gateStatus = gate?.status ?? null;
+    this.gateRefineDraft = gate?.report?.refine_note_draft ?? null;
+    if (!gate?.status) {
+      el.className = "sl-viz-body muted";
+      el.textContent = "尚未运行 / 排队中";
+      if (fillBtn) fillBtn.hidden = true;
+      if (acceptBtn) acceptBtn.disabled = true;
+      return;
+    }
+    if (gate.status === "passed") {
+      el.className = "sl-viz-body ok";
+      el.textContent = "浏览器验收已通过 · 页面与标注一致";
+      if (fillBtn) fillBtn.hidden = true;
+      if (acceptBtn) acceptBtn.disabled = false;
+      return;
+    }
+    if (gate.status === "queued" || gate.status === "running") {
+      el.className = "sl-viz-body muted";
+      el.textContent =
+        gate.status === "queued" ? "浏览器验收排队中…" : "浏览器验收运行中…";
+      if (fillBtn) fillBtn.hidden = true;
+      if (acceptBtn) acceptBtn.disabled = true;
+      return;
+    }
+    const checks = (gate.report?.failed_checks ?? []).join(", ") || "unknown";
+    const steps = (gate.report?.failed_steps ?? [])
+      .slice(0, 4)
+      .map((s) => `<li><code>${escapeHtml(s.id)}</code> ${escapeHtml(s.message)}</li>`)
+      .join("");
+    el.className = "sl-viz-body bad";
+    el.innerHTML = `浏览器验收未通过 · ${escapeHtml(checks)}<ul class="sl-recall">${steps}</ul>`;
+    if (fillBtn) fillBtn.hidden = !this.gateRefineDraft;
+    if (acceptBtn) acceptBtn.disabled = true;
+  }
+
+  private async rerunAcceptanceGate(): Promise<void> {
+    if (!this.activeSessionId) return;
+    this.setStatus("重新跑 Playwright…");
+    const res = await sendRuntime({
+      type: "run_acceptance_gate",
+      sessionId: this.activeSessionId,
+    });
+    if (!res.ok) {
+      this.setStatus(`Gate 失败：${escapeHtml(res.error)}`);
+      return;
+    }
+    const run = (res.data as { run?: { status?: string; report?: unknown } })
+      ?.run;
+    this.renderGateSummary(
+      run
+        ? {
+            status: run.status,
+            report: run.report as {
+              failed_checks?: string[];
+              failed_steps?: Array<{ id: string; message: string }>;
+              refine_note_draft?: string;
+            },
+          }
+        : null,
+    );
+    this.setStatus(
+      run?.status === "passed"
+        ? "浏览器验收已通过"
+        : `浏览器验收 → ${escapeHtml(run?.status ?? "done")}`,
+    );
+  }
+
+  private fillRefineFromGate(): void {
+    if (!this.gateRefineDraft) return;
+    const ta = this.reviewEl.querySelector(
+      '[data-ref="refine-note"]',
+    ) as HTMLTextAreaElement | null;
+    if (ta) ta.value = this.gateRefineDraft;
+    this.setStatus("已填入 Refine 失败摘要");
+  }
+
   private async review(
     decision: "accept" | "refine" | "revert",
   ): Promise<void> {
     if (!this.activeSessionId) {
       this.setStatus("No active session to review.");
+      return;
+    }
+    if (
+      decision === "accept" &&
+      this.gateStatus &&
+      this.gateStatus !== "passed"
+    ) {
+      this.setStatus("浏览器验收未通过 · 请 Refine 或重新跑 Playwright");
       return;
     }
     const note =

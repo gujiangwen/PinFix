@@ -1,5 +1,7 @@
 import type Database from "better-sqlite3";
 import {
+  AcceptanceGateConfigSchema,
+  type AcceptanceGateConfig,
   type CreateProjectInput,
   type Project,
   type UpdateProjectInput,
@@ -17,9 +19,22 @@ type ProjectRow = {
   default_branch: string;
   markup_workspace: string | null;
   dev_server_origin?: string | null;
+  acceptance_gate_json?: string | null;
   created_at: number;
   updated_at: number;
 };
+
+function parseAcceptanceGate(
+  raw: string | null | undefined,
+): AcceptanceGateConfig | null {
+  if (!raw) return null;
+  try {
+    const parsed = AcceptanceGateConfigSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 function rowToProject(row: ProjectRow): Project {
   let file_whitelist: string[] = [];
@@ -43,6 +58,7 @@ function rowToProject(row: ProjectRow): Project {
     default_branch: row.default_branch,
     markup_workspace: row.markup_workspace,
     dev_server_origin: row.dev_server_origin ?? null,
+    acceptance_gate: parseAcceptanceGate(row.acceptance_gate_json),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -81,6 +97,7 @@ export function createProject(
     default_branch: input.default_branch ?? "main",
     markup_workspace: input.markup_workspace ?? null,
     dev_server_origin: input.dev_server_origin ?? null,
+    acceptance_gate: input.acceptance_gate ?? null,
     created_at: now,
     updated_at: now,
   };
@@ -88,14 +105,19 @@ export function createProject(
   db.prepare(
     `INSERT INTO projects (
       id, name, repo_path, origin_pattern, verify_cmd, file_whitelist,
-      mode, default_branch, markup_workspace, dev_server_origin, created_at, updated_at
+      mode, default_branch, markup_workspace, dev_server_origin,
+      acceptance_gate_json, created_at, updated_at
     ) VALUES (
       @id, @name, @repo_path, @origin_pattern, @verify_cmd, @file_whitelist,
-      @mode, @default_branch, @markup_workspace, @dev_server_origin, @created_at, @updated_at
+      @mode, @default_branch, @markup_workspace, @dev_server_origin,
+      @acceptance_gate_json, @created_at, @updated_at
     )`,
   ).run({
     ...project,
     file_whitelist: JSON.stringify(project.file_whitelist),
+    acceptance_gate_json: project.acceptance_gate
+      ? JSON.stringify(project.acceptance_gate)
+      : null,
   });
 
   return project;
@@ -126,6 +148,10 @@ export function updateProject(
       patch.dev_server_origin !== undefined
         ? patch.dev_server_origin
         : (existing.dev_server_origin ?? null),
+    acceptance_gate:
+      patch.acceptance_gate !== undefined
+        ? patch.acceptance_gate
+        : (existing.acceptance_gate ?? null),
     repo_path: patch.repo_path ?? existing.repo_path,
     updated_at: Date.now(),
   };
@@ -141,11 +167,15 @@ export function updateProject(
       default_branch = @default_branch,
       markup_workspace = @markup_workspace,
       dev_server_origin = @dev_server_origin,
+      acceptance_gate_json = @acceptance_gate_json,
       updated_at = @updated_at
     WHERE id = @id`,
   ).run({
     ...next,
     file_whitelist: JSON.stringify(next.file_whitelist),
+    acceptance_gate_json: next.acceptance_gate
+      ? JSON.stringify(next.acceptance_gate)
+      : null,
   });
 
   return next;

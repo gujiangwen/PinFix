@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AcceptanceGateConfigSchema } from "./acceptance-gate.js";
 
 export const ProjectModeSchema = z.enum(["hmr", "pr"]);
 export type ProjectMode = z.infer<typeof ProjectModeSchema>;
@@ -28,6 +29,8 @@ export const ProjectSchema = z.object({
   markup_workspace: z.string().nullable(),
   /** Optional Vite/dev server origin for module-graph locate (e.g. http://localhost:5175). */
   dev_server_origin: z.string().max(512).nullable().optional(),
+  /** M8a Playwright acceptance gate config (defaults applied when null). */
+  acceptance_gate: AcceptanceGateConfigSchema.nullable().optional(),
   created_at: z.number().int(),
   updated_at: z.number().int(),
 });
@@ -44,6 +47,7 @@ export const CreateProjectInputSchema = z.object({
   default_branch: z.string().min(1).max(200).optional(),
   markup_workspace: z.string().nullable().optional(),
   dev_server_origin: z.string().max(512).nullable().optional(),
+  acceptance_gate: AcceptanceGateConfigSchema.nullable().optional(),
 });
 
 export type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
@@ -58,6 +62,7 @@ export const UpdateProjectInputSchema = z
     default_branch: z.string().min(1).max(200).optional(),
     markup_workspace: z.string().nullable().optional(),
     dev_server_origin: z.string().max(512).nullable().optional(),
+    acceptance_gate: AcceptanceGateConfigSchema.nullable().optional(),
     /** Changing repo_path re-runs allowed-roots checks. */
     repo_path: z.string().min(1).optional(),
   })

@@ -163,6 +163,16 @@ function ensureWs(settings: ExtensionSettings): WebSocket {
           knowledge: (msg as { knowledge?: unknown }).knowledge,
         });
       }
+      if (msg.type === "session.acceptance_gate" && msg.session_id) {
+        broadcastToTabs({
+          type: "session_acceptance_gate",
+          sessionId: msg.session_id,
+          status: (msg as { status?: string }).status,
+          runId: (msg as { run_id?: string }).run_id,
+          progress: (msg as { progress?: unknown }).progress,
+          report_summary: (msg as { report_summary?: unknown }).report_summary,
+        });
+      }
     } catch {
       // ignore malformed
     }
@@ -459,6 +469,7 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
           body: JSON.stringify({
             decision: message.decision,
             ...(message.note ? { note: message.note } : {}),
+            ...(message.force_accept ? { force_accept: true } : {}),
           }),
         },
       );
@@ -508,6 +519,40 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
         ok: true,
         data: SESSION_STATUS.get(message.sessionId) ?? null,
       };
+    }
+    case "run_acceptance_gate": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(
+        settings,
+        `/v1/sessions/${message.sessionId}/acceptance-gate/run`,
+        {
+          method: "POST",
+          body: JSON.stringify({ reason: "manual" }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
+    }
+    case "get_acceptance_gate": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(
+        settings,
+        `/v1/sessions/${message.sessionId}/acceptance-gate`,
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
     }
     case "source_correct": {
       const settings = await loadSettings();

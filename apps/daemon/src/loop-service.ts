@@ -317,6 +317,20 @@ export async function startSessionLoop(
         "awaiting_review",
         result.stepCount,
       );
+      // M8a: auto-run browser acceptance gate (non-blocking for loop return).
+      void import("./acceptance-gate-service.js").then(({ runSessionAcceptanceGate, resolveGateConfig }) => {
+        const gateCfg = resolveGateConfig(project);
+        if (!gateCfg.enabled || !gateCfg.auto_run_on_awaiting_review) return;
+        return runSessionAcceptanceGate(cfg, db, hub, sessionId, "post_act");
+      }).catch((err) => {
+        insertAudit(
+          db,
+          "acceptance_gate_auto_failed",
+          { message: (err as Error).message },
+          project.id,
+          sessionId,
+        );
+      });
     }
 
     return updated!;
@@ -332,6 +346,7 @@ export async function reviewSession(
   sessionId: string,
   decision: ReviewDecision,
   note?: string,
+  forceAccept?: boolean,
 ): Promise<{
   session: Session;
   knowledge_id?: string;
@@ -358,6 +373,11 @@ export async function reviewSession(
   const project = getProject(db, session.project_id);
   if (!project) {
     throw Object.assign(new Error("Project not found"), { code: "not_found" });
+  }
+
+  if (decision === "accept") {
+    const { assertAcceptAllowed } = await import("./acceptance-gate-service.js");
+    assertAcceptAllowed(db, project, sessionId, forceAccept);
   }
 
   insertReview(db, {

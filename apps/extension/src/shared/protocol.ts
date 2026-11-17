@@ -107,7 +107,10 @@ export type RuntimeMessage =
       sessionId: string;
       decision: "accept" | "refine" | "revert";
       note?: string;
+      force_accept?: boolean;
     }
+  | { type: "run_acceptance_gate"; sessionId: string }
+  | { type: "get_acceptance_gate"; sessionId: string }
   | { type: "get_diff"; sessionId: string }
   | { type: "get_session"; sessionId: string }
   | { type: "subscribe_session"; sessionId: string }

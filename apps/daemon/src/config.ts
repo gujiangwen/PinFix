@@ -67,7 +67,7 @@ export function loadConfig(): DaemonConfig {
     dbPath: resolveFromRoot(
       process.env.SIGHTLOOP_DB_PATH ?? "./data/projects.sqlite",
     ),
-    version: "0.7.0",
+    version: "0.8.0",
     markupWorkspaceRoot: resolveFromRoot(
       process.env.MARKUP_WORKSPACE ?? "./data/markup-workspace",
     ),

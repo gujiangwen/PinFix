@@ -24,6 +24,24 @@ export const AnnotationSchema = z.object({
   note: z.string().max(8000).optional(),
   selector: z.string().max(2000).optional(),
   screenshot_ref: z.string().max(1000).nullable().optional(),
+  /** M8a structured expects — hard dependency for browser gate compilation. */
+  expects: z
+    .array(
+      z.object({
+        type: z.enum([
+          "visible",
+          "hidden",
+          "text_contains",
+          "attr_equals",
+          "count_equals",
+        ]),
+        selector: z.string().min(1).max(2000).optional(),
+        expected: z.union([z.string(), z.number()]).optional(),
+        attr: z.string().max(200).optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 export type Annotation = z.infer<typeof AnnotationSchema>;
 
@@ -156,6 +174,36 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
       kind: z.string(),
       body_preview: z.string(),
     }),
+  }),
+  z.object({
+    type: z.literal("session.acceptance_gate"),
+    session_id: z.string(),
+    status: z.enum([
+      "queued",
+      "running",
+      "passed",
+      "failed",
+      "error",
+      "cancelled",
+    ]),
+    run_id: z.string().optional(),
+    progress: z
+      .object({
+        step_index: z.number().int(),
+        step_total: z.number().int(),
+        label: z.string(),
+      })
+      .optional(),
+    report_summary: z
+      .object({
+        failed_checks: z.array(z.string()).optional(),
+        failed_steps: z
+          .array(z.object({ id: z.string(), message: z.string() }))
+          .optional(),
+        refine_note_draft: z.string().optional(),
+        artifact_preview: z.record(z.string(), z.string()).optional(),
+      })
+      .optional(),
   }),
   z.object({
     type: z.literal("security.alert"),

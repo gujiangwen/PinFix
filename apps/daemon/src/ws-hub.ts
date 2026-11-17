@@ -154,6 +154,38 @@ export class SessionWsHub {
     this.sendToSession(sessionId, event);
   }
 
+  broadcastAcceptanceGate(
+    sessionId: string,
+    payload: {
+      status:
+        | "queued"
+        | "running"
+        | "passed"
+        | "failed"
+        | "error"
+        | "cancelled";
+      run_id?: string;
+      progress?: {
+        step_index: number;
+        step_total: number;
+        label: string;
+      };
+      report_summary?: {
+        failed_checks?: string[];
+        failed_steps?: Array<{ id: string; message: string }>;
+        refine_note_draft?: string;
+        artifact_preview?: Record<string, string>;
+      };
+    },
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.acceptance_gate",
+      session_id: sessionId,
+      ...payload,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
   broadcastSecurity(
     eventName: string,
     detail?: Record<string, unknown>,

@@ -1,6 +1,7 @@
 import type { Database } from "@sightloop/db";
 import {
   getKnowledge,
+  getLatestAcceptanceRun,
   getProject,
   getSession,
   listAgentSteps,
@@ -170,6 +171,7 @@ export function buildSessionReadModel(
   recall_hits: RecallHit[];
   diff_summary: DiffSummary | null;
   latest_knowledge: DistilledKnowledgePreview | null;
+  acceptance_gate: ReturnType<typeof getLatestAcceptanceRun> | null;
   patch: string;
 } | null {
   const session = getSession(db, sessionId);
@@ -177,6 +179,7 @@ export function buildSessionReadModel(
   const project = getProject(db, session.project_id);
   const steps = listAgentSteps(db, sessionId);
   const reviews = listReviews(db, sessionId);
+  const acceptance_gate = getLatestAcceptanceRun(db, sessionId) ?? null;
   const patch = project
     ? diffPatch(
         project.repo_path,
@@ -224,6 +227,7 @@ export function buildSessionReadModel(
     recall_hits,
     diff_summary: patch ? summarizePatch(patch) : null,
     latest_knowledge,
+    acceptance_gate,
     patch,
   };
 }

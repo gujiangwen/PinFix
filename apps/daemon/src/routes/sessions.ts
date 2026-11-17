@@ -60,6 +60,7 @@ export const sessionsRoutes: FastifyPluginAsync<SessionsRouteOpts> = async (
       recall_hits: model.recall_hits,
       diff_summary: model.diff_summary,
       latest_knowledge: model.latest_knowledge,
+      acceptance_gate: model.acceptance_gate,
     };
   });
 
@@ -157,19 +158,24 @@ export const sessionsRoutes: FastifyPluginAsync<SessionsRouteOpts> = async (
           req.params.id,
           parsed.data.decision,
           parsed.data.note,
+          parsed.data.force_accept,
         );
         return result;
       } catch (err) {
         const code = (err as { code?: string }).code ?? "review_error";
+        const details = (err as { details?: unknown }).details;
         const status =
           code === "not_found"
             ? 404
-            : code === "invalid_status" || code === "no_base"
+            : code === "invalid_status" ||
+                code === "no_base" ||
+                code === "acceptance_gate_failed" ||
+                code === "force_accept_denied"
               ? 409
               : 500;
         return reply
           .code(status)
-          .send(apiError(code, (err as Error).message));
+          .send(apiError(code, (err as Error).message, details));
       }
     },
   );

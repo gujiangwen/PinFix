@@ -47,3 +47,14 @@ export {
   bumpLocationHintHit,
   getLocationHint,
 } from "./location-hints.js";
+export {
+  createAcceptanceRun,
+  getAcceptanceRun,
+  listAcceptanceRuns,
+  getLatestAcceptanceRun,
+  updateAcceptanceRun,
+  setSessionAcceptanceCache,
+  getBaseline,
+  upsertBaseline,
+  type BaselineRow,
+} from "./acceptance-runs.js";
