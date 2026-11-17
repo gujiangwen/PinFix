@@ -6,7 +6,7 @@
 export type LlmProvider = "openai" | "anthropic" | "compatible";
 
 export type RoleLlmConfig = {
-  role: "planner" | "implementer" | "reviewer";
+  role: "planner" | "implementer" | "reviewer" | "judge";
   provider: LlmProvider;
   model: string | null;
   apiKey: string | null;
@@ -120,6 +120,38 @@ export function resolveImplementerConfig(
     role: "implementer",
     provider,
     model,
+    apiKey,
+    baseUrl,
+    keyConfigured: Boolean(apiKey),
+  };
+}
+
+/**
+ * M12e cross-model judge — SIGHTLOOP_JUDGE_*; defaults to Planner when unset.
+ * Separate from Implementer keys; never writes the business repo.
+ */
+export function resolveJudgeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): RoleLlmConfig {
+  const planner = resolvePlannerConfig(env);
+  const apiKey = firstEnv(env, ["SIGHTLOOP_JUDGE_API_KEY"]) ?? planner.apiKey;
+  const model =
+    firstEnv(env, ["SIGHTLOOP_JUDGE_MODEL", "SIGHTLOOP_JUDGE_LLM_MODEL"]) ??
+    planner.model ??
+    "gpt-4o-mini";
+  const baseUrl =
+    firstEnv(env, ["SIGHTLOOP_JUDGE_BASE_URL", "SIGHTLOOP_JUDGE_API_BASE"]) ??
+    planner.baseUrl;
+  const provider = parseProvider(
+    env.SIGHTLOOP_JUDGE_PROVIDER ?? env.SIGHTLOOP_PLANNER_PROVIDER,
+    baseUrl ? "compatible" : planner.provider,
+  );
+  return {
+    role: "judge",
+    provider,
+    model: apiKey
+      ? model
+      : firstEnv(env, ["SIGHTLOOP_JUDGE_MODEL"]) ?? planner.model,
     apiKey,
     baseUrl,
     keyConfigured: Boolean(apiKey),

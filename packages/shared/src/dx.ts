@@ -53,6 +53,11 @@ export const DxStatusSchema = z.object({
       planner_key_configured: z.boolean().optional(),
       reviewer_key_configured: z.boolean().optional(),
       fallback_reason: z.string().nullable().optional(),
+      /** M12e/R5: CROSS_JUDGE default off; skip when no JUDGE key. */
+      cross_judge: z.boolean().optional(),
+      judge_key_configured: z.boolean().optional(),
+      /** M12c/R3 */
+      mutation_gate: z.boolean().optional(),
     })
     .optional(),
   /** M10a: GitHub CLI / push readiness — never includes secrets. */

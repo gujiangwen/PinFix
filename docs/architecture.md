@@ -32,6 +32,16 @@
 
 **M11c:** `GET/POST …/acceptance` list+replay; Planner retrieve Top-K archive summaries; `scripts/replay-acceptance.sh`.
 
+**M12a:** Accept-only strategy cards (Top-K=3 + `SIGHTLOOP_STRATEGY_MIN_SCORE`); whitelist ∩ on hints.
+
+**M12b:** Edit hunk↔evidence auto-bind; unmet → refine or `edit_evidence_unmet` awaiting_review (no infinite loop).
+
+**M12c:** `PlanIR.test_first`; `SIGHTLOOP_MUTATION_GATE` default 0; light proxy score only.
+
+**M12d:** Issue checkpoints (`/v1/checkpoints`); per-session N + GC; resume binds `project_id`+`repo_path` (409 on mismatch).
+
+**M12e:** `SIGHTLOOP_CROSS_JUDGE` default 0; agree/disagree/skip; field `agent_judge_pass` ≠ Human Accept.
+
 ## Extension worlds
 
 | Script | World | Role |

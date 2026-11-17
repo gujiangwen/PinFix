@@ -128,6 +128,9 @@ export const dxRoutes: FastifyPluginAsync<DxRouteOpts> = async (app, opts) => {
           !cfg.dualLoopMock && !cfg.plannerKeyConfigured
             ? "no_planner_api_key"
             : null,
+        cross_judge: cfg.crossJudge,
+        judge_key_configured: cfg.judgeKeyConfigured,
+        mutation_gate: cfg.mutationGate,
       },
       github: probeGithubHealth(),
     };

@@ -22,6 +22,10 @@ export type MockPlannerInput = {
   verify_cmd?: string | null;
   /** M11c: short acceptance archive summaries. */
   acceptance_hits?: Array<{ title: string; path: string; score?: number }>;
+  /** M12a: strategy memory hits. */
+  strategy_hits?: Array<{ title: string; path: string; score?: number; pattern_id?: string }>;
+  /** M12c: include test_first block in plan. */
+  include_test_first?: boolean;
 };
 
 export function defaultVerifyContract(
@@ -116,17 +120,61 @@ export function mockPlan(input: MockPlannerInput): PlanIR {
         .slice(0, 3)
         .join(", ")}]`
     : "";
+  const stratNote = input.strategy_hits?.length
+    ? ` [strategy: ${input.strategy_hits
+        .map((h) => h.pattern_id ?? h.title)
+        .slice(0, 3)
+        .join(", ")}]`
+    : "";
+
+  const testFirst =
+    input.include_test_first ||
+    process.env.SIGHTLOOP_FORCE_TEST_FIRST === "1" ||
+    Boolean(input.annotation?.note?.toLowerCase().includes("test_first"))
+      ? {
+          paths: allowed
+            .filter((f) => /test|spec/i.test(f))
+            .slice(0, 2)
+            .concat(
+              allowed[0] && !/test|spec/i.test(allowed[0])
+                ? [`${allowed[0].replace(/\.[^.]+$/, "")}.test.ts`]
+                : [],
+            )
+            .slice(0, 2),
+          cmds: [
+            {
+              id: "shell:test_first",
+              cmd: "true",
+              expect_exit: 0,
+            },
+          ],
+        }
+      : undefined;
+
+  // Ensure test_first paths stay on whitelist when present.
+  let allowedFinal = allowed.slice(0, 3);
+  if (testFirst?.paths?.length) {
+    const merged = filterPlanFilesByProject(
+      [...allowedFinal, ...testFirst.paths],
+      input.project_whitelist,
+    );
+    allowedFinal = merged.slice(0, 8);
+    testFirst.paths = filterPlanFilesByProject(
+      testFirst.paths,
+      input.project_whitelist,
+    );
+  }
 
   const plan = PlanIRSchema.parse({
     version: 1,
     session_id: input.session_id,
     root_cause: notes
-      ? `Refine-driven: ${notes.slice(0, 200)}${hitNote}`
+      ? `Refine-driven: ${notes.slice(0, 200)}${hitNote}${stratNote}`
       : input.refine_ir?.blocking_issues?.[0]
-        ? `Address refine: ${input.refine_ir.blocking_issues[0].summary.slice(0, 180)}${hitNote}`
-        : `UI issue near ${selector}${hitNote}`,
-    hypothesis: `Edit ${allowed[0]} to address annotation`,
-    allowed_files: allowed.slice(0, 3),
+        ? `Address refine: ${input.refine_ir.blocking_issues[0].summary.slice(0, 180)}${hitNote}${stratNote}`
+        : `UI issue near ${selector}${hitNote}${stratNote}`,
+    hypothesis: `Edit ${allowedFinal[0]} to address annotation`,
+    allowed_files: allowedFinal,
     risks: [
       {
         level: "low",
@@ -134,12 +182,26 @@ export function mockPlan(input: MockPlannerInput): PlanIR {
         mitigation: "Reviewer + Human Accept",
       },
     ],
-    steps_hint: [`Touch ${allowed[0]}`, "Keep changes whitelist-safe"],
+    steps_hint: [
+      ...(testFirst ? ["Write/run test_first cmds before prod edits"] : []),
+      `Touch ${allowedFinal[0]}`,
+      "Keep changes whitelist-safe",
+    ],
     confidence: 0.7,
     planner_model: "mock-planner",
     created_at: Date.now(),
     issue_resolutions: resolutionsForRefine(input.refine_ir),
-    verify_contract: defaultVerifyContract(input.verify_cmd),
+    verify_contract: (() => {
+      const base = defaultVerifyContract(input.verify_cmd);
+      if (testFirst?.cmds?.length) {
+        return {
+          ...base,
+          shell: [...testFirst.cmds, ...base.shell].slice(0, 16),
+        };
+      }
+      return base;
+    })(),
+    test_first: testFirst,
   });
 
   const check = assertIssueResolutionsCoverBlockers(

@@ -32,6 +32,13 @@ export const VerifyContractSchema = z.object({
 });
 export type VerifyContract = z.infer<typeof VerifyContractSchema>;
 
+/** M12c: test-first paths/cmds (still ⊆ project whitelist). */
+export const TestFirstSchema = z.object({
+  paths: z.array(z.string().min(1)).max(16).default([]),
+  cmds: z.array(VerifyContractShellItemSchema).max(8).default([]),
+});
+export type TestFirst = z.infer<typeof TestFirstSchema>;
+
 export const PlanIRSchema = z.object({
   version: z.literal(1),
   session_id: z.string().min(1),
@@ -56,6 +63,8 @@ export const PlanIRSchema = z.object({
   /** M11b — required by planner hard rule (default filled by mock). */
   verify_contract: VerifyContractSchema.optional(),
   verify_contract_skipped_reason: z.string().max(500).optional(),
+  /** M12c */
+  test_first: TestFirstSchema.optional(),
 });
 export type PlanIR = z.infer<typeof PlanIRSchema>;
 
@@ -116,10 +125,19 @@ export const ReviewBlockingIssueSchema = z.object({
   message: z.string().max(500),
 });
 
+export const MutationOrCoverageSchema = z.object({
+  score: z.number().min(0).max(1),
+  threshold: z.number().min(0).max(1),
+  met: z.boolean(),
+  detail: z.string().max(500).optional(),
+});
+
 export const PassEvidenceSchema = z.object({
   contract_item_id: z.string().min(1).max(120),
   result: z.enum(["pass", "skip"]),
   summary: z.string().max(500),
+  /** M12c optional mutation/coverage proxy on Pass evidence. */
+  mutation_or_coverage: MutationOrCoverageSchema.optional(),
 });
 
 export const ReviewIRSchema = z.object({

@@ -17,6 +17,13 @@ export type MockReviewerInput = {
   plan?: PlanIR | null;
   /** M11b: contract run results keyed by item id. */
   contract_results?: Record<string, { ok: boolean; summary: string }>;
+  /** M12c: attach mutation/coverage proxy on pass evidence. */
+  mutation_or_coverage?: {
+    score: number;
+    threshold: number;
+    met: boolean;
+    detail?: string;
+  };
 };
 
 function buildPassEvidence(
@@ -124,12 +131,20 @@ export function mockReview(input: MockReviewerInput): ReviewIR {
   }
 
   const contract = input.plan?.verify_contract;
-  const pass_evidence = buildPassEvidence(
+  let pass_evidence = buildPassEvidence(
     contract,
     input.contract_results,
     input.shell_ok ?? true,
     input.gate_status,
   );
+
+  if (input.mutation_or_coverage && pass_evidence?.length) {
+    pass_evidence = pass_evidence.map((e, i) =>
+      i === 0
+        ? { ...e, mutation_or_coverage: input.mutation_or_coverage }
+        : e,
+    );
+  }
 
   return ReviewIRSchema.parse({
     version: 1,

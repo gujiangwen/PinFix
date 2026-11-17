@@ -55,6 +55,13 @@ export type DaemonConfig = {
   reviewerModel: string | null;
   plannerKeyConfigured: boolean;
   reviewerKeyConfigured: boolean;
+  /** M12e R5: cross-model judge (default off). */
+  crossJudge: boolean;
+  /** M12c R3: mutation gate (default off). */
+  mutationGate: boolean;
+  /** M12d R4: max checkpoints per session. */
+  checkpointMaxPerSession: number;
+  judgeKeyConfigured: boolean;
 };
 
 export function loadConfig(): DaemonConfig {
@@ -76,6 +83,10 @@ export function loadConfig(): DaemonConfig {
     process.env.SIGHTLOOP_REVIEWER_API_KEY?.trim() ||
       process.env.SIGHTLOOP_PLANNER_API_KEY?.trim(),
   );
+  const judgeKeyConfigured = Boolean(
+    process.env.SIGHTLOOP_JUDGE_API_KEY?.trim() ||
+      process.env.SIGHTLOOP_PLANNER_API_KEY?.trim(),
+  );
 
   return {
     host,
@@ -85,7 +96,7 @@ export function loadConfig(): DaemonConfig {
     dbPath: resolveFromRoot(
       process.env.SIGHTLOOP_DB_PATH ?? "./data/projects.sqlite",
     ),
-    version: "0.11.0",
+    version: "0.12.0",
     markupWorkspaceRoot: resolveFromRoot(
       process.env.MARKUP_WORKSPACE ?? "./data/markup-workspace",
     ),
@@ -134,5 +145,19 @@ export function loadConfig(): DaemonConfig {
       null,
     plannerKeyConfigured,
     reviewerKeyConfigured,
+    crossJudge:
+      process.env.SIGHTLOOP_CROSS_JUDGE === "1" ||
+      process.env.SIGHTLOOP_CROSS_JUDGE === "true",
+    mutationGate:
+      process.env.SIGHTLOOP_MUTATION_GATE === "1" ||
+      process.env.SIGHTLOOP_MUTATION_GATE === "true",
+    checkpointMaxPerSession: Math.min(
+      100,
+      Math.max(
+        1,
+        Number.parseInt(process.env.SIGHTLOOP_CHECKPOINT_MAX ?? "20", 10) || 20,
+      ),
+    ),
+    judgeKeyConfigured,
   };
 }

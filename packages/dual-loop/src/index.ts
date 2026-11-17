@@ -17,9 +17,41 @@ export {
   type AcceptanceHit,
 } from "./acceptance-retrieve.js";
 export {
+  distillStrategyCard,
+  strategyCardToMarkdown,
+  strategyTitle,
+  retrieveStrategyHits,
+  intersectStrategyHintsWithWhitelist,
+  strategyMinScore,
+  DEFAULT_STRATEGY_TOP_K,
+  DEFAULT_STRATEGY_MIN_SCORE,
+  type StrategyCard,
+  type StrategyHit,
+} from "./strategy.js";
+export {
+  parseDiffHunks,
+  mergeAdjacentHunks,
+  autoBindEditEvidence,
+  refineFromEditWithoutEvidence,
+  type EditEvidence,
+  type EditEvidenceRef,
+} from "./edit-evidence.js";
+export {
+  mutationGateEnabled,
+  evaluateMutationProxy,
+  type MutationOrCoverage,
+} from "./mutation-gate.js";
+export {
+  crossJudgeEnabled,
+  mergeCrossJudge,
+  mockJudge,
+  type JudgeMergeResult,
+} from "./cross-judge.js";
+export {
   resolvePlannerConfig,
   resolveReviewerConfig,
   resolveImplementerConfig,
+  resolveJudgeConfig,
   dualLoopLlmAvailable,
   type RoleLlmConfig,
   type LlmProvider,

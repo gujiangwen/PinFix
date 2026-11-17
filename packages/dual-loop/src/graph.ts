@@ -19,6 +19,20 @@ import {
   refineFromWhitelistBlock,
 } from "./refine-ir.js";
 import {
+  autoBindEditEvidence,
+  refineFromEditWithoutEvidence,
+} from "./edit-evidence.js";
+import {
+  evaluateMutationProxy,
+  mutationGateEnabled,
+} from "./mutation-gate.js";
+import {
+  crossJudgeEnabled,
+  mergeCrossJudge,
+  mockJudge,
+} from "./cross-judge.js";
+import {
+  resolveJudgeConfig,
   resolvePlannerConfig,
   resolveReviewerConfig,
   type RoleLlmConfig,
@@ -90,6 +104,17 @@ export type DualLoopInput = {
   fetchImpl?: typeof fetch;
   /** M11c: acceptance archive retrieval hits for Planner. */
   acceptance_hits?: Array<{ title: string; path: string; score?: number }>;
+  /** M12a: strategy memory hits for Planner. */
+  strategy_hits?: Array<{
+    title: string;
+    path: string;
+    score?: number;
+    pattern_id?: string;
+  }>;
+  /** M12b smoke: refuse auto evidence bind. */
+  forbid_edit_evidence_auto?: boolean;
+  /** M12e smoke: force judge disagreement. */
+  force_judge_disagree?: boolean;
 };
 
 export type DualLoopResult = {
@@ -104,6 +129,15 @@ export type DualLoopResult = {
   inner_refine_count: number;
   gate_status?: string | null;
   verify_contract_unmet?: boolean;
+  /** R2: budget exhausted with unbound edits — human review, no infinite loop. */
+  edit_evidence_unmet?: boolean;
+  /**
+   * R9: agent-side judge/reviewer pass only — NOT Human Accept.
+   * True when ReviewIR.verdict=pass (and cross-judge agreed if enabled).
+   */
+  agent_judge_pass?: boolean;
+  judge_skipped?: boolean;
+  judge_skip_reason?: string | null;
   error?: string;
 };
 
@@ -142,6 +176,19 @@ const DualState = Annotation.Root({
     Record<string, { ok: boolean; summary: string; excerpt?: string }>
   >,
   verify_contract_unmet: Annotation<boolean>,
+  edit_evidence: Annotation<
+    Array<{
+      hunk_id: string;
+      files: string[];
+      evidence_refs: Array<{ kind: string; id: string; note?: string }>;
+    }>
+  >,
+  edit_evidence_unmet: Annotation<boolean>,
+  /** Skip verify/gate/reviewer and go refine or finalize. */
+  after_implementer: Annotation<"verify" | "refine" | "finalize">,
+  judge_skipped: Annotation<boolean>,
+  judge_skip_reason: Annotation<string | null>,
+  agent_judge_pass: Annotation<boolean>,
 });
 
 type S = typeof DualState.State;
@@ -225,6 +272,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
             refine_ir: state.refine_ir,
             verify_cmd: state.verify_cmd,
             acceptance_hits: input.acceptance_hits,
+            strategy_hits: input.strategy_hits,
           },
           config: plannerCfg,
           useMock,
@@ -260,6 +308,12 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           ids: input.acceptance_hits.map((h) => h.path),
         });
       }
+      if (input.strategy_hits?.length) {
+        hooks.onSecurityAlert?.("strategy_retrieved", {
+          count: input.strategy_hits.length,
+          ids: input.strategy_hits.map((h) => h.path),
+        });
+      }
       hooks.onPlan?.(plan);
       hooks.onStep?.({
         idx: stepCount,
@@ -275,6 +329,8 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           attempts: result.attempts,
           issue_resolutions: plan.issue_resolutions ?? [],
           verify_contract: plan.verify_contract ?? null,
+          test_first: plan.test_first ?? null,
+          strategy_hits: input.strategy_hits ?? [],
           refine_ir: state.refine_ir,
         },
         duration_ms: Date.now() - started,
@@ -399,6 +455,96 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
         state.repo_path,
         `sightloop: dual-loop ${state.session_id.slice(0, 8)}`,
       );
+
+      // M12b: every write hunk must bind evidence (mock auto-binds).
+      const patch = diffPatch(
+        state.repo_path,
+        state.git_base_sha ?? gitBaseSha,
+        temp,
+      );
+      const bound = autoBindEditEvidence({
+        patch,
+        files_touched: act.filesTouched,
+        plan,
+        refine_ir: state.refine_ir,
+        sniff_selector:
+          state.annotation?.selector ??
+          (typeof (state.sniff as { selector?: string } | null)?.selector ===
+          "string"
+            ? (state.sniff as { selector: string }).selector
+            : null),
+        strategy_ids: (input.strategy_hits ?? []).map(
+          (h) => h.pattern_id ?? h.path,
+        ),
+        project_whitelist: state.file_whitelist,
+        forbid_auto:
+          input.forbid_edit_evidence_auto ||
+          process.env.SIGHTLOOP_FORBID_EDIT_EVIDENCE === "1",
+      });
+      if (!bound.ok) {
+        const refine = refineFromEditWithoutEvidence({
+          session_id: state.session_id,
+          missing_hunks: bound.missing,
+        });
+        hooks.onRefineIR?.(refine);
+        hooks.onSecurityAlert?.("edit_without_evidence", {
+          missing: bound.missing,
+        });
+        hooks.onSecurityAlert?.("refine_ir_emitted", {
+          source: refine.source,
+          issues: refine.blocking_issues.length,
+        });
+        hooks.onStep?.({
+          idx: stepCount,
+          phase: "act",
+          tool_name: "edit_evidence_guard",
+          summary: `edit_without_evidence: ${bound.missing.join(",")}`,
+          error: "edit_without_evidence",
+          output: { refine_ir: refine, edit_evidence: bound.evidence },
+          duration_ms: Date.now() - started,
+        });
+        stepCount += 1;
+        // R2: budget remaining → refine (no verify loop); exhausted → awaiting_review + edit_evidence_unmet.
+        if (state.inner_refine_count < input.max_inner_refines) {
+          return {
+            files_touched: act.filesTouched,
+            temp_commit_sha: temp,
+            git_base_sha: state.git_base_sha ?? gitBaseSha,
+            summary: act.summary,
+            act_count: state.act_count + (act.stepsUsed || 1),
+            refine_ir: refine,
+            edit_evidence: bound.evidence,
+            edit_evidence_unmet: true,
+            after_implementer: "refine",
+            review: {
+              version: 1 as const,
+              session_id: state.session_id,
+              verdict: "refine" as const,
+              notes: "edit_without_evidence",
+              blocking_issues: [
+                {
+                  code: "other" as const,
+                  message: `edit_without_evidence: ${bound.missing.join(",")}`,
+                },
+              ],
+              consume_gate: true,
+            },
+          };
+        }
+        return {
+          files_touched: act.filesTouched,
+          temp_commit_sha: temp,
+          git_base_sha: state.git_base_sha ?? gitBaseSha,
+          summary: "edit_evidence_unmet — awaiting human (budget exhausted)",
+          act_count: state.act_count + (act.stepsUsed || 1),
+          refine_ir: refine,
+          edit_evidence: bound.evidence,
+          edit_evidence_unmet: true,
+          after_implementer: "finalize",
+          terminal: "awaiting_review",
+        };
+      }
+
       hooks.onStep?.({
         idx: stepCount,
         phase: "act",
@@ -408,6 +554,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           filesTouched: act.filesTouched,
           plan_allowed: plan.allowed_files,
           model: input.implementer_model_label ?? act.runner,
+          edit_evidence: bound.evidence,
         },
         duration_ms: Date.now() - started,
       });
@@ -423,6 +570,9 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
         git_base_sha: state.git_base_sha ?? gitBaseSha,
         summary: act.summary,
         act_count: state.act_count + (act.stepsUsed || 1),
+        edit_evidence: bound.evidence,
+        edit_evidence_unmet: false,
+        after_implementer: "verify",
       };
     };
 
@@ -553,17 +703,29 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onDualLoop?.({ node: "reviewer", status: "enter" });
       hooks.onStatus?.("acting", stepCount);
       const started = Date.now();
+      // R5: short context for judge — IR + diff summary + contract results only.
       const diffSummary = diffPatch(
         state.repo_path,
         state.git_base_sha,
         state.temp_commit_sha,
-      );
-      // M11b: unmet contract → force refine path (unless budget exhausted later).
+      ).slice(0, 4000);
       const contractOk = !state.verify_contract_unmet;
+
+      // R3: light mutation proxy; only enforce when MUTATION_GATE=1.
+      const mutation = evaluateMutationProxy({
+        contract_results: state.contract_results,
+        test_first_paths: state.plan?.test_first?.paths,
+      });
+      const mutationBlocks =
+        mutationGateEnabled() &&
+        (state.shell_ok ?? true) &&
+        contractOk &&
+        !mutation.met;
+
       const result = await callReviewer({
         input: {
           session_id: state.session_id,
-          shell_ok: (state.shell_ok ?? true) && contractOk,
+          shell_ok: (state.shell_ok ?? true) && contractOk && !mutationBlocks,
           gate_status: state.gate_status,
           force_refine_once: input.force_inner_refine_once,
           inner_refine_count: state.inner_refine_count,
@@ -572,6 +734,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           plan: state.plan,
           diff_summary: diffSummary,
           contract_results: state.contract_results,
+          mutation_or_coverage: mutation,
         },
         config: reviewerCfg,
         useMock,
@@ -582,6 +745,23 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       if (input.reviewer_model_label && result.backend === "mock") {
         review.reviewer_model = input.reviewer_model_label;
       }
+
+      if (mutationBlocks && review.verdict === "pass") {
+        review = {
+          ...review,
+          verdict: "refine",
+          notes: `mutation_gate unmet: score=${mutation.score} < ${mutation.threshold}`,
+          blocking_issues: [
+            ...(review.blocking_issues ?? []),
+            {
+              code: "verify_failed",
+              message: `mutation_or_coverage unmet (${mutation.detail ?? ""})`,
+            },
+          ],
+          pass_evidence: undefined,
+        };
+      }
+
       // Pass must cite contract evidence when require_all_green.
       if (
         review.verdict === "pass" &&
@@ -623,6 +803,41 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           attempts: result.attempts,
         });
       }
+
+      // M12e / R5: cross-model judge (default off).
+      let judge_skipped = true;
+      let judge_skip_reason: string | null = "CROSS_JUDGE=0";
+      if (crossJudgeEnabled()) {
+        const judgeCfg = resolveJudgeConfig(process.env);
+        if (!judgeCfg.keyConfigured && !useMock) {
+          judge_skipped = true;
+          judge_skip_reason = "no_judge_api_key";
+          hooks.onSecurityAlert?.("judge_skipped", { reason: judge_skip_reason });
+        } else {
+          const forceDisagree =
+            input.force_judge_disagree ||
+            process.env.SIGHTLOOP_FORCE_JUDGE_DISAGREE === "1";
+          const judgeReview = mockJudge({
+            session_id: state.session_id,
+            primary: review,
+            force_disagree: forceDisagree,
+          });
+          const merged = mergeCrossJudge({
+            primary: review,
+            judge: judgeReview,
+            skipped: false,
+          });
+          review = merged.review;
+          judge_skipped = merged.skipped;
+          judge_skip_reason = merged.skip_reason ?? null;
+          hooks.onSecurityAlert?.("cross_judge", {
+            agreed: merged.agreed,
+            primary: merged.review.verdict,
+            judge: judgeReview.verdict,
+          });
+        }
+      }
+
       let refine = state.refine_ir;
       if (review.verdict === "refine") {
         refine = refineFromReviewer({
@@ -635,17 +850,27 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           issues: refine.blocking_issues.length,
         });
       }
+
+      // R9: agent_judge_pass ≠ Human Accept
+      const agent_judge_pass = review.verdict === "pass";
+
       hooks.onAgentReview?.(review);
       hooks.onStep?.({
         idx: stepCount,
         phase: "review",
         tool_name: result.backend === "llm" ? "llm_reviewer" : "mock_reviewer",
-        summary: `verdict=${review.verdict} [${result.backend}]`,
+        summary: `verdict=${review.verdict} [${result.backend}] agent_judge_pass=${agent_judge_pass}`,
         output: {
           ...review,
           backend: result.backend,
           fallback_reason: result.fallback_reason ?? null,
           refine_ir: refine,
+          agent_judge_pass,
+          judge_skipped,
+          judge_skip_reason,
+          mutation_or_coverage: mutation,
+          // Explicit: not Human Accept
+          human_accept: false,
         },
         duration_ms: Date.now() - started,
       });
@@ -655,7 +880,13 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
         status: "exit",
         summary: `${review.verdict}/${result.backend}`,
       });
-      return { review, refine_ir: refine };
+      return {
+        review,
+        refine_ir: refine,
+        judge_skipped,
+        judge_skip_reason,
+        agent_judge_pass,
+      };
     };
 
     const finalizeNode = async (state: S): Promise<Partial<S>> => {
@@ -713,6 +944,15 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       };
     };
 
+    const routeAfterImplementer = (state: S): string => {
+      if (state.terminal === "failed") return "finalize";
+      if (state.after_implementer === "finalize" || state.terminal === "awaiting_review") {
+        return "finalize";
+      }
+      if (state.after_implementer === "refine") return "bump_refine";
+      return "verify_shell";
+    };
+
     const graph = new StateGraph(DualState)
       .addNode("retrieve", retrieveNode)
       .addNode("planner", plannerNode)
@@ -725,7 +965,11 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       .addEdge(START, "retrieve")
       .addEdge("retrieve", "planner")
       .addEdge("planner", "implementer")
-      .addEdge("implementer", "verify_shell")
+      .addConditionalEdges("implementer", routeAfterImplementer, {
+        verify_shell: "verify_shell",
+        bump_refine: "bump_refine",
+        finalize: "finalize",
+      })
       .addEdge("verify_shell", "acceptance_gate")
       .addEdge("acceptance_gate", "reviewer")
       .addConditionalEdges("reviewer", routeAfterReviewer, {
@@ -776,8 +1020,15 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       gate_report: null,
       contract_results: {},
       verify_contract_unmet: false,
+      edit_evidence: [],
+      edit_evidence_unmet: false,
+      after_implementer: "verify",
+      judge_skipped: true,
+      judge_skip_reason: "CROSS_JUDGE=0",
+      agent_judge_pass: false,
     });
 
+    const reviewOut = (final.review as ReviewIR | null) ?? null;
     return {
       status: (final.terminal as "awaiting_review" | "failed") ?? "awaiting_review",
       step_count: stepCount,
@@ -785,11 +1036,17 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       temp_commit_sha: (final.temp_commit_sha as string | null) ?? null,
       summary: (final.summary as string) || "dual-loop complete",
       plan: (final.plan as PlanIR | null) ?? null,
-      review: (final.review as ReviewIR | null) ?? null,
+      review: reviewOut,
       refine_ir: (final.refine_ir as RefineIR | null) ?? null,
       inner_refine_count: (final.inner_refine_count as number) ?? 0,
       gate_status: (final.gate_status as string | null) ?? null,
       verify_contract_unmet: Boolean(final.verify_contract_unmet),
+      edit_evidence_unmet: Boolean(final.edit_evidence_unmet),
+      agent_judge_pass: Boolean(
+        final.agent_judge_pass ?? reviewOut?.verdict === "pass",
+      ),
+      judge_skipped: final.judge_skipped !== false,
+      judge_skip_reason: (final.judge_skip_reason as string | null) ?? null,
       error: (final.error as string | null) ?? undefined,
     };
   } finally {

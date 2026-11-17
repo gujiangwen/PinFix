@@ -15,8 +15,13 @@ import { filterPlanFilesByProject } from "./whitelist.js";
 export type PlannerCallInput = MockPlannerInput & {
   suggested_allowed_files?: string[] | null;
   knowledge_hits?: Array<{ title: string; body_md: string }>;
+  strategy_hits?: Array<{
+    title: string;
+    path: string;
+    score?: number;
+    pattern_id?: string;
+  }>;
 };
-
 export type PlannerResult = {
   plan: PlanIR;
   backend: "mock" | "llm";
@@ -73,8 +78,9 @@ function buildUserPrompt(input: PlannerCallInput): string {
       refine_ir: input.refine_ir ?? null,
       verify_cmd: input.verify_cmd ?? null,
       acceptance_hits: input.acceptance_hits ?? [],
+      strategy_hits: input.strategy_hits ?? [],
       instruction:
-        "Propose PlanIR. Pick allowed_files from candidate_files when possible. Keep scope minimal. Resolve refine blockers. Include verify_contract.",
+        "Propose PlanIR. Pick allowed_files from candidate_files when possible. Keep scope minimal. Resolve refine blockers. Include verify_contract. Prefer strategy_hits file hints only when inside whitelist.",
     },
     null,
     2,

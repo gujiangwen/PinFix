@@ -8,6 +8,8 @@ Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Age
 
 **Milestone 11:** Evidence-based `RefineIR` (M11a); PlanIR `verify_contract` + Reviewer Pass evidence (M11b); acceptance list/replay + Planner archive retrieval (M11c).
 
+**Milestone 12:** Strategy memory (M12a); edit↔evidence (M12b); test_first/mutation gate (M12c); issue checkpoints (M12d); cross-model judge (M12e). Flags default off: `CROSS_JUDGE=0`, `MUTATION_GATE=0`. `agent_judge_pass` ≠ Human Accept.
+
 ## Stack
 
 | Piece | Choice |
@@ -178,6 +180,11 @@ Daemon must be running:
 ./scripts/smoke-m11b.sh # verify_contract + pass_evidence (DUAL_LOOP=1)
 ./scripts/smoke-m11c.sh # acceptance list/retrieve/replay
 ./scripts/replay-acceptance.sh <project_id>  # CI helper
+./scripts/smoke-m12a.sh # strategy distill on Accept + retrieve (DUAL_LOOP=1)
+./scripts/smoke-m12b.sh # edit evidence auto-bind
+./scripts/smoke-m12c.sh # test_first; MUTATION_GATE default off
+./scripts/smoke-m12d.sh # checkpoint suspend/resume/GC + bind 409
+./scripts/smoke-m12e.sh # CROSS_JUDGE default off; agent_judge_pass ≠ Accept
 ./scripts/smoke-m8a.sh  # Playwright fixture gate (fail→409, pass→Accept)
 ./scripts/smoke-m7.sh   # locate + source-correct + hints/knowledge
 ./scripts/smoke-m6.sh   # acceptance overlay read-model + distill card

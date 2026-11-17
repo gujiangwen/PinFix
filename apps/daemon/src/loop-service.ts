@@ -13,6 +13,7 @@ import {
   countActiveSessionsForProject,
   setSessionPlan,
   setSessionAgentReview,
+  getSessionPlan,
 } from "@sightloop/db";
 import {
   createMarkupTools,
@@ -273,9 +274,11 @@ export async function startSessionLoop(
 
   try {
     if (cfg.dualLoop) {
-      const { runDualLoop, retrieveAcceptanceHits } = await import(
-        "@sightloop/dual-loop"
-      );
+      const {
+        runDualLoop,
+        retrieveAcceptanceHits,
+        retrieveStrategyHits,
+      } = await import("@sightloop/dual-loop");
       const acceptance_hits = retrieveAcceptanceHits(
         project.repo_path,
         {
@@ -283,6 +286,30 @@ export async function startSessionLoop(
           selector: fresh.annotation?.selector,
         },
         3,
+      );
+      // M12a/R1: strategy retrieve with Top-K + min score (Accept-distilled cards only).
+      const strategyCards = matchKnowledgeForRetrieve(
+        db,
+        project.id,
+        {
+          selector: fresh.annotation?.selector,
+          note: fresh.annotation?.note,
+          componentNames: extractComponentNames(fresh.sniff),
+          stack: inferStack(fresh.sniff),
+        },
+        24,
+      ).filter(
+        (k) =>
+          k.tags.includes("strategy") ||
+          k.body_md.includes("sightloop:strategy"),
+      );
+      const strategy_hits = retrieveStrategyHits(
+        strategyCards,
+        {
+          note: fresh.annotation?.note,
+          selector: fresh.annotation?.selector,
+        },
+        { topK: 3, project_whitelist: project.file_whitelist },
       );
       const dual = await runDualLoop({
         session_id: fresh.id,
@@ -301,6 +328,11 @@ export async function startSessionLoop(
           body_md: k.body_md,
         })),
         acceptance_hits,
+        strategy_hits,
+        forbid_edit_evidence_auto:
+          process.env.SIGHTLOOP_FORBID_EDIT_EVIDENCE === "1",
+        force_judge_disagree:
+          process.env.SIGHTLOOP_FORCE_JUDGE_DISAGREE === "1",
         file_whitelist: project.file_whitelist,
         verify_cmd: project.verify_cmd,
         max_steps: fresh.max_steps,
@@ -513,6 +545,7 @@ export async function reviewSession(
 ): Promise<{
   session: Session;
   knowledge_id?: string;
+  strategy_card?: { id: string; title: string; pattern_id: string } | null;
   pr?: unknown;
   deploy?: {
     ok: boolean;
@@ -654,6 +687,81 @@ export async function reviewSession(
     pinned: false,
   });
 
+  // M12a/R1: strategy distill only on Human Accept (never on agent_judge_pass alone).
+  let strategy_card: { id: string; title: string; pattern_id: string } | null =
+    null;
+  try {
+    const {
+      distillStrategyCard,
+      strategyCardToMarkdown,
+      strategyTitle,
+      intersectStrategyHintsWithWhitelist,
+    } = await import("@sightloop/dual-loop");
+    const plan = getSessionPlan(db, sessionId) as {
+      root_cause?: string;
+      issue_resolutions?: Array<{
+        issue_id: string;
+        status: string;
+        rationale?: string;
+      }>;
+      allowed_files?: string[];
+    } | null;
+    const card = distillStrategyCard({
+      session_id: sessionId,
+      annotation_note: session.annotation?.note,
+      selector: session.annotation?.selector,
+      root_cause: plan?.root_cause,
+      resolutions: plan?.issue_resolutions,
+      files_touched: plan?.allowed_files,
+      project_whitelist: project.file_whitelist,
+    });
+    // R7 audit dropped hints
+    const rawHints = plan?.allowed_files ?? [];
+    const { dropped } = intersectStrategyHintsWithWhitelist(
+      rawHints,
+      project.file_whitelist,
+    );
+    if (dropped.length) {
+      insertAudit(
+        db,
+        "strategy_hint_whitelist_drop",
+        { dropped },
+        project.id,
+        sessionId,
+      );
+    }
+    const stratKnowledge = insertKnowledge(db, {
+      project_id: project.id,
+      session_id: sessionId,
+      kind: "pattern",
+      title: strategyTitle(card),
+      body_md: strategyCardToMarkdown(card),
+      tags: ["strategy", "m12a", card.pattern_id],
+      stack: inferStack(session.sniff),
+      pinned: false,
+    });
+    strategy_card = {
+      id: stratKnowledge.id,
+      title: stratKnowledge.title,
+      pattern_id: card.pattern_id,
+    };
+    insertAudit(
+      db,
+      "strategy_distilled",
+      strategy_card,
+      project.id,
+      sessionId,
+    );
+  } catch (err) {
+    insertAudit(
+      db,
+      "strategy_distill_failed",
+      { message: (err as Error).message },
+      project.id,
+      sessionId,
+    );
+  }
+
   const distilled_knowledge = {
     id: knowledge.id,
     title: knowledge.title,
@@ -788,6 +896,8 @@ export async function reviewSession(
   return {
     session: updated,
     knowledge_id: knowledge.id,
+    /** M12a: strategy distilled on Accept only (≠ agent_judge_pass). */
+    strategy_card,
     pr: gitAccept.pr,
     deploy,
     acceptance_archive,
