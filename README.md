@@ -6,7 +6,7 @@ Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Age
 
 **Milestone 10:** DX GitHub credential health + heal hints (M10a); editable PlanIR in the extension 验收 drawer (M10b); Accept archives Scenario IR + baselines to `<repo>/acceptance/` (M10c).
 
-**Milestone 11:** Evidence-based `RefineIR` + Planner `issue_resolutions` (M11a).
+**Milestone 11:** Evidence-based `RefineIR` (M11a); PlanIR `verify_contract` + Reviewer Pass evidence (M11b).
 
 ## Stack
 
@@ -175,6 +175,7 @@ Daemon must be running:
 ./scripts/smoke-m10b.sh # PATCH plan under whitelist (needs DUAL_LOOP=1)
 ./scripts/smoke-m10c.sh # Accept → acceptance/ archive
 ./scripts/smoke-m11a.sh # RefineIR + issue_resolutions (DUAL_LOOP=1 FORCE_REFINE=1)
+./scripts/smoke-m11b.sh # verify_contract + pass_evidence (DUAL_LOOP=1)
 ./scripts/smoke-m8a.sh  # Playwright fixture gate (fail→409, pass→Accept)
 ./scripts/smoke-m7.sh   # locate + source-correct + hints/knowledge
 ./scripts/smoke-m6.sh   # acceptance overlay read-model + distill card

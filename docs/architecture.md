@@ -28,6 +28,8 @@
 
 **M11a:** Structured `RefineIR` from shell/gate/reviewer/whitelist failures; Planner must emit `issue_resolutions` for blockers.
 
+**M11b:** `PlanIR.verify_contract` (shell + scenario refs); Implementer→Reviewer gated on contract; Pass requires `pass_evidence`.
+
 ## Extension worlds
 
 | Script | World | Role |

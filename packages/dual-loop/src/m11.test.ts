@@ -56,3 +56,33 @@ describe("M11a RefineIR", () => {
     expect(refine.blocking_issues.length).toBeGreaterThan(0);
   });
 });
+
+describe("M11b verify_contract + pass evidence", () => {
+  it("mock plan always has verify_contract", () => {
+    const plan = mockPlan({
+      session_id: "s1",
+      project_whitelist: ["src/**"],
+      verify_cmd: "true",
+    });
+    expect(plan.verify_contract?.shell?.length).toBeGreaterThan(0);
+  });
+
+  it("pass includes pass_evidence", () => {
+    const plan = mockPlan({
+      session_id: "s1",
+      project_whitelist: ["src/**"],
+      verify_cmd: "true",
+    });
+    const review = mockReview({
+      session_id: "s1",
+      shell_ok: true,
+      gate_status: "skipped",
+      plan,
+      contract_results: {
+        "shell:project_verify": { ok: true, summary: "ok" },
+      },
+    });
+    expect(review.verdict).toBe("pass");
+    expect(review.pass_evidence?.length).toBeGreaterThan(0);
+  });
+});
