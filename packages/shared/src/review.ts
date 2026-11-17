@@ -25,6 +25,7 @@ export const AgentStepPhaseSchema = z.enum([
   "plan",
   "act",
   "verify",
+  "review",
 ]);
 export type AgentStepPhase = z.infer<typeof AgentStepPhaseSchema>;
 

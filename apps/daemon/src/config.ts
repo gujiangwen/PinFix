@@ -45,6 +45,13 @@ export type DaemonConfig = {
   /** Local DX: allow POST /v1/dx/bootstrap to return the loopback token. */
   dxBootstrap: boolean;
   dxLabel: string;
+  /** M9a LangGraph dual-loop (default off). */
+  dualLoop: boolean;
+  dualLoopMock: boolean;
+  maxInnerRefines: number;
+  plannerModel: string | null;
+  implementerModel: string | null;
+  reviewerModel: string | null;
 };
 
 export function loadConfig(): DaemonConfig {
@@ -67,7 +74,7 @@ export function loadConfig(): DaemonConfig {
     dbPath: resolveFromRoot(
       process.env.SIGHTLOOP_DB_PATH ?? "./data/projects.sqlite",
     ),
-    version: "0.8.0",
+    version: "0.9.0",
     markupWorkspaceRoot: resolveFromRoot(
       process.env.MARKUP_WORKSPACE ?? "./data/markup-workspace",
     ),
@@ -80,5 +87,31 @@ export function loadConfig(): DaemonConfig {
       process.env.SIGHTLOOP_DX_BOOTSTRAP === "1" ||
       process.env.SIGHTLOOP_DX_BOOTSTRAP === "true",
     dxLabel: process.env.SIGHTLOOP_DX_LABEL ?? "local",
+    dualLoop:
+      process.env.SIGHTLOOP_DUAL_LOOP === "1" ||
+      process.env.SIGHTLOOP_DUAL_LOOP === "true",
+    dualLoopMock:
+      process.env.SIGHTLOOP_DUAL_LOOP_MOCK !== "0" &&
+      process.env.SIGHTLOOP_DUAL_LOOP_MOCK !== "false",
+    maxInnerRefines: Math.min(
+      5,
+      Math.max(
+        0,
+        Number.parseInt(process.env.SIGHTLOOP_MAX_INNER_REFINES ?? "2", 10) ||
+          2,
+      ),
+    ),
+    plannerModel:
+      process.env.SIGHTLOOP_PLANNER_MODEL ??
+      process.env.SIGHTLOOP_PLANNER_LLM_MODEL ??
+      null,
+    implementerModel:
+      process.env.SIGHTLOOP_IMPLEMENTER_MODEL ??
+      process.env.SIGHTLOOP_LLM_MODEL ??
+      null,
+    reviewerModel:
+      process.env.SIGHTLOOP_REVIEWER_MODEL ??
+      process.env.SIGHTLOOP_PLANNER_MODEL ??
+      null,
   };
 }

@@ -11,6 +11,8 @@ export type AgentActContext = {
   fileWhitelist: string[];
   maxSteps: number;
   stepBudget: number;
+  /** M9a PlanIR exact-file allowlist (hard intercept when set). */
+  planAllowedFiles?: string[];
 };
 
 export type AgentActResult = {

@@ -8,6 +8,8 @@ import {
   createSession,
   getProject,
   getSession,
+  getSessionAgentReview,
+  getSessionPlan,
   listSessions,
   type Database,
 } from "@sightloop/db";
@@ -177,6 +179,32 @@ export const sessionsRoutes: FastifyPluginAsync<SessionsRouteOpts> = async (
           .code(status)
           .send(apiError(code, (err as Error).message, details));
       }
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/v1/sessions/:id/plan",
+    async (req, reply) => {
+      const session = getSession(db, req.params.id);
+      if (!session) {
+        return reply
+          .code(404)
+          .send(apiError("not_found", `Session ${req.params.id} not found`));
+      }
+      return { plan: getSessionPlan(db, req.params.id) };
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/v1/sessions/:id/agent-review",
+    async (req, reply) => {
+      const session = getSession(db, req.params.id);
+      if (!session) {
+        return reply
+          .code(404)
+          .send(apiError("not_found", `Session ${req.params.id} not found`));
+      }
+      return { review: getSessionAgentReview(db, req.params.id) };
     },
   );
 

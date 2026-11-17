@@ -58,3 +58,9 @@ export {
   upsertBaseline,
   type BaselineRow,
 } from "./acceptance-runs.js";
+export {
+  setSessionPlan,
+  setSessionAgentReview,
+  getSessionPlan,
+  getSessionAgentReview,
+} from "./dual-loop.js";

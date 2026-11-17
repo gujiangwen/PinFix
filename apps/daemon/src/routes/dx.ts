@@ -110,6 +110,14 @@ export const dxRoutes: FastifyPluginAsync<DxRouteOpts> = async (app, opts) => {
         data_dir: resolve(cfg.dbPath, ".."),
         fixture_repo_path: fixture?.repo_path ?? null,
       },
+      dual_loop: {
+        enabled: cfg.dualLoop,
+        mode: cfg.dualLoopMock ? "mock" : "llm",
+        max_inner_refines: cfg.maxInnerRefines,
+        planner_model: cfg.plannerModel,
+        implementer_model: cfg.implementerModel,
+        reviewer_model: cfg.reviewerModel,
+      },
     };
     return status;
   });

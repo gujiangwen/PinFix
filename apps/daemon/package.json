@@ -15,6 +15,7 @@
     "@sightloop/acceptance-gate": "workspace:*",
     "@sightloop/agent-runtime": "workspace:*",
     "@sightloop/db": "workspace:*",
+    "@sightloop/dual-loop": "workspace:*",
     "@sightloop/markup-bridge": "workspace:*",
     "@sightloop/shared": "workspace:*",
     "dotenv": "^16.5.0",

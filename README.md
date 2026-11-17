@@ -2,7 +2,7 @@
 
 Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Agent Loop daemon + Admin.
 
-**Milestone 8a** adds a **Playwright browser acceptance gate** (fixture-only): DOM/screenshot/console/network checks before Accept; failed gate → HTTP 409. M7 source location and M6 overlay remain.
+**Milestone 9a** adds an optional **LangGraph dual-loop** (Planner → Implementer → Reviewer) behind `SIGHTLOOP_DUAL_LOOP=0` by default; M9a uses mock Planner/Reviewer and PlanIR whitelist intercept. M8a Playwright gate and earlier milestones remain.
 
 ## Stack
 
@@ -165,6 +165,7 @@ Tabs:
 Daemon must be running:
 
 ```bash
+./scripts/smoke-m9a.sh  # dual-loop mock (requires SIGHTLOOP_DUAL_LOOP=1 on daemon)
 ./scripts/smoke-m8a.sh  # Playwright fixture gate (fail→409, pass→Accept)
 ./scripts/smoke-m7.sh   # locate + source-correct + hints/knowledge
 ./scripts/smoke-m6.sh   # acceptance overlay read-model + distill card
@@ -176,6 +177,21 @@ Daemon must be running:
 ```
 
 Requires: `pnpm --filter @sightloop/acceptance-gate exec playwright install chromium` before smoke-m8a.
+
+### Dual-loop (M9a)
+
+Default **off** (`SIGHTLOOP_DUAL_LOOP=0`) — legacy single-loop unchanged. Enable mock graph:
+
+```bash
+SIGHTLOOP_DUAL_LOOP=1
+SIGHTLOOP_DUAL_LOOP_MOCK=1
+SIGHTLOOP_DUAL_LOOP_FORCE_REFINE=1   # smoke: one inner refine
+# Separate LLM placeholders (M9b wires real clients):
+# SIGHTLOOP_PLANNER_MODEL=…  SIGHTLOOP_IMPLEMENTER_MODEL=…
+# SIGHTLOOP_REVIEWER_MODEL=… (optional; defaults to planner)
+```
+
+`GET /v1/dx/status` exposes `dual_loop.{enabled,mode,max_inner_refines,planner_model,implementer_model,reviewer_model}`.
 
 ## Agent Loop + review (curl)
 

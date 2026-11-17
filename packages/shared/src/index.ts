@@ -8,3 +8,4 @@ export * from "./dx.js";
 export * from "./viz.js";
 export * from "./location.js";
 export * from "./acceptance-gate.js";
+export * from "./dual-loop.js";

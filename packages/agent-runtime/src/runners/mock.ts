@@ -53,7 +53,22 @@ export function createMockRunner(): AgentRunner {
   return {
     name: "mock",
     async act(ctx: AgentActContext): Promise<AgentActResult> {
-      const rel = pickTargetFile(ctx).replace(/\\/g, "/");
+      let rel = pickTargetFile(ctx).replace(/\\/g, "/");
+      if (ctx.planAllowedFiles?.length) {
+        // Prefer first plan file that also matches project whitelist.
+        const hit = ctx.planAllowedFiles.find((f) =>
+          matchesWhitelist(f, ctx.fileWhitelist),
+        );
+        if (!hit) {
+          throw new Error(
+            `plan_whitelist_blocked: no PlanIR.allowed_files within project whitelist`,
+          );
+        }
+        rel = hit.replace(/\\/g, "/");
+        if (!ctx.planAllowedFiles.includes(rel)) {
+          throw new Error(`plan_whitelist_blocked: ${rel}`);
+        }
+      }
       if (!matchesWhitelist(rel, ctx.fileWhitelist)) {
         throw new Error(
           `mock runner refused path outside whitelist: ${rel}`,

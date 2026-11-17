@@ -96,7 +96,7 @@ export type WsClientMessage = z.infer<typeof WsClientMessageSchema>;
 
 export const SessionStepEventSchema = z.object({
   idx: z.number().int(),
-  phase: z.enum(["retrieve", "plan", "act", "verify"]),
+  phase: z.enum(["retrieve", "plan", "act", "verify", "review"]),
   tool_name: z.string().nullable().optional(),
   summary: z.string().optional(),
 });
@@ -204,6 +204,23 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
         artifact_preview: z.record(z.string(), z.string()).optional(),
       })
       .optional(),
+  }),
+  z.object({
+    type: z.literal("session.dual_loop"),
+    session_id: z.string(),
+    node: z.string(),
+    status: z.enum(["enter", "exit", "error"]),
+    summary: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("session.plan"),
+    session_id: z.string(),
+    plan: z.record(z.string(), z.unknown()),
+  }),
+  z.object({
+    type: z.literal("session.review_agent"),
+    session_id: z.string(),
+    review: z.record(z.string(), z.unknown()),
   }),
   z.object({
     type: z.literal("security.alert"),

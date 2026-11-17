@@ -40,6 +40,16 @@ export const DxStatusSchema = z.object({
     data_dir: z.string().optional(),
     fixture_repo_path: z.string().nullable().optional(),
   }),
+  dual_loop: z
+    .object({
+      enabled: z.boolean(),
+      mode: z.enum(["mock", "llm"]),
+      max_inner_refines: z.number().int(),
+      planner_model: z.string().nullable().optional(),
+      implementer_model: z.string().nullable().optional(),
+      reviewer_model: z.string().nullable().optional(),
+    })
+    .optional(),
 });
 export type DxStatus = z.infer<typeof DxStatusSchema>;
 

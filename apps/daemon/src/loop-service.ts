@@ -11,6 +11,8 @@ import {
   matchKnowledgeForRetrieve,
   listAgentSteps,
   countActiveSessionsForProject,
+  setSessionPlan,
+  setSessionAgentReview,
 } from "@sightloop/db";
 import {
   createMarkupTools,
@@ -270,6 +272,154 @@ export async function startSessionLoop(
   running.add(sessionId);
 
   try {
+    if (cfg.dualLoop) {
+      const { runDualLoop } = await import("@sightloop/dual-loop");
+      const dual = await runDualLoop({
+        session_id: fresh.id,
+        project_id: project.id,
+        repo_path: project.repo_path,
+        page_url: fresh.page_url,
+        sniff: fresh.sniff,
+        annotation: fresh.annotation
+          ? {
+              selector: fresh.annotation.selector,
+              note: fresh.annotation.note,
+            }
+          : null,
+        knowledge_hits: knowledgeStub.map((k) => ({
+          title: k.title,
+          body_md: k.body_md,
+        })),
+        file_whitelist: project.file_whitelist,
+        verify_cmd: project.verify_cmd,
+        max_steps: fresh.max_steps,
+        step_count: fresh.step_count,
+        git_base_sha: fresh.git_base_sha,
+        temp_commit_sha: fresh.temp_commit_sha,
+        human_refine_note: opts.refineNote ?? null,
+        lock_dir: cfg.lockDir,
+        max_inner_refines: cfg.maxInnerRefines,
+        force_inner_refine_once: process.env.SIGHTLOOP_DUAL_LOOP_FORCE_REFINE === "1",
+        force_plan_files: process.env.SIGHTLOOP_DUAL_LOOP_FORCE_PLAN_FILES
+          ? process.env.SIGHTLOOP_DUAL_LOOP_FORCE_PLAN_FILES.split(",").map((s) =>
+              s.trim(),
+            )
+          : undefined,
+        runner,
+        planner_model_label: cfg.plannerModel ?? (cfg.dualLoopMock ? "mock-planner" : null) ?? undefined,
+        implementer_model_label:
+          cfg.implementerModel ?? runner.name,
+        reviewer_model_label:
+          cfg.reviewerModel ?? (cfg.dualLoopMock ? "mock-reviewer" : null) ?? undefined,
+        runGate: async () => {
+          try {
+            const { runSessionAcceptanceGate, resolveGateConfig } =
+              await import("./acceptance-gate-service.js");
+            const gateCfg = resolveGateConfig(project);
+            if (!gateCfg.enabled) {
+              return { status: "skipped", report: { reason: "disabled" } };
+            }
+            // Prefer skip during dual-loop to avoid double-run; M8a still auto-runs after awaiting_review.
+            return { status: "skipped", report: { reason: "deferred_to_post_act" } };
+          } catch {
+            return { status: "skipped", report: { reason: "m8_unavailable" } };
+          }
+        },
+        hooks: {
+          onStatus(status, stepCount) {
+            updateSession(db, sessionId, {
+              status: status as Session["status"],
+              step_count: stepCount,
+            });
+            hub.broadcastStatus(sessionId, status as Session["status"], stepCount);
+          },
+          onStep(step) {
+            insertAgentStep(db, {
+              session_id: sessionId,
+              idx: step.idx,
+              phase: step.phase,
+              tool_name: step.tool_name ?? null,
+              input: step.input,
+              output: step.output,
+              error: step.error,
+              summary: step.summary ?? null,
+              duration_ms: step.duration_ms ?? null,
+            });
+            hub.broadcastStep(sessionId, {
+              idx: step.idx,
+              phase: step.phase,
+              tool_name: step.tool_name,
+              summary: step.summary,
+            });
+            hub.broadcastTimeline(sessionId, {
+              at: Date.now(),
+              kind: "step",
+              label: `${step.phase}${step.tool_name ? ` · ${step.tool_name}` : ""}`,
+              detail: step.summary ?? step.error ?? null,
+            });
+          },
+          onDualLoop(evt) {
+            hub.broadcastDualLoop(sessionId, evt);
+          },
+          onPlan(plan) {
+            setSessionPlan(db, sessionId, plan);
+            hub.broadcastPlan(sessionId, plan as unknown as Record<string, unknown>);
+          },
+          onAgentReview(review) {
+            setSessionAgentReview(db, sessionId, review);
+            hub.broadcastAgentReview(
+              sessionId,
+              review as unknown as Record<string, unknown>,
+            );
+          },
+          onSecurityAlert(event, detail) {
+            insertAudit(db, event, detail ?? {}, project.id, sessionId);
+            hub.broadcastSecurity(event, detail);
+          },
+          onTerminal(status) {
+            hub.broadcastTerminal(sessionId, status as Session["status"]);
+          },
+        },
+      });
+
+      if (dual.plan) setSessionPlan(db, sessionId, dual.plan, dual.inner_refine_count);
+      if (dual.review) setSessionAgentReview(db, sessionId, dual.review);
+
+      const updated = updateSession(db, sessionId, {
+        status: dual.status,
+        step_count: dual.step_count,
+        git_base_sha: dual.git_base_sha,
+        temp_commit_sha: dual.temp_commit_sha,
+        annotation_ref: annotationRef,
+      });
+
+      if (dual.status === "awaiting_review") {
+        hub.broadcastAwaitingReview(sessionId, {
+          temp_commit_sha: dual.temp_commit_sha,
+          summary: dual.summary,
+          mode: project.mode,
+        });
+        hub.broadcastStatus(sessionId, "awaiting_review", dual.step_count);
+        void import("./acceptance-gate-service.js")
+          .then(({ runSessionAcceptanceGate, resolveGateConfig }) => {
+            const gateCfg = resolveGateConfig(project);
+            if (!gateCfg.enabled || !gateCfg.auto_run_on_awaiting_review) return;
+            return runSessionAcceptanceGate(cfg, db, hub, sessionId, "post_act");
+          })
+          .catch((err) => {
+            insertAudit(
+              db,
+              "acceptance_gate_auto_failed",
+              { message: (err as Error).message },
+              project.id,
+              sessionId,
+            );
+          });
+      }
+
+      return updated!;
+    }
+
     const result = await runAgentLoop({
       session: {
         id: fresh.id,

@@ -186,6 +186,46 @@ export class SessionWsHub {
     this.sendToSession(sessionId, event);
   }
 
+  broadcastDualLoop(
+    sessionId: string,
+    payload: {
+      node: string;
+      status: "enter" | "exit" | "error";
+      summary?: string;
+    },
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.dual_loop",
+      session_id: sessionId,
+      ...payload,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
+  broadcastPlan(
+    sessionId: string,
+    plan: Record<string, unknown>,
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.plan",
+      session_id: sessionId,
+      plan,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
+  broadcastAgentReview(
+    sessionId: string,
+    review: Record<string, unknown>,
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.review_agent",
+      session_id: sessionId,
+      review,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
   broadcastSecurity(
     eventName: string,
     detail?: Record<string, unknown>,

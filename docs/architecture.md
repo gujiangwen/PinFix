@@ -16,6 +16,8 @@
 
 **M8a:** Playwright acceptance gate (fixture-only) — `@sightloop/acceptance-gate` compiles structured expects → Scenario IR; DOM + screenshot (pixelmatch) + console/network; Accept hard-blocked unless gate passed; WS `session.acceptance_gate`.
 
+**M9a:** LangGraph dual-loop (feature-flagged, default off) — mock Planner/Reviewer; Implementer = existing runner; PlanIR `allowed_files` hard intercept; WS `session.dual_loop` / `session.plan` / `session.review_agent`.
+
 ## Extension worlds
 
 | Script | World | Role |
