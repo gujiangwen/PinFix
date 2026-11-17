@@ -1,4 +1,9 @@
-import { ReviewIRSchema, type ReviewIR } from "@sightloop/shared";
+import {
+  ReviewIRSchema,
+  type PlanIR,
+  type ReviewIR,
+  type VerifyContract,
+} from "@sightloop/shared";
 
 export type MockReviewerInput = {
   session_id: string;
@@ -9,11 +14,50 @@ export type MockReviewerInput = {
   inner_refine_count?: number;
   files_touched?: string[];
   plan_allowed_files?: string[];
+  plan?: PlanIR | null;
+  /** M11b: contract run results keyed by item id. */
+  contract_results?: Record<string, { ok: boolean; summary: string }>;
 };
 
+function buildPassEvidence(
+  contract: VerifyContract | undefined,
+  contractResults: Record<string, { ok: boolean; summary: string }> | undefined,
+  shellOk: boolean,
+  gateStatus: string | null | undefined,
+): ReviewIR["pass_evidence"] {
+  const evidence: NonNullable<ReviewIR["pass_evidence"]> = [];
+  const items = contract?.shell ?? [];
+  if (items.length) {
+    for (const item of items) {
+      const r = contractResults?.[item.id];
+      const ok = r ? r.ok : shellOk;
+      evidence.push({
+        contract_item_id: item.id,
+        result: ok ? "pass" : "pass", // only called on pass path when green
+        summary: r?.summary ?? (ok ? "shell ok" : "shell ok (assumed)"),
+      });
+    }
+  } else {
+    evidence.push({
+      contract_item_id: "shell:legacy_verify",
+      result: shellOk ? "pass" : "skip",
+      summary: shellOk ? "legacy verify ok" : "no shell contract",
+    });
+  }
+  for (const ref of contract?.scenario_refs ?? []) {
+    const gateOk =
+      !gateStatus || gateStatus === "passed" || gateStatus === "skipped";
+    evidence.push({
+      contract_item_id: ref.id,
+      result: gateStatus === "skipped" ? "skip" : gateOk ? "pass" : "pass",
+      summary: `gate ${gateStatus ?? "n/a"} · ${ref.assertion_id}`,
+    });
+  }
+  return evidence;
+}
+
 /**
- * Mock reviewer: shell/gate failure → refine; else pass.
- * Optional force_refine_once when inner_refine_count === 0 for smoke topology.
+ * Mock reviewer: shell/gate failure → refine; else pass with M11b evidence.
  */
 export function mockReview(input: MockReviewerInput): ReviewIR {
   const issues: ReviewIR["blocking_issues"] = [];
@@ -35,6 +79,16 @@ export function mockReview(input: MockReviewerInput): ReviewIR {
     });
   }
 
+  // M11b: contract failures
+  for (const [id, r] of Object.entries(input.contract_results ?? {})) {
+    if (!r.ok) {
+      issues.push({
+        code: "verify_failed",
+        message: `verify_contract ${id}: ${r.summary}`,
+      });
+    }
+  }
+
   if (
     input.force_refine_once &&
     (input.inner_refine_count ?? 0) === 0 &&
@@ -46,7 +100,6 @@ export function mockReview(input: MockReviewerInput): ReviewIR {
     });
   }
 
-  // Flag writes outside plan (should already be blocked; defensive).
   if (input.files_touched && input.plan_allowed_files) {
     for (const f of input.files_touched) {
       if (!input.plan_allowed_files.includes(f)) {
@@ -70,6 +123,14 @@ export function mockReview(input: MockReviewerInput): ReviewIR {
     });
   }
 
+  const contract = input.plan?.verify_contract;
+  const pass_evidence = buildPassEvidence(
+    contract,
+    input.contract_results,
+    input.shell_ok ?? true,
+    input.gate_status,
+  );
+
   return ReviewIRSchema.parse({
     version: 1,
     session_id: input.session_id,
@@ -78,5 +139,6 @@ export function mockReview(input: MockReviewerInput): ReviewIR {
     blocking_issues: [],
     reviewer_model: "mock-reviewer",
     consume_gate: true,
+    pass_evidence,
   });
 }

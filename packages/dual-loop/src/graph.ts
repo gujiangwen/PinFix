@@ -8,14 +8,22 @@ import {
   runVerifyCmd,
   acquireRepoLock,
 } from "@sightloop/agent-runtime";
-import type { PlanIR, ReviewIR } from "@sightloop/shared";
+import type { PlanIR, RefineIR, ReviewIR } from "@sightloop/shared";
 import { callPlanner } from "./llm-planner.js";
 import { callReviewer } from "./llm-reviewer.js";
+import {
+  refineFromContractFailure,
+  refineFromGateFailure,
+  refineFromReviewer,
+  refineFromShellFailure,
+  refineFromWhitelistBlock,
+} from "./refine-ir.js";
 import {
   resolvePlannerConfig,
   resolveReviewerConfig,
   type RoleLlmConfig,
 } from "./role-config.js";
+import { runVerifyContractShell } from "./verify-contract.js";
 import { assertWriteAllowed } from "./whitelist.js";
 
 export type DualLoopHooks = {
@@ -37,6 +45,7 @@ export type DualLoopHooks = {
   }) => void;
   onPlan?: (plan: PlanIR) => void;
   onAgentReview?: (review: ReviewIR) => void;
+  onRefineIR?: (refine: RefineIR) => void;
   onSecurityAlert?: (event: string, detail?: Record<string, unknown>) => void;
   onTerminal?: (status: string) => void;
 };
@@ -79,6 +88,8 @@ export type DualLoopInput = {
   reviewer_model_label?: string;
   /** Inject fetch for LLM unit/integration tests. */
   fetchImpl?: typeof fetch;
+  /** M11c: acceptance archive retrieval hits for Planner. */
+  acceptance_hits?: Array<{ title: string; path: string; score?: number }>;
 };
 
 export type DualLoopResult = {
@@ -89,8 +100,10 @@ export type DualLoopResult = {
   summary: string;
   plan: PlanIR | null;
   review: ReviewIR | null;
+  refine_ir: RefineIR | null;
   inner_refine_count: number;
   gate_status?: string | null;
+  verify_contract_unmet?: boolean;
   error?: string;
 };
 
@@ -122,6 +135,13 @@ const DualState = Annotation.Root({
   implement_only: Annotation<boolean>,
   /** Counts Implementer acts only (session max_steps budget). */
   act_count: Annotation<number>,
+  refine_ir: Annotation<RefineIR | null>,
+  shell_log: Annotation<string | null>,
+  gate_report: Annotation<unknown>,
+  contract_results: Annotation<
+    Record<string, { ok: boolean; summary: string; excerpt?: string }>
+  >,
+  verify_contract_unmet: Annotation<boolean>,
 });
 
 type S = typeof DualState.State;
@@ -148,6 +168,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       summary: (err as Error).message,
       plan: null,
       review: null,
+      refine_ir: null,
       inner_refine_count: 0,
       error: (err as Error).message,
     };
@@ -188,23 +209,41 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onDualLoop?.({ node: "planner", status: "enter" });
       hooks.onStatus?.("retrieving", stepCount);
       const started = Date.now();
-      const result = await callPlanner({
-        input: {
-          session_id: state.session_id,
-          project_whitelist: state.file_whitelist,
-          annotation: state.annotation,
-          sniff: state.sniff,
-          human_refine_note: state.human_refine_note,
-          review_notes: state.review_notes,
-          force_allowed_files: input.force_plan_files,
-          suggested_allowed_files: state.review?.suggested_allowed_files,
-          knowledge_hits: state.knowledge_hits,
-        },
-        config: plannerCfg,
-        useMock,
-        maxAttempts: input.max_plan_attempts ?? 2,
-        fetchImpl: input.fetchImpl,
-      });
+      let result;
+      try {
+        result = await callPlanner({
+          input: {
+            session_id: state.session_id,
+            project_whitelist: state.file_whitelist,
+            annotation: state.annotation,
+            sniff: state.sniff,
+            human_refine_note: state.human_refine_note,
+            review_notes: state.review_notes,
+            force_allowed_files: input.force_plan_files,
+            suggested_allowed_files: state.review?.suggested_allowed_files,
+            knowledge_hits: state.knowledge_hits,
+            refine_ir: state.refine_ir,
+            verify_cmd: state.verify_cmd,
+            acceptance_hits: input.acceptance_hits,
+          },
+          config: plannerCfg,
+          useMock,
+          maxAttempts: input.max_plan_attempts ?? 2,
+          fetchImpl: input.fetchImpl,
+        });
+      } catch (err) {
+        const message = (err as Error).message ?? String(err);
+        if (message.startsWith("plan_missing_issue_resolution")) {
+          hooks.onSecurityAlert?.("plan_missing_issue_resolution", {
+            message,
+          });
+        }
+        return {
+          terminal: "failed",
+          error: message,
+          summary: message,
+        };
+      }
       const plan = result.plan;
       if (input.planner_model_label && result.backend === "mock") {
         plan.planner_model = input.planner_model_label;
@@ -213,6 +252,12 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
         hooks.onSecurityAlert?.("planner_llm_fallback", {
           reason: result.fallback_reason,
           attempts: result.attempts,
+        });
+      }
+      if (input.acceptance_hits?.length) {
+        hooks.onSecurityAlert?.("acceptance_retrieved", {
+          count: input.acceptance_hits.length,
+          ids: input.acceptance_hits.map((h) => h.path),
         });
       }
       hooks.onPlan?.(plan);
@@ -228,6 +273,9 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           backend: result.backend,
           fallback_reason: result.fallback_reason ?? null,
           attempts: result.attempts,
+          issue_resolutions: plan.issue_resolutions ?? [],
+          verify_contract: plan.verify_contract ?? null,
+          refine_ir: state.refine_ir,
         },
         duration_ms: Date.now() - started,
       });
@@ -319,18 +367,30 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
             file: f,
             message: check.message,
           });
+          const refine = refineFromWhitelistBlock({
+            session_id: state.session_id,
+            path: f,
+            message: check.message,
+          });
+          hooks.onRefineIR?.(refine);
+          hooks.onSecurityAlert?.("refine_ir_emitted", {
+            source: refine.source,
+            issues: refine.blocking_issues.length,
+          });
           hooks.onStep?.({
             idx: stepCount,
             phase: "act",
             tool_name: "plan_whitelist_guard",
             summary: check.message,
             error: check.message,
+            output: { refine_ir: refine },
           });
           stepCount += 1;
           return {
             terminal: "failed",
             error: check.message,
             summary: check.message,
+            refine_ir: refine,
           };
         }
       }
@@ -370,18 +430,54 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onDualLoop?.({ node: "verify_shell", status: "enter" });
       hooks.onStatus?.("acting", stepCount);
       const started = Date.now();
-      const result = state.verify_cmd
-        ? runVerifyCmd(state.repo_path, state.verify_cmd)
-        : { ok: true, output: "(no verify_cmd)" };
+      // M11b: prefer PlanIR.verify_contract.shell; fall back to project verify_cmd.
+      const contractRun = runVerifyContractShell(
+        state.repo_path,
+        state.plan?.verify_contract,
+      );
+      let shellOk = contractRun.ok;
+      let shellLog = Object.values(contractRun.results)
+        .map((r) => r.excerpt ?? r.summary)
+        .join("\n")
+        .slice(-4000);
+      let refine: RefineIR | null = null;
+
+      if (!state.plan?.verify_contract && state.verify_cmd) {
+        const result = runVerifyCmd(state.repo_path, state.verify_cmd);
+        shellOk = result.ok;
+        shellLog = result.output?.slice(-4000) ?? "";
+        if (!result.ok) {
+          refine = refineFromShellFailure({
+            session_id: state.session_id,
+            cmd: state.verify_cmd,
+            output: result.output,
+          });
+        }
+      } else if (!contractRun.ok) {
+        refine = refineFromContractFailure({
+          session_id: state.session_id,
+          failures: contractRun.failures,
+        });
+      }
+
+      if (refine) {
+        hooks.onRefineIR?.(refine);
+        hooks.onSecurityAlert?.("refine_ir_emitted", {
+          source: refine.source,
+          issues: refine.blocking_issues.length,
+        });
+      }
+
       hooks.onStep?.({
         idx: stepCount,
         phase: "verify",
-        tool_name: "verify_cmd",
-        summary: result.ok ? "verify ok" : "verify failed",
+        tool_name: "verify_contract",
+        summary: shellOk ? "verify ok" : "verify failed",
         output: {
-          ok: result.ok,
-          log_tail: result.output?.slice(-2000),
-          command: state.verify_cmd,
+          ok: shellOk,
+          log_tail: shellLog?.slice(-2000),
+          contract_results: contractRun.results,
+          refine_ir: refine,
         },
         duration_ms: Date.now() - started,
       });
@@ -389,9 +485,15 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onDualLoop?.({
         node: "verify_shell",
         status: "exit",
-        summary: result.ok ? "ok" : "fail",
+        summary: shellOk ? "ok" : "fail",
       });
-      return { shell_ok: result.ok };
+      return {
+        shell_ok: shellOk,
+        shell_log: shellLog,
+        contract_results: contractRun.results,
+        refine_ir: refine ?? state.refine_ir,
+        verify_contract_unmet: !shellOk,
+      };
     };
 
     const gateNode = async (state: S): Promise<Partial<S>> => {
@@ -413,12 +515,25 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           };
         }
       }
+      let refine: RefineIR | null = null;
+      if (status !== "passed" && status !== "skipped") {
+        refine = refineFromGateFailure({
+          session_id: state.session_id,
+          gate_status: status,
+          report,
+        });
+        hooks.onRefineIR?.(refine);
+        hooks.onSecurityAlert?.("refine_ir_emitted", {
+          source: refine.source,
+          issues: refine.blocking_issues.length,
+        });
+      }
       hooks.onStep?.({
         idx: stepCount,
         phase: "verify",
         tool_name: "acceptance_gate",
         summary: `gate ${status}`,
-        output: report,
+        output: { report, refine_ir: refine },
         duration_ms: Date.now() - started,
       });
       stepCount += 1;
@@ -427,7 +542,11 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
         status: "exit",
         summary: status,
       });
-      return { gate_status: status };
+      return {
+        gate_status: status,
+        gate_report: report,
+        refine_ir: refine ?? state.refine_ir,
+      };
     };
 
     const reviewerNode = async (state: S): Promise<Partial<S>> => {
@@ -439,10 +558,12 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
         state.git_base_sha,
         state.temp_commit_sha,
       );
+      // M11b: unmet contract → force refine path (unless budget exhausted later).
+      const contractOk = !state.verify_contract_unmet;
       const result = await callReviewer({
         input: {
           session_id: state.session_id,
-          shell_ok: state.shell_ok ?? true,
+          shell_ok: (state.shell_ok ?? true) && contractOk,
           gate_status: state.gate_status,
           force_refine_once: input.force_inner_refine_once,
           inner_refine_count: state.inner_refine_count,
@@ -450,15 +571,47 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           plan_allowed_files: state.plan?.allowed_files,
           plan: state.plan,
           diff_summary: diffSummary,
+          contract_results: state.contract_results,
         },
         config: reviewerCfg,
         useMock,
         maxAttempts: input.max_plan_attempts ?? 2,
         fetchImpl: input.fetchImpl,
       });
-      const review = result.review;
+      let review = result.review;
       if (input.reviewer_model_label && result.backend === "mock") {
         review.reviewer_model = input.reviewer_model_label;
+      }
+      // Pass must cite contract evidence when require_all_green.
+      if (
+        review.verdict === "pass" &&
+        state.plan?.verify_contract?.require_all_green !== false
+      ) {
+        const needed = [
+          ...(state.plan?.verify_contract?.shell ?? []).map((s) => s.id),
+          ...(state.plan?.verify_contract?.scenario_refs ?? []).map((s) => s.id),
+        ];
+        const cited = new Set(
+          (review.pass_evidence ?? [])
+            .filter((e) => e.result === "pass" || e.result === "skip")
+            .map((e) => e.contract_item_id),
+        );
+        const missing = needed.filter((id) => !cited.has(id));
+        if (needed.length && missing.length) {
+          review = {
+            ...review,
+            verdict: "refine",
+            notes: `pass_evidence missing for: ${missing.join(",")}`,
+            blocking_issues: [
+              ...(review.blocking_issues ?? []),
+              {
+                code: "other",
+                message: `Pass evidence missing: ${missing.join(",")}`,
+              },
+            ],
+            pass_evidence: undefined,
+          };
+        }
       }
       if (
         result.fallback_reason &&
@@ -468,6 +621,18 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
         hooks.onSecurityAlert?.("reviewer_llm_fallback", {
           reason: result.fallback_reason,
           attempts: result.attempts,
+        });
+      }
+      let refine = state.refine_ir;
+      if (review.verdict === "refine") {
+        refine = refineFromReviewer({
+          session_id: state.session_id,
+          review,
+        });
+        hooks.onRefineIR?.(refine);
+        hooks.onSecurityAlert?.("refine_ir_emitted", {
+          source: refine.source,
+          issues: refine.blocking_issues.length,
         });
       }
       hooks.onAgentReview?.(review);
@@ -480,6 +645,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
           ...review,
           backend: result.backend,
           fallback_reason: result.fallback_reason ?? null,
+          refine_ir: refine,
         },
         duration_ms: Date.now() - started,
       });
@@ -489,7 +655,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
         status: "exit",
         summary: `${review.verdict}/${result.backend}`,
       });
-      return { review };
+      return { review, refine_ir: refine };
     };
 
     const finalizeNode = async (state: S): Promise<Partial<S>> => {
@@ -531,9 +697,19 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
 
     const bumpRefine = async (state: S): Promise<Partial<S>> => {
       // Called when routing back — increment via planner/implementer entry.
+      const refine =
+        state.refine_ir ??
+        (state.review
+          ? refineFromReviewer({
+              session_id: state.session_id,
+              review: state.review,
+            })
+          : null);
       return {
         inner_refine_count: state.inner_refine_count + 1,
         review_notes: state.review?.notes ?? state.review_notes,
+        refine_ir: refine,
+        verify_contract_unmet: false,
       };
     };
 
@@ -595,6 +771,11 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       error: null,
       implement_only: false,
       act_count: 0,
+      refine_ir: null,
+      shell_log: null,
+      gate_report: null,
+      contract_results: {},
+      verify_contract_unmet: false,
     });
 
     return {
@@ -605,8 +786,10 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       summary: (final.summary as string) || "dual-loop complete",
       plan: (final.plan as PlanIR | null) ?? null,
       review: (final.review as ReviewIR | null) ?? null,
+      refine_ir: (final.refine_ir as RefineIR | null) ?? null,
       inner_refine_count: (final.inner_refine_count as number) ?? 0,
       gate_status: (final.gate_status as string | null) ?? null,
+      verify_contract_unmet: Boolean(final.verify_contract_unmet),
       error: (final.error as string | null) ?? undefined,
     };
   } finally {

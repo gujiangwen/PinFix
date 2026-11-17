@@ -26,6 +26,8 @@
 
 **M10c:** On Accept, archive Scenario IR + screenshot baselines to `<repo>/acceptance/` for CI/local replay (`SIGHTLOOP_ACCEPTANCE_ARCHIVE=0` to disable).
 
+**M11a:** Structured `RefineIR` from shell/gate/reviewer/whitelist failures; Planner must emit `issue_resolutions` for blockers.
+
 ## Extension worlds
 
 | Script | World | Role |

@@ -1,5 +1,6 @@
 import { ReviewIRSchema, type PlanIR, type ReviewIR } from "@sightloop/shared";
 import { mockReview, type MockReviewerInput } from "./mock-reviewer.js";
+// MockReviewerInput already includes contract_results (M11b).
 import { chatText, extractJsonObject } from "./llm-client.js";
 import type { RoleLlmConfig } from "./role-config.js";
 
