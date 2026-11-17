@@ -179,6 +179,8 @@ export const AcceptanceRunSummarySchema = z.object({
   finished_at: z.number().int().nullable(),
   created_at: z.number().int(),
   report: AcceptanceReportSchema.nullable().optional(),
+  /** Present on detail fetches (latest/by-id); omitted from list for size. */
+  scenario: ScenarioIRSchema.optional(),
 });
 export type AcceptanceRunSummary = z.infer<typeof AcceptanceRunSummarySchema>;
 

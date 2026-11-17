@@ -32,7 +32,15 @@ function parseReport(raw: string | null): AcceptanceReport | null {
   }
 }
 
-function rowToSummary(row: RunRow, includeReport = false): AcceptanceRunSummary {
+function parseScenario(raw: string): ScenarioIR | undefined {
+  try {
+    return JSON.parse(raw) as ScenarioIR;
+  } catch {
+    return undefined;
+  }
+}
+
+function rowToSummary(row: RunRow, includeDetail = false): AcceptanceRunSummary {
   return {
     id: row.id,
     session_id: row.session_id,
@@ -45,7 +53,12 @@ function rowToSummary(row: RunRow, includeReport = false): AcceptanceRunSummary 
     started_at: row.started_at,
     finished_at: row.finished_at,
     created_at: row.created_at,
-    ...(includeReport ? { report: parseReport(row.report_json) } : {}),
+    ...(includeDetail
+      ? {
+          report: parseReport(row.report_json),
+          scenario: parseScenario(row.scenario_json),
+        }
+      : {}),
   };
 }
 
