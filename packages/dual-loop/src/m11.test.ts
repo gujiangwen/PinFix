@@ -8,6 +8,10 @@ import {
   refineFromReviewer,
   refineFromShellFailure,
 } from "./refine-ir.js";
+import { retrieveAcceptanceHits } from "./acceptance-retrieve.js";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 describe("M11a RefineIR", () => {
   it("shell failure produces blocking_issues", () => {
@@ -84,5 +88,31 @@ describe("M11b verify_contract + pass evidence", () => {
     });
     expect(review.verdict).toBe("pass");
     expect(review.pass_evidence?.length).toBeGreaterThan(0);
+  });
+});
+
+describe("M11c acceptance retrieve", () => {
+  it("finds archived scenarios by keyword", () => {
+    const repo = mkdtempSync(join(tmpdir(), "sl-acc-"));
+    const dir = join(repo, "acceptance", "scenarios");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "fp1.json"),
+      JSON.stringify({
+        fingerprint: "fp1",
+        start_url: "http://127.0.0.1:5175/",
+        scenario: {
+          version: 1,
+          start_url: "http://127.0.0.1:5175/",
+          steps: [{ action: "assert_dom", selector: "[data-testid=gate-ok]" }],
+        },
+      }),
+    );
+    const hits = retrieveAcceptanceHits(repo, {
+      selector: "[data-testid=gate-ok]",
+      note: "gate",
+    });
+    expect(hits.length).toBeGreaterThanOrEqual(1);
+    expect(hits[0]?.path).toContain("acceptance/scenarios/");
   });
 });

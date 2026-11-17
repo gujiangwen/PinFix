@@ -30,6 +30,8 @@
 
 **M11b:** `PlanIR.verify_contract` (shell + scenario refs); Implementer→Reviewer gated on contract; Pass requires `pass_evidence`.
 
+**M11c:** `GET/POST …/acceptance` list+replay; Planner retrieve Top-K archive summaries; `scripts/replay-acceptance.sh`.
+
 ## Extension worlds
 
 | Script | World | Role |

@@ -13,6 +13,10 @@ export {
 } from "./refine-ir.js";
 export { runVerifyContractShell, contractUnmetMark } from "./verify-contract.js";
 export {
+  retrieveAcceptanceHits,
+  type AcceptanceHit,
+} from "./acceptance-retrieve.js";
+export {
   resolvePlannerConfig,
   resolveReviewerConfig,
   resolveImplementerConfig,

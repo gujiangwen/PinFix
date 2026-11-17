@@ -63,6 +63,7 @@ export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
   await app.register(projectsRoutes, {
     db,
     allowedRoots: cfg.allowedRoots,
+    cfg,
   });
 
   await app.register(sessionsRoutes, { db, hub, cfg });

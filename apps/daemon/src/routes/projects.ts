@@ -14,17 +14,24 @@ import {
   type Database,
 } from "@sightloop/db";
 import { assertAllowedRepoPath } from "../path-guard.js";
+import type { DaemonConfig } from "../config.js";
+import { artifactsRoot } from "../acceptance-gate-service.js";
+import {
+  listAcceptanceArchive,
+  replayAcceptanceArchive,
+} from "../acceptance-replay.js";
 
 export type ProjectsRouteOpts = {
   db: Database;
   allowedRoots: string[];
+  cfg: DaemonConfig;
 };
 
 export const projectsRoutes: FastifyPluginAsync<ProjectsRouteOpts> = async (
   app,
   opts,
 ) => {
-  const { db, allowedRoots } = opts;
+  const { db, allowedRoots, cfg } = opts;
 
   app.get("/v1/projects", async () => {
     return { projects: listProjects(db) };
@@ -151,4 +158,58 @@ export const projectsRoutes: FastifyPluginAsync<ProjectsRouteOpts> = async (
       return reply.code(204).send();
     },
   );
+
+  /** M11c: list archived acceptance scenarios under project.repo_path/acceptance. */
+  app.get<{ Params: { id: string } }>(
+    "/v1/projects/:id/acceptance",
+    async (req, reply) => {
+      const project = getProject(db, req.params.id);
+      if (!project) {
+        return reply
+          .code(404)
+          .send(apiError("not_found", `Project ${req.params.id} not found`));
+      }
+      const entries = listAcceptanceArchive(project.repo_path);
+      return { project_id: project.id, entries };
+    },
+  );
+
+  app.post<{
+    Params: { id: string };
+    Body: { ids?: string[]; fingerprints?: string[]; all?: boolean };
+  }>("/v1/projects/:id/acceptance/replay", async (req, reply) => {
+    const project = getProject(db, req.params.id);
+    if (!project) {
+      return reply
+        .code(404)
+        .send(apiError("not_found", `Project ${req.params.id} not found`));
+    }
+    const body = req.body ?? {};
+    const fingerprints = body.fingerprints ?? body.ids ?? [];
+    const all = Boolean(body.all) || fingerprints.length === 0;
+    try {
+      const { results } = await replayAcceptanceArchive({
+        repoPath: project.repo_path,
+        projectId: project.id,
+        fingerprints,
+        all,
+        artifactsRoot: artifactsRoot(cfg),
+      });
+      insertAudit(
+        db,
+        "acceptance_replay",
+        {
+          count: results.length,
+          passed: results.filter((r) => r.ok).length,
+          failed: results.filter((r) => !r.ok).length,
+        },
+        project.id,
+      );
+      return { project_id: project.id, results };
+    } catch (err) {
+      return reply
+        .code(500)
+        .send(apiError("replay_failed", (err as Error).message));
+    }
+  });
 };

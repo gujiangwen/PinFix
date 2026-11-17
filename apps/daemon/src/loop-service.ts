@@ -273,7 +273,17 @@ export async function startSessionLoop(
 
   try {
     if (cfg.dualLoop) {
-      const { runDualLoop } = await import("@sightloop/dual-loop");
+      const { runDualLoop, retrieveAcceptanceHits } = await import(
+        "@sightloop/dual-loop"
+      );
+      const acceptance_hits = retrieveAcceptanceHits(
+        project.repo_path,
+        {
+          note: fresh.annotation?.note,
+          selector: fresh.annotation?.selector,
+        },
+        3,
+      );
       const dual = await runDualLoop({
         session_id: fresh.id,
         project_id: project.id,
@@ -290,6 +300,7 @@ export async function startSessionLoop(
           title: k.title,
           body_md: k.body_md,
         })),
+        acceptance_hits,
         file_whitelist: project.file_whitelist,
         verify_cmd: project.verify_cmd,
         max_steps: fresh.max_steps,
