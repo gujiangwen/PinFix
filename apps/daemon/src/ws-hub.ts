@@ -1,5 +1,10 @@
 import type { WebSocket } from "ws";
-import type { SessionStatus, WsServerEvent } from "@sightloop/shared";
+import type {
+  ProjectMode,
+  SessionStatus,
+  SessionStepEvent,
+  WsServerEvent,
+} from "@sightloop/shared";
 
 type Client = {
   socket: WebSocket;
@@ -7,8 +12,7 @@ type Client = {
 };
 
 /**
- * In-process fan-out for session status events (M2).
- * One hub per daemon process.
+ * In-process fan-out for session events.
  */
 export class SessionWsHub {
   private clients = new Set<Client>();
@@ -42,6 +46,57 @@ export class SessionWsHub {
       step_count: stepCount,
     };
     this.sendToSession(sessionId, event);
+  }
+
+  broadcastStep(sessionId: string, step: SessionStepEvent): void {
+    const event: WsServerEvent = {
+      type: "session.step",
+      session_id: sessionId,
+      step,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
+  broadcastAwaitingReview(
+    sessionId: string,
+    preview: {
+      temp_commit_sha: string | null;
+      summary: string;
+      mode?: ProjectMode;
+    },
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.awaiting_review",
+      session_id: sessionId,
+      preview,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
+  broadcastTerminal(sessionId: string, status: SessionStatus): void {
+    const event: WsServerEvent = {
+      type: "session.terminal",
+      session_id: sessionId,
+      status,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
+  broadcastSecurity(
+    eventName: string,
+    detail?: Record<string, unknown>,
+  ): void {
+    const event: WsServerEvent = {
+      type: "security.alert",
+      event: eventName,
+      detail,
+    };
+    const payload = JSON.stringify(event);
+    for (const client of this.clients) {
+      if (client.socket.readyState === 1) {
+        client.socket.send(payload);
+      }
+    }
   }
 
   sendToSession(sessionId: string, event: WsServerEvent): void {

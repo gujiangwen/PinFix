@@ -11,7 +11,10 @@ let wsSettings: ExtensionSettings | null = null;
 
 async function loadSettings(): Promise<ExtensionSettings> {
   const stored = await chrome.storage.local.get(["settings"]);
-  return { ...DEFAULT_SETTINGS, ...(stored.settings as Partial<ExtensionSettings> | undefined) };
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(stored.settings as Partial<ExtensionSettings> | undefined),
+  };
 }
 
 async function saveSettings(settings: ExtensionSettings): Promise<void> {
@@ -38,6 +41,20 @@ async function daemonFetch(
       ...authHeaders(settings.token),
       ...(init?.headers ?? {}),
     },
+  });
+}
+
+function broadcastToTabs(payload: Record<string, unknown>): void {
+  void chrome.runtime.sendMessage(payload).catch(() => {
+    /* no receivers in extension pages */
+  });
+  void chrome.tabs.query({}).then((tabs) => {
+    for (const tab of tabs) {
+      if (tab.id == null) continue;
+      void chrome.tabs.sendMessage(tab.id, payload).catch(() => {
+        /* content script may be absent */
+      });
+    }
   });
 }
 
@@ -68,22 +85,55 @@ function ensureWs(settings: ExtensionSettings): WebSocket {
         session_id?: string;
         status?: string;
         step_count?: number;
+        preview?: {
+          temp_commit_sha?: string | null;
+          summary?: string;
+          mode?: string;
+        };
+        step?: unknown;
       };
       if (msg.type === "session.status" && msg.session_id) {
         SESSION_STATUS.set(msg.session_id, {
           status: msg.status ?? "idle",
           step_count: msg.step_count ?? 0,
         });
-        void chrome.runtime
-          .sendMessage({
-            type: "session_status_event",
-            sessionId: msg.session_id,
-            status: msg.status,
-            stepCount: msg.step_count,
-          })
-          .catch(() => {
-            /* no receivers */
-          });
+        broadcastToTabs({
+          type: "session_status_event",
+          sessionId: msg.session_id,
+          status: msg.status,
+          stepCount: msg.step_count,
+        });
+      }
+      if (msg.type === "session.awaiting_review" && msg.session_id) {
+        SESSION_STATUS.set(msg.session_id, {
+          status: "awaiting_review",
+          step_count:
+            SESSION_STATUS.get(msg.session_id)?.step_count ?? 0,
+        });
+        broadcastToTabs({
+          type: "session_awaiting_review",
+          sessionId: msg.session_id,
+          preview: msg.preview ?? {},
+        });
+      }
+      if (msg.type === "session.step" && msg.session_id) {
+        broadcastToTabs({
+          type: "session_step_event",
+          sessionId: msg.session_id,
+          step: msg.step,
+        });
+      }
+      if (msg.type === "session.terminal" && msg.session_id) {
+        SESSION_STATUS.set(msg.session_id, {
+          status: msg.status ?? "accepted",
+          step_count:
+            SESSION_STATUS.get(msg.session_id)?.step_count ?? 0,
+        });
+        broadcastToTabs({
+          type: "session_terminal_event",
+          sessionId: msg.session_id,
+          status: msg.status,
+        });
       }
     } catch {
       // ignore malformed
@@ -111,11 +161,30 @@ function wsSend(settings: ExtensionSettings, payload: unknown): void {
   }
 }
 
+async function startSession(
+  settings: ExtensionSettings,
+  sessionId: string,
+): Promise<unknown> {
+  const res = await daemonFetch(settings, `/v1/sessions/${sessionId}/start`, {
+    method: "POST",
+    body: "{}",
+  });
+  const json = (await res.json()) as {
+    session?: { id: string };
+    error?: { message: string };
+  };
+  if (!res.ok) {
+    throw new Error(json.error?.message ?? `HTTP ${res.status}`);
+  }
+  return json;
+}
+
 async function createSession(
   settings: ExtensionSettings,
   pageUrl: string,
   sniff: unknown,
   annotation?: { note?: string; selector?: string },
+  start?: boolean,
 ): Promise<unknown> {
   if (!settings.projectId) {
     throw new Error("Select a project in the SightLoop popup first");
@@ -129,13 +198,23 @@ async function createSession(
       ...(annotation ? { annotation } : {}),
     }),
   });
-  const json = (await res.json()) as { session?: { id: string }; error?: { message: string } };
+  const json = (await res.json()) as {
+    session?: { id: string };
+    error?: { message: string };
+  };
   if (!res.ok) {
     throw new Error(json.error?.message ?? `HTTP ${res.status}`);
   }
   const sessionId = json.session?.id;
   if (sessionId) {
     wsSend(settings, { op: "subscribe", session_id: sessionId });
+    const shouldStart = start ?? settings.autoStart !== false;
+    if (shouldStart) {
+      const started = (await startSession(settings, sessionId)) as {
+        session?: unknown;
+      };
+      return { ...json, started: started.session ?? started };
+    }
   }
   return json;
 }
@@ -185,6 +264,7 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
         message.pageUrl,
         message.sniff,
         message.annotation,
+        message.start,
       );
       return { ok: true, data };
     }
@@ -197,10 +277,54 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
           message.pageUrl,
           item.sniff,
           item.annotation,
+          true,
         );
         sessions.push(data);
       }
       return { ok: true, data: { sessions } };
+    }
+    case "start_session": {
+      const settings = await loadSettings();
+      wsSend(settings, { op: "subscribe", session_id: message.sessionId });
+      const data = await startSession(settings, message.sessionId);
+      return { ok: true, data };
+    }
+    case "review_session": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(
+        settings,
+        `/v1/sessions/${message.sessionId}/review`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            decision: message.decision,
+            ...(message.note ? { note: message.note } : {}),
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
+    }
+    case "get_diff": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(
+        settings,
+        `/v1/sessions/${message.sessionId}/diff`,
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
     }
     case "subscribe_session": {
       const settings = await loadSettings();
@@ -211,7 +335,6 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
       };
     }
     case "toggle_pick": {
-      // Forwarded from command; content scripts listen.
       return { ok: true };
     }
     default:
@@ -231,7 +354,6 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 chrome.action.onClicked.addListener((tab) => {
-  // Popup is default; this fires only if popup is absent.
   if (tab.id == null) return;
   void chrome.tabs.sendMessage(tab.id, { type: "toggle_pick" }).catch(() => {});
 });

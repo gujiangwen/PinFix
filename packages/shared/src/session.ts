@@ -76,13 +76,45 @@ export const WsClientMessageSchema = z.discriminatedUnion("op", [
 ]);
 export type WsClientMessage = z.infer<typeof WsClientMessageSchema>;
 
-/** Server → client WS events (M2: status subscribe) */
+export const SessionStepEventSchema = z.object({
+  idx: z.number().int(),
+  phase: z.enum(["retrieve", "plan", "act", "verify"]),
+  tool_name: z.string().nullable().optional(),
+  summary: z.string().optional(),
+});
+export type SessionStepEvent = z.infer<typeof SessionStepEventSchema>;
+
+/** Server → client WS events */
 export const WsServerEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("session.status"),
     session_id: z.string(),
     status: SessionStatusSchema,
     step_count: z.number().int(),
+  }),
+  z.object({
+    type: z.literal("session.step"),
+    session_id: z.string(),
+    step: SessionStepEventSchema,
+  }),
+  z.object({
+    type: z.literal("session.awaiting_review"),
+    session_id: z.string(),
+    preview: z.object({
+      temp_commit_sha: z.string().nullable(),
+      summary: z.string(),
+      mode: z.enum(["hmr", "pr"]).optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("session.terminal"),
+    session_id: z.string(),
+    status: SessionStatusSchema,
+  }),
+  z.object({
+    type: z.literal("security.alert"),
+    event: z.string(),
+    detail: z.record(z.string(), z.unknown()).optional(),
   }),
   z.object({
     type: z.literal("subscribed"),

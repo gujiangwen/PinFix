@@ -176,3 +176,63 @@ export function updateSessionStatus(
   ).run(status, nextStep, now, id);
   return getSession(db, id);
 }
+
+export type SessionPatch = {
+  status?: SessionStatus;
+  step_count?: number;
+  annotation_ref?: string | null;
+  git_base_sha?: string | null;
+  temp_commit_sha?: string | null;
+};
+
+export function updateSession(
+  db: Database.Database,
+  id: string,
+  patch: SessionPatch,
+): Session | undefined {
+  const existing = getSession(db, id);
+  if (!existing) return undefined;
+  const next = {
+    status: patch.status ?? existing.status,
+    step_count: patch.step_count ?? existing.step_count,
+    annotation_ref:
+      patch.annotation_ref !== undefined
+        ? patch.annotation_ref
+        : existing.annotation_ref,
+    git_base_sha:
+      patch.git_base_sha !== undefined
+        ? patch.git_base_sha
+        : existing.git_base_sha,
+    temp_commit_sha:
+      patch.temp_commit_sha !== undefined
+        ? patch.temp_commit_sha
+        : existing.temp_commit_sha,
+    updated_at: Date.now(),
+  };
+  db.prepare(
+    `UPDATE sessions SET
+      status = @status,
+      step_count = @step_count,
+      annotation_ref = @annotation_ref,
+      git_base_sha = @git_base_sha,
+      temp_commit_sha = @temp_commit_sha,
+      updated_at = @updated_at
+    WHERE id = @id`,
+  ).run({ id, ...next });
+  return getSession(db, id);
+}
+
+/** Count non-terminal active sessions for a project's repo (concurrency guard). */
+export function countActiveSessionsForProject(
+  db: Database.Database,
+  projectId: string,
+): number {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM sessions
+       WHERE project_id = ?
+         AND status IN ('retrieving','acting','awaiting_review','distilling','refined')`,
+    )
+    .get(projectId) as { n: number };
+  return row.n;
+}

@@ -5,6 +5,7 @@ import type { DaemonConfig } from "./config.js";
 import { createAuthPlugin } from "./auth.js";
 import { projectsRoutes } from "./routes/projects.js";
 import { sessionsRoutes } from "./routes/sessions.js";
+import { knowledgeRoutes } from "./routes/knowledge.js";
 import { wsRoutes } from "./routes/ws.js";
 import { SessionWsHub } from "./ws-hub.js";
 
@@ -48,7 +49,8 @@ export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
     allowedRoots: cfg.allowedRoots,
   });
 
-  await app.register(sessionsRoutes, { db, hub });
+  await app.register(sessionsRoutes, { db, hub, cfg });
+  await app.register(knowledgeRoutes, { db });
   await app.register(wsRoutes, { db, hub, token: cfg.token });
 
   return { app, db, hub };

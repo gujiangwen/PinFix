@@ -1,6 +1,7 @@
 import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
 import { findMonorepoRoot, resolveFromRoot } from "./paths.js";
+import type { MarkupAdapterKind } from "@sightloop/markup-bridge";
 
 loadEnv({ path: resolve(findMonorepoRoot(), ".env") });
 
@@ -37,6 +38,10 @@ export type DaemonConfig = {
   allowedRoots: string[];
   dbPath: string;
   version: string;
+  markupWorkspaceRoot: string;
+  lockDir: string;
+  markupAdapter: MarkupAdapterKind;
+  markupLicenseKey?: string;
 };
 
 export function loadConfig(): DaemonConfig {
@@ -47,6 +52,10 @@ export function loadConfig(): DaemonConfig {
     );
   }
 
+  const adapterRaw = (process.env.MARKUP_ADAPTER ?? "self").toLowerCase();
+  const markupAdapter: MarkupAdapterKind =
+    adapterRaw === "official" ? "official" : "self";
+
   return {
     host,
     port: Number.parseInt(process.env.SIGHTLOOP_PORT ?? "7420", 10),
@@ -55,6 +64,14 @@ export function loadConfig(): DaemonConfig {
     dbPath: resolveFromRoot(
       process.env.SIGHTLOOP_DB_PATH ?? "./data/projects.sqlite",
     ),
-    version: "0.1.0",
+    version: "0.3.0",
+    markupWorkspaceRoot: resolveFromRoot(
+      process.env.MARKUP_WORKSPACE ?? "./data/markup-workspace",
+    ),
+    lockDir: resolveFromRoot(
+      process.env.SIGHTLOOP_LOCK_DIR ?? "./data/locks",
+    ),
+    markupAdapter,
+    markupLicenseKey: process.env.MARKUP_LICENSE_KEY || undefined,
   };
 }

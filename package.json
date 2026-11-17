@@ -14,7 +14,7 @@
     "dev:admin": "pnpm --filter @sightloop/admin dev",
     "dev:extension": "pnpm --filter @sightloop/extension dev",
     "dev:fixture": "pnpm --filter @sightloop/fixture-react dev",
-    "test": "pnpm --filter @sightloop/sniff test",
+    "test": "pnpm --filter @sightloop/sniff test && pnpm --filter @sightloop/markup-bridge test && pnpm --filter @sightloop/agent-runtime test",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint"
   },

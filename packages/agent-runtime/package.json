@@ -2,11 +2,29 @@
   "name": "@sightloop/agent-runtime",
   "version": "0.1.0",
   "private": true,
-  "description": "Stub — Agent Loop / pi runner lands in M3",
+  "description": "Agent Loop: retrieve-before-act, pi/mock runners, verify, temp git commit",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "build": "node -e \"console.log('agent-runtime stub — no build')\"",
-    "typecheck": "node -e \"process.exit(0)\""
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sightloop/markup-bridge": "workspace:*",
+    "@sightloop/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
   }
 }

@@ -15,18 +15,23 @@ export class SightLoopToolbar {
   private shadow: ShadowRoot;
   private highlight: HTMLDivElement;
   private toolbar: HTMLDivElement;
+  private reviewEl!: HTMLElement;
   private bubble: HTMLDivElement | null = null;
   private statusEl!: HTMLElement;
   private queueEl!: HTMLElement;
   private pickActive = false;
   private queue: PickItem[] = [];
-  private lastSessionStatus = "";
+  private activeSessionId: string | null = null;
+  private reviewPreview: {
+    summary?: string;
+    temp_commit_sha?: string | null;
+    mode?: string;
+  } | null = null;
 
   constructor() {
     this.host = document.createElement("div");
     this.host.id = "sightloop-root";
     this.host.setAttribute("data-sightloop", "host");
-    // Closed shadow isolates from host CSS.
     this.shadow = this.host.attachShadow({ mode: "closed" });
 
     const style = document.createElement("style");
@@ -52,12 +57,23 @@ export class SightLoopToolbar {
         <button class="sl-btn" data-action="submit-batch" disabled>Submit batch</button>
         <button class="sl-btn" data-action="clear" disabled>Clear</button>
       </div>
+      <div class="sl-review" data-ref="review" hidden>
+        <div class="sl-review-title">Awaiting review</div>
+        <div class="sl-review-summary" data-ref="review-summary"></div>
+        <textarea data-ref="refine-note" placeholder="Refine note (optional)"></textarea>
+        <div class="sl-row">
+          <button class="sl-btn primary" data-action="accept">Accept</button>
+          <button class="sl-btn" data-action="refine">Refine</button>
+          <button class="sl-btn danger" data-action="revert">Revert</button>
+        </div>
+      </div>
       <div class="sl-queue" data-ref="queue"></div>
     `;
     root.appendChild(this.toolbar);
 
     this.statusEl = this.toolbar.querySelector('[data-ref="status"]')!;
     this.queueEl = this.toolbar.querySelector('[data-ref="queue"]')!;
+    this.reviewEl = this.toolbar.querySelector('[data-ref="review"]')!;
 
     this.toolbar.addEventListener("click", (e) => {
       const t = e.target as HTMLElement | null;
@@ -65,6 +81,9 @@ export class SightLoopToolbar {
       if (action === "toggle-pick") this.togglePick();
       if (action === "submit-batch") void this.submitBatch();
       if (action === "clear") this.clearQueue();
+      if (action === "accept") void this.review("accept");
+      if (action === "refine") void this.review("refine");
+      if (action === "revert") void this.review("revert");
     });
 
     document.documentElement.appendChild(this.host);
@@ -73,6 +92,11 @@ export class SightLoopToolbar {
 
   setStatus(text: string): void {
     this.statusEl.innerHTML = text;
+  }
+
+  private setReviewVisible(visible: boolean): void {
+    if (visible) this.reviewEl.removeAttribute("hidden");
+    else this.reviewEl.setAttribute("hidden", "");
   }
 
   togglePick(force?: boolean): void {
@@ -250,9 +274,17 @@ export class SightLoopToolbar {
     this.setStatus("Queue cleared.");
   }
 
+  private rememberSession(session?: { id?: string; status?: string }): void {
+    if (!session?.id) return;
+    this.activeSessionId = session.id;
+    if (session.status === "awaiting_review") {
+      this.setReviewVisible(true);
+    }
+  }
+
   private async submitOne(item: PickItem): Promise<void> {
     this.hideBubble();
-    this.setStatus("Creating session…");
+    this.setStatus("Creating session + starting loop…");
     const selector =
       typeof item.sniff === "object" &&
       item.sniff &&
@@ -268,17 +300,23 @@ export class SightLoopToolbar {
         note: item.note || undefined,
         selector,
       },
+      start: true,
     });
     if (!res.ok) {
       this.setStatus(`Submit failed: ${escapeHtml(res.error)}`);
       return;
     }
-    const session = (res.data as { session?: { id: string; status: string } })
-      ?.session;
-    this.lastSessionStatus = session
-      ? `Session ${session.id.slice(0, 8)}… → ${session.status}`
-      : "Session created";
-    this.setStatus(escapeHtml(this.lastSessionStatus));
+    const data = res.data as {
+      session?: { id: string; status: string };
+      started?: { id: string; status: string };
+    };
+    const session = data.started ?? data.session;
+    this.rememberSession(session);
+    this.setStatus(
+      session
+        ? `Session ${escapeHtml(session.id.slice(0, 8))}… → ${escapeHtml(session.status)}`
+        : "Session created",
+    );
     this.togglePick(false);
   }
 
@@ -310,17 +348,97 @@ export class SightLoopToolbar {
       this.setStatus(`Batch failed: ${escapeHtml(res.error)}`);
       return;
     }
-    const count =
-      (res.data as { sessions?: unknown[] })?.sessions?.length ?? items.length;
+    const sessions =
+      (res.data as { sessions?: Array<{ session?: { id: string; status: string }; started?: { id: string; status: string } }> })
+        ?.sessions ?? [];
+    const last = sessions[sessions.length - 1];
+    this.rememberSession(last?.started ?? last?.session);
     this.clearQueue();
-    this.setStatus(`Batch OK — ${count} session(s) created & WS subscribed.`);
+    this.setStatus(`Batch OK — ${sessions.length} session(s); loop started.`);
     this.togglePick(false);
   }
 
   onSessionStatus(sessionId: string, status: string, stepCount: number): void {
+    this.activeSessionId = sessionId;
     this.setStatus(
       `WS <strong>${escapeHtml(sessionId.slice(0, 8))}…</strong> → ${escapeHtml(status)} (steps ${stepCount})`,
     );
+    if (status === "awaiting_review") {
+      this.setReviewVisible(true);
+    } else if (
+      status === "accepted" ||
+      status === "reverted" ||
+      status === "failed"
+    ) {
+      this.setReviewVisible(false);
+      this.reviewPreview = null;
+    } else if (status === "refined" || status === "retrieving" || status === "acting") {
+      this.setReviewVisible(false);
+    }
+  }
+
+  onAwaitingReview(
+    sessionId: string,
+    preview: {
+      summary?: string;
+      temp_commit_sha?: string | null;
+      mode?: string;
+    },
+  ): void {
+    this.activeSessionId = sessionId;
+    this.reviewPreview = preview;
+    this.setReviewVisible(true);
+    const summaryEl = this.reviewEl.querySelector(
+      '[data-ref="review-summary"]',
+    ) as HTMLElement;
+    const sha = preview.temp_commit_sha
+      ? preview.temp_commit_sha.slice(0, 8)
+      : "—";
+    summaryEl.textContent = `${preview.summary ?? "Changes ready"} · commit ${sha}${preview.mode ? ` · ${preview.mode}` : ""}`;
+    this.setStatus(
+      `Awaiting review — <strong>${escapeHtml(sessionId.slice(0, 8))}…</strong>`,
+    );
+  }
+
+  onTerminal(sessionId: string, status: string): void {
+    this.activeSessionId = sessionId;
+    this.setReviewVisible(false);
+    this.setStatus(
+      `Done <strong>${escapeHtml(sessionId.slice(0, 8))}…</strong> → ${escapeHtml(status)}`,
+    );
+  }
+
+  private async review(
+    decision: "accept" | "refine" | "revert",
+  ): Promise<void> {
+    if (!this.activeSessionId) {
+      this.setStatus("No active session to review.");
+      return;
+    }
+    const note =
+      (
+        this.reviewEl.querySelector(
+          '[data-ref="refine-note"]',
+        ) as HTMLTextAreaElement
+      )?.value ?? "";
+    this.setStatus(`${decision}…`);
+    const res = await sendRuntime({
+      type: "review_session",
+      sessionId: this.activeSessionId,
+      decision,
+      note: note || undefined,
+    });
+    if (!res.ok) {
+      this.setStatus(`Review failed: ${escapeHtml(res.error)}`);
+      return;
+    }
+    const session = (res.data as { session?: { status: string } })?.session;
+    this.setStatus(
+      `Review ${decision} → ${escapeHtml(session?.status ?? "ok")}`,
+    );
+    if (decision !== "refine") {
+      this.setReviewVisible(false);
+    }
   }
 }
 

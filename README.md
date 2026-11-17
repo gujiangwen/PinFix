@@ -2,7 +2,7 @@
 
 Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Agent Loop daemon + Admin.
 
-**Milestone 2** adds the Chrome extension (Shadow DOM pick UI), `@sightloop/sniff` (React → Vue 3 → DOM), Daemon sessions + WebSocket status, and a small React fixture app for manual demos.
+**Milestone 3** adds markup workspace dual-adapters, Agent Loop (retrieve → act → verify → temp commit), Accept / Refine / Revert, Distill-on-Accept, and a mock runner so demos work without LLM keys.
 
 ## Stack
 
@@ -13,6 +13,8 @@ Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Age
 | DB | SQLite via `better-sqlite3` |
 | Shared types | Zod in `@sightloop/shared` |
 | Sniff | `@sightloop/sniff` (Vitest + happy-dom) |
+| Markup | `@sightloop/markup-bridge` (self + optional `markup-mcp`) |
+| Agent | `@sightloop/agent-runtime` (`pi` or mock) |
 | Extension | Vite + `@crxjs/vite-plugin` (Chrome MV3 only) |
 | Admin | Vite + React 19 |
 | Fixture | Vite + React 19 (`apps/fixture-react`) |
@@ -21,17 +23,17 @@ Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Age
 
 ```text
 apps/
-  daemon/          # Project Registry + sessions + WS
+  daemon/          # Registry + sessions + Agent Loop + WS
   admin/           # Minimal project CRUD UI
-  extension/       # MV3 pick / annotate / submit
+  extension/       # MV3 pick / annotate / review
   fixture-react/   # Sample page for pick demos
 packages/
-  shared/          # Zod DTOs / API error shape / session + WS
+  shared/          # Zod DTOs / API error shape / session + review + WS
   db/              # Schema migrations + repositories
   sniff/           # React Fiber / Vue3 / DOM waterfall
-  agent-runtime/   # stub (M3)
-  markup-bridge/   # stub (M3)
-data/              # runtime sqlite (gitignored)
+  markup-bridge/   # Workspace writer/reader + dual adapters
+  agent-runtime/   # Loop, mock/pi runners, git, distill
+data/              # runtime sqlite / markup / locks (gitignored)
 ```
 
 ## Prerequisites
@@ -39,17 +41,21 @@ data/              # runtime sqlite (gitignored)
 - Node.js ≥ 22
 - pnpm 10.x (`corepack enable` or install via npm)
 - Google Chrome (extension is Chrome-only)
+- `git` on PATH (temp commits / revert)
 
 ## Setup
 
 ```bash
 cp .env.example .env
 # edit SIGHTLOOP_TOKEN / SIGHTLOOP_ALLOWED_ROOTS as needed
+# optional: set OPENAI_API_KEY / ANTHROPIC_API_KEY for real pi runs
 
 pnpm install
 pnpm build
-pnpm test   # @sightloop/sniff unit tests
+pnpm test
 ```
+
+Without any LLM API key, the daemon uses the **mock AgentRunner** (whitelist-safe edit) so Accept / Refine / Revert still demo end-to-end.
 
 ## Run daemon
 
@@ -64,25 +70,26 @@ Health check (no token):
 curl -s http://127.0.0.1:7420/health
 ```
 
-Register a project pointed at the fixture origin:
+Register a project pointed at a git repo under allowed roots:
 
 ```bash
-mkdir -p /tmp/sightloop-demo
+mkdir -p /tmp/sightloop-m3-demo && git -C /tmp/sightloop-m3-demo init
 curl -s -X POST http://127.0.0.1:7420/v1/projects \
   -H 'Content-Type: application/json' \
   -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN" \
   -d '{
     "name": "fixture-react",
-    "repo_path": "/tmp/sightloop-demo",
+    "repo_path": "/tmp/sightloop-m3-demo",
     "origin_pattern": "http://localhost:5175/*",
+    "file_whitelist": ["src/**"],
     "mode": "hmr"
   }'
 ```
 
-### Sessions + WebSocket (M2)
+### Agent Loop + review (M3)
 
 ```bash
-# create session
+# 1) create session — also writes markup workspace files
 curl -s -X POST http://127.0.0.1:7420/v1/sessions \
   -H 'Content-Type: application/json' \
   -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN" \
@@ -90,19 +97,32 @@ curl -s -X POST http://127.0.0.1:7420/v1/sessions \
     "project_id": "<id>",
     "page_url": "http://localhost:5175/",
     "sniff": { "framework": "react", "componentStack": [{"name":"ProductCard"}] },
-    "annotation": { "note": "button color" }
+    "annotation": { "note": "button color", "selector": "[data-testid=buy]" }
   }'
 
-# subscribe (token via query — WS cannot set custom headers)
-# { "op": "subscribe", "session_id": "<id>" }
-# → { "type": "session.status", "session_id", "status": "idle", "step_count": 0 }
+# 2) start loop → awaiting_review
+curl -s -X POST http://127.0.0.1:7420/v1/sessions/<id>/start \
+  -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN" -H 'Content-Type: application/json' -d '{}'
+
+# 3) inspect diff
+curl -s http://127.0.0.1:7420/v1/sessions/<id>/diff \
+  -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN"
+
+# 4) accept | refine | revert
+curl -s -X POST http://127.0.0.1:7420/v1/sessions/<id>/review \
+  -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"decision":"accept"}'
 ```
 
-Automated smoke (daemon must be running):
+Automated smoke (daemon must be running; uses mock runner when no LLM key):
 
 ```bash
-./scripts/smoke-m2.sh
+./scripts/smoke-m3.sh
+# optional: SIGHTLOOP_SMOKE_DECISION=revert ./scripts/smoke-m3.sh
+# optional: SIGHTLOOP_SMOKE_DECISION=refine ./scripts/smoke-m3.sh
 ```
+
+M2 smoke remains available: `./scripts/smoke-m2.sh`.
 
 ## Run fixture (pick demo page)
 
@@ -132,11 +152,8 @@ Then in Chrome:
 3. **Load unpacked** → select `apps/extension/dist`
 4. Open the SightLoop popup → set Daemon URL `http://127.0.0.1:7420`, token from `.env`, **Refresh projects**, select the fixture project, **Save**
 5. Open http://localhost:5175
-6. Press **Alt+Shift+A** (or popup → Toggle pick) → hover highlight → click a card
-7. Add an annotation note → **Submit** (single) or **Add to batch** then **Submit batch**
-8. Toolbar shows session id / WS `session.status` updates
-
-Shadow DOM keeps the floating toolbar isolated from host CSS. Sniffing runs in the **Main World** inject script; the content script only bridges messages.
+6. Press **Alt+Shift+A** → pick → annotate → **Submit** (creates session, writes markup, starts loop)
+7. When status is `awaiting_review`, use **Accept / Refine / Revert** in the toolbar
 
 ## Run Admin
 
@@ -154,7 +171,8 @@ Open http://127.0.0.1:5173 — set `VITE_DAEMON_URL` / `VITE_DAEMON_TOKEN` (see 
 | `origin_pattern` | Which page origins may attach (extension guidance) |
 | `verify_cmd` | Optional post-edit verify shell command |
 | `file_whitelist` | Relative globs the agent may edit |
-| `mode` | `hmr` \| `pr` |
+| `mode` | `hmr` \| `pr` (PR mode Accept tries `gh pr create`) |
+| `markup_workspace` | Optional override; default under `MARKUP_WORKSPACE/<projectId>` |
 
 ## Security
 
@@ -162,8 +180,10 @@ Open http://127.0.0.1:5173 — set `VITE_DAEMON_URL` / `VITE_DAEMON_TOKEN` (see 
 - Non-`/health` routes require the shared token **and** a loopback peer.
 - WS auth: `?token=` (or header on upgrade).
 - `repo_path` registration is rejected with `path_escape_blocked` when outside allowed roots.
-- Sniff redacts sensitive prop keys (`password`, `token`, `authorization`, …); never serializes input values by default.
+- Agent edits are locked per `repo_path`; `max_steps` capped at 5.
+- LLM / MarkUp license keys live only in Daemon env (see `.env.example`) — never in the extension.
+- Sniff redacts sensitive prop keys; never serializes input values by default.
 
-## Out of scope for M2
+## Out of scope for M3
 
-Agent Loop / `pi` / markup-mcp / Accept-Refine-Revert / knowledge distill / full Admin observability (M3/M4).
+Full Admin observability UI / knowledge hub polish (Milestone 4).

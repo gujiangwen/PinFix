@@ -51,9 +51,15 @@ importers:
       '@fastify/websocket':
         specifier: ^11.0.2
         version: 11.3.7
+      '@sightloop/agent-runtime':
+        specifier: workspace:*
+        version: link:../../packages/agent-runtime
       '@sightloop/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@sightloop/markup-bridge':
+        specifier: workspace:*
+        version: link:../../packages/markup-bridge
       '@sightloop/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -130,7 +136,24 @@ importers:
         specifier: ^6.3.5
         version: 6.4.6(@types/node@22.20.5)(tsx@4.23.15)
 
-  packages/agent-runtime: {}
+  packages/agent-runtime:
+    dependencies:
+      '@sightloop/markup-bridge':
+        specifier: workspace:*
+        version: link:../markup-bridge
+      '@sightloop/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.20.5
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.7(@types/node@22.20.5)(happy-dom@17.6.3)(tsx@4.23.15)
 
   packages/db:
     dependencies:
@@ -154,7 +177,21 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
-  packages/markup-bridge: {}
+  packages/markup-bridge:
+    dependencies:
+      '@sightloop/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.20.5
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.7(@types/node@22.20.5)(happy-dom@17.6.3)(tsx@4.23.15)
 
   packages/shared:
     dependencies:

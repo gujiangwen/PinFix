@@ -13,4 +13,10 @@ export {
   getSession,
   listSessions,
   updateSessionStatus,
+  updateSession,
+  countActiveSessionsForProject,
+  type SessionPatch,
 } from "./sessions.js";
+export { insertAgentStep, listAgentSteps } from "./steps.js";
+export { insertReview, listReviews } from "./reviews.js";
+export { insertKnowledge, listKnowledge } from "./knowledge.js";

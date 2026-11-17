@@ -13,14 +13,21 @@ chrome.runtime.onMessage.addListener((message) => {
       Number(message.stepCount ?? 0),
     );
   }
+  if (message?.type === "session_awaiting_review") {
+    toolbar.onAwaitingReview(String(message.sessionId ?? ""), message.preview ?? {});
+  }
+  if (message?.type === "session_terminal_event") {
+    toolbar.onTerminal(
+      String(message.sessionId ?? ""),
+      String(message.status ?? ""),
+    );
+  }
 });
 
-// Hotkey fallback when commands API is unavailable on the page focus.
 window.addEventListener(
   "keydown",
   (ev) => {
     if (ev.altKey && ev.shiftKey && (ev.key === "A" || ev.key === "a")) {
-      // Prefer chrome.commands; this is a page-level backup.
       ev.preventDefault();
       toolbar.togglePick();
     }

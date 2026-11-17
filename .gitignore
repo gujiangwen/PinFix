@@ -6,6 +6,7 @@ data/*.sqlite
 data/*.sqlite-*
 data/markup-workspace/
 data/sandboxes/
+data/locks/
 .env
 .env.local
 *.log

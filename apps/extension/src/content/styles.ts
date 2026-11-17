@@ -72,6 +72,46 @@ export const TOOLBAR_CSS = `
   font-weight: 600;
 }
 .sl-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.sl-btn.danger {
+  border-color: rgba(255, 120, 120, 0.45);
+  color: #ffc9c9;
+}
+.sl-btn.danger:hover {
+  background: rgba(255, 80, 80, 0.2);
+  border-color: #ff8080;
+}
+
+.sl-review {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(61, 214, 198, 0.08);
+  border: 1px solid rgba(61, 214, 198, 0.25);
+}
+.sl-review[hidden] { display: none !important; }
+.sl-review-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3dd6c6;
+}
+.sl-review-summary {
+  font-size: 11px;
+  color: rgba(232, 238, 247, 0.75);
+  line-height: 1.35;
+}
+.sl-review textarea {
+  width: 100%;
+  min-height: 44px;
+  resize: vertical;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #e8eef7;
+  font: inherit;
+  padding: 6px;
+}
 
 .sl-status {
   font-size: 11px;

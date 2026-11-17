@@ -153,9 +153,17 @@ export function insertAudit(
   event: string,
   detail: unknown,
   projectId?: string | null,
+  sessionId?: string | null,
 ): void {
   db.prepare(
     `INSERT INTO audit_log (id, project_id, session_id, event, detail_json, created_at)
-     VALUES (?, ?, NULL, ?, ?, ?)`,
-  ).run(ulid(), projectId ?? null, event, JSON.stringify(detail), Date.now());
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    ulid(),
+    projectId ?? null,
+    sessionId ?? null,
+    event,
+    JSON.stringify(detail),
+    Date.now(),
+  );
 }

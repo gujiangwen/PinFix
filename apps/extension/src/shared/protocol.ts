@@ -1,4 +1,4 @@
-/** Cross-world + extension message contracts (M2). */
+/** Cross-world + extension message contracts (M2/M3). */
 
 export const EXT_SOURCE = "sightloop-ext" as const;
 export const PAGE_SOURCE = "sightloop-page" as const;
@@ -16,12 +16,15 @@ export type ExtensionSettings = {
   daemonUrl: string;
   token: string;
   projectId: string;
+  /** When true (default), start Agent Loop right after session create. */
+  autoStart?: boolean;
 };
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   daemonUrl: "http://127.0.0.1:7420",
   token: "dev-token-change-me",
   projectId: "",
+  autoStart: true,
 };
 
 /** window.postMessage between content ↔ injected */
@@ -71,6 +74,8 @@ export type RuntimeMessage =
       pageUrl: string;
       sniff: unknown;
       annotation?: { note?: string; selector?: string };
+      /** Override settings.autoStart for this call. */
+      start?: boolean;
     }
   | {
       type: "create_sessions_batch";
@@ -80,6 +85,14 @@ export type RuntimeMessage =
         annotation?: { note?: string; selector?: string };
       }>;
     }
+  | { type: "start_session"; sessionId: string }
+  | {
+      type: "review_session";
+      sessionId: string;
+      decision: "accept" | "refine" | "revert";
+      note?: string;
+    }
+  | { type: "get_diff"; sessionId: string }
   | { type: "subscribe_session"; sessionId: string }
   | { type: "toggle_pick" }
   | { type: "pick_state"; active: boolean };
