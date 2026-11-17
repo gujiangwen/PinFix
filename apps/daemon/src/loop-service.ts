@@ -28,6 +28,8 @@ import {
 import type { ReviewDecision, Session } from "@sightloop/shared";
 import type { SessionWsHub } from "./ws-hub.js";
 import type { DaemonConfig } from "./config.js";
+import { buildSessionReadModel } from "./session-read-model.js";
+
 const running = new Set<string>();
 
 function extractComponentNames(sniff: unknown): string[] {
@@ -92,6 +94,43 @@ function makeHooks(
         tool_name: step.tool_name,
         summary: step.summary,
       });
+      hub.broadcastTimeline(sessionId, {
+        at: Date.now(),
+        kind: step.phase === "verify" ? "verify" : "step",
+        label: `${step.phase}${step.tool_name ? ` · ${step.tool_name}` : ""}`,
+        detail: step.summary ?? step.error ?? null,
+      });
+
+      if (step.tool_name === "list_knowledge" && step.output) {
+        const hitsRaw =
+          typeof step.output === "object" &&
+          step.output &&
+          "hits" in step.output &&
+          Array.isArray((step.output as { hits: unknown }).hits)
+            ? ((step.output as { hits: Array<Record<string, unknown>> }).hits)
+            : [];
+        const hits = hitsRaw.map((h) => ({
+          knowledge_id: (h.id as string | null | undefined) ?? null,
+          title: String(h.title ?? "(untitled)"),
+          score: (h.score as number | null | undefined) ?? null,
+          distance: (h.distance as number | null | undefined) ?? null,
+          retrieve: (h.retrieve as string | null | undefined) ?? null,
+          kind: (h.kind as string | null | undefined) ?? null,
+        }));
+        hub.broadcastRecall(sessionId, hits);
+      }
+
+      if (step.phase === "verify") {
+        const out =
+          step.output && typeof step.output === "object"
+            ? (step.output as { ok?: boolean; output?: string })
+            : {};
+        hub.broadcastVerify(sessionId, {
+          ok: Boolean(out.ok) && !step.error,
+          exit_code: out.ok ? 0 : 1,
+          log_tail: String(out.output ?? step.error ?? "").slice(-2000),
+        });
+      }
     },
     onAwaitingReview(preview) {
       hub.broadcastAwaitingReview(sessionId, preview);
@@ -293,7 +332,18 @@ export async function reviewSession(
   sessionId: string,
   decision: ReviewDecision,
   note?: string,
-): Promise<{ session: Session; knowledge_id?: string; pr?: unknown }> {
+): Promise<{
+  session: Session;
+  knowledge_id?: string;
+  pr?: unknown;
+  distilled_knowledge?: {
+    id: string;
+    title: string;
+    kind: string;
+    body_preview: string;
+  };
+  timeline?: NonNullable<ReturnType<typeof buildSessionReadModel>>["timeline"];
+}> {
   const session = getSession(db, sessionId);
   if (!session) {
     throw Object.assign(new Error("Session not found"), { code: "not_found" });
@@ -315,6 +365,13 @@ export async function reviewSession(
     decision,
     note: note ?? null,
   });
+  hub.broadcastTimeline(sessionId, {
+    at: Date.now(),
+    kind: decision === "refine" ? "refine_note" : "review",
+    label: `review · ${decision}`,
+    detail: note ?? null,
+    note: note,
+  });
 
   if (decision === "revert") {
     if (!session.git_base_sha) {
@@ -334,7 +391,8 @@ export async function reviewSession(
     })!;
     hub.broadcastStatus(sessionId, "reverted", updated.step_count);
     hub.broadcastTerminal(sessionId, "reverted");
-    return { session: updated };
+    const model = buildSessionReadModel(db, sessionId);
+    return { session: updated, timeline: model?.timeline };
   }
 
   if (decision === "refine") {
@@ -358,7 +416,8 @@ export async function reviewSession(
       hub.broadcastStatus(sessionId, "failed", updated.step_count);
       hub.broadcastTerminal(sessionId, "failed");
     });
-    return { session: updated };
+    const model = buildSessionReadModel(db, sessionId);
+    return { session: updated, timeline: model?.timeline };
   }
 
   // accept → distilling → accepted
@@ -402,6 +461,20 @@ export async function reviewSession(
     pinned: false,
   });
 
+  const distilled_knowledge = {
+    id: knowledge.id,
+    title: knowledge.title,
+    kind: knowledge.kind,
+    body_preview: knowledge.body_md.replace(/\s+/g, " ").trim().slice(0, 220),
+  };
+  hub.broadcastKnowledgeDistilled(sessionId, distilled_knowledge);
+  hub.broadcastTimeline(sessionId, {
+    at: Date.now(),
+    kind: "distill",
+    label: `distill · ${knowledge.title}`,
+    detail: distilled_knowledge.body_preview,
+  });
+
   const gitAccept = acceptSessionGit({
     project: {
       id: project.id,
@@ -436,10 +509,13 @@ export async function reviewSession(
   hub.broadcastStatus(sessionId, "accepted", updated.step_count);
   hub.broadcastTerminal(sessionId, "accepted");
 
+  const model = buildSessionReadModel(db, sessionId);
   return {
     session: updated,
     knowledge_id: knowledge.id,
     pr: gitAccept.pr,
+    distilled_knowledge,
+    timeline: model?.timeline,
   };
 }
 

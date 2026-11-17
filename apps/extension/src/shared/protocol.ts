@@ -109,6 +109,7 @@ export type RuntimeMessage =
       note?: string;
     }
   | { type: "get_diff"; sessionId: string }
+  | { type: "get_session"; sessionId: string }
   | { type: "subscribe_session"; sessionId: string }
   | { type: "toggle_pick" }
   | { type: "pick_state"; active: boolean };

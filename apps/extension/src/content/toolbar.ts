@@ -60,9 +60,36 @@ export class SightLoopToolbar {
         <button class="sl-btn" data-action="clear" disabled>Clear</button>
       </div>
       <div class="sl-review" data-ref="review" hidden>
-        <div class="sl-review-title">Awaiting review</div>
+        <div class="sl-review-title">验收</div>
         <div class="sl-review-summary" data-ref="review-summary"></div>
-        <textarea data-ref="refine-note" placeholder="Refine note (optional)"></textarea>
+        <div class="sl-viz" data-ref="viz">
+          <section class="sl-viz-block">
+            <h4>Diff 摘要</h4>
+            <div data-ref="diff-summary" class="sl-viz-body muted">加载中…</div>
+            <details class="sl-viz-details">
+              <summary>查看统一 diff</summary>
+              <pre data-ref="diff-full" class="sl-viz-pre"></pre>
+            </details>
+          </section>
+          <section class="sl-viz-block">
+            <h4>Verify</h4>
+            <div data-ref="verify-summary" class="sl-viz-body muted">无 verify_cmd 或尚未运行</div>
+          </section>
+          <section class="sl-viz-block">
+            <h4>本轮召回</h4>
+            <div data-ref="recall-list" class="sl-viz-body muted">暂无知识召回</div>
+          </section>
+          <section class="sl-viz-block">
+            <h4>时间线</h4>
+            <ol data-ref="timeline" class="sl-timeline"></ol>
+          </section>
+        </div>
+        <div class="sl-distill" data-ref="distill" hidden>
+          <div class="sl-distill-title">已写入知识</div>
+          <div data-ref="distill-body" class="sl-viz-body"></div>
+          <button class="sl-btn" data-action="dismiss-distill" type="button">关闭</button>
+        </div>
+        <textarea data-ref="refine-note" placeholder="Refine note（可选，进入下一轮）"></textarea>
         <div class="sl-row">
           <button class="sl-btn primary" data-action="accept">Accept</button>
           <button class="sl-btn" data-action="refine">Refine</button>
@@ -91,6 +118,7 @@ export class SightLoopToolbar {
       if (action === "accept") void this.review("accept");
       if (action === "refine") void this.review("refine");
       if (action === "revert") void this.review("revert");
+      if (action === "dismiss-distill") this.hideDistill();
     });
 
     document.documentElement.appendChild(this.host);
@@ -389,13 +417,14 @@ export class SightLoopToolbar {
     );
     if (status === "awaiting_review") {
       this.setReviewVisible(true);
-    } else if (
-      status === "accepted" ||
-      status === "reverted" ||
-      status === "failed"
-    ) {
+      void this.loadAcceptancePanel(sessionId);
+    } else if (status === "accepted") {
+      // Keep panel open so distilled knowledge card stays visible.
+      this.setReviewVisible(true);
+    } else if (status === "reverted" || status === "failed") {
       this.setReviewVisible(false);
       this.reviewPreview = null;
+      this.hideDistill();
     } else if (status === "refined" || status === "retrieving" || status === "acting") {
       this.setReviewVisible(false);
     }
@@ -422,14 +451,245 @@ export class SightLoopToolbar {
     this.setStatus(
       `Awaiting review — <strong>${escapeHtml(sessionId.slice(0, 8))}…</strong>`,
     );
+    void this.loadAcceptancePanel(sessionId);
   }
 
   onTerminal(sessionId: string, status: string): void {
     this.activeSessionId = sessionId;
-    this.setReviewVisible(false);
+    if (status !== "accepted") {
+      this.setReviewVisible(false);
+    }
     this.setStatus(
       `Done <strong>${escapeHtml(sessionId.slice(0, 8))}…</strong> → ${escapeHtml(status)}`,
     );
+  }
+
+  onVerify(
+    sessionId: string,
+    verify: { ok?: boolean; log_tail?: string; command?: string | null },
+  ): void {
+    if (this.activeSessionId && this.activeSessionId !== sessionId) return;
+    this.renderVerify(verify);
+  }
+
+  onRecall(
+    sessionId: string,
+    hits: Array<{ title?: string; score?: number | null; body_preview?: string }>,
+  ): void {
+    if (this.activeSessionId && this.activeSessionId !== sessionId) return;
+    this.renderRecall(hits);
+  }
+
+  onTimelineEvent(
+    sessionId: string,
+    event: { label?: string; detail?: string | null; kind?: string },
+  ): void {
+    if (this.activeSessionId && this.activeSessionId !== sessionId) return;
+    const ol = this.reviewEl.querySelector(
+      '[data-ref="timeline"]',
+    ) as HTMLOListElement | null;
+    if (!ol) return;
+    const li = document.createElement("li");
+    li.innerHTML = `<strong>${escapeHtml(event.label ?? event.kind ?? "event")}</strong>${
+      event.detail ? ` — ${escapeHtml(String(event.detail).slice(0, 120))}` : ""
+    }`;
+    ol.appendChild(li);
+  }
+
+  onKnowledgeDistilled(
+    sessionId: string,
+    knowledge: {
+      id?: string;
+      title?: string;
+      kind?: string;
+      body_preview?: string;
+    },
+  ): void {
+    this.activeSessionId = sessionId;
+    this.showDistill(knowledge);
+  }
+
+  private hideDistill(): void {
+    const el = this.reviewEl.querySelector(
+      '[data-ref="distill"]',
+    ) as HTMLElement | null;
+    el?.setAttribute("hidden", "");
+  }
+
+  private showDistill(knowledge: {
+    title?: string;
+    kind?: string;
+    body_preview?: string;
+    id?: string;
+  }): void {
+    const wrap = this.reviewEl.querySelector(
+      '[data-ref="distill"]',
+    ) as HTMLElement | null;
+    const body = this.reviewEl.querySelector(
+      '[data-ref="distill-body"]',
+    ) as HTMLElement | null;
+    if (!wrap || !body) return;
+    body.innerHTML = `<strong>${escapeHtml(knowledge.title ?? "Knowledge")}</strong>
+      <div class="muted">${escapeHtml(knowledge.kind ?? "")}${
+        knowledge.id ? ` · ${escapeHtml(knowledge.id.slice(0, 10))}…` : ""
+      }</div>
+      <p>${escapeHtml(knowledge.body_preview ?? "")}</p>
+      <div class="muted">Admin Knowledge Hub · http://127.0.0.1:5173/#knowledge</div>`;
+    wrap.removeAttribute("hidden");
+    this.setReviewVisible(true);
+  }
+
+  private renderVerify(verify: {
+    ok?: boolean;
+    log_tail?: string;
+    command?: string | null;
+  } | null): void {
+    const el = this.reviewEl.querySelector(
+      '[data-ref="verify-summary"]',
+    ) as HTMLElement | null;
+    if (!el) return;
+    if (!verify) {
+      el.className = "sl-viz-body muted";
+      el.textContent = "无 verify_cmd 或尚未运行";
+      return;
+    }
+    el.className = `sl-viz-body ${verify.ok ? "ok" : "bad"}`;
+    el.innerHTML = `<div>${verify.ok ? "pass" : "fail"}${
+      verify.command ? ` · <code>${escapeHtml(verify.command)}</code>` : ""
+    }</div><pre class="sl-viz-pre">${escapeHtml(
+      (verify.log_tail ?? "").slice(-800) || "(empty)",
+    )}</pre>`;
+  }
+
+  private renderRecall(
+    hits: Array<{
+      title?: string;
+      score?: number | null;
+      body_preview?: string;
+      knowledge_id?: string | null;
+    }>,
+  ): void {
+    const el = this.reviewEl.querySelector(
+      '[data-ref="recall-list"]',
+    ) as HTMLElement | null;
+    if (!el) return;
+    if (!hits.length) {
+      el.className = "sl-viz-body muted";
+      el.textContent = "暂无知识召回";
+      return;
+    }
+    el.className = "sl-viz-body";
+    el.innerHTML = `<ul class="sl-recall">${hits
+      .map(
+        (h) =>
+          `<li><strong>${escapeHtml(h.title ?? "")}</strong>${
+            h.score != null ? ` <span class="muted">score=${Number(h.score).toFixed(2)}</span>` : ""
+          }${
+            h.body_preview
+              ? `<div class="muted">${escapeHtml(h.body_preview.slice(0, 140))}</div>`
+              : ""
+          }</li>`,
+      )
+      .join("")}</ul>`;
+  }
+
+  private renderTimeline(
+    events: Array<{ label?: string; detail?: string | null; kind?: string }>,
+  ): void {
+    const ol = this.reviewEl.querySelector(
+      '[data-ref="timeline"]',
+    ) as HTMLOListElement | null;
+    if (!ol) return;
+    ol.innerHTML = events
+      .map(
+        (e) =>
+          `<li><strong>${escapeHtml(e.label ?? e.kind ?? "event")}</strong>${
+            e.detail
+              ? ` — ${escapeHtml(String(e.detail).slice(0, 140))}`
+              : ""
+          }</li>`,
+      )
+      .join("");
+  }
+
+  private renderDiffSummary(
+    summary: {
+      files?: Array<{ path: string; additions: number; deletions: number }>;
+      additions?: number;
+      deletions?: number;
+    } | null,
+    patch: string,
+  ): void {
+    const el = this.reviewEl.querySelector(
+      '[data-ref="diff-summary"]',
+    ) as HTMLElement | null;
+    const pre = this.reviewEl.querySelector(
+      '[data-ref="diff-full"]',
+    ) as HTMLElement | null;
+    if (pre) {
+      pre.textContent = (patch || "(empty patch)").slice(0, 12000);
+    }
+    if (!el) return;
+    if (!summary?.files?.length) {
+      el.className = "sl-viz-body muted";
+      el.textContent = "暂无文件变更摘要";
+      return;
+    }
+    el.className = "sl-viz-body";
+    const head = `+${summary.additions ?? 0} / −${summary.deletions ?? 0} · ${summary.files.length} file(s)`;
+    const rows = summary.files
+      .slice(0, 12)
+      .map(
+        (f) =>
+          `<div class="sl-diff-file"><code>${escapeHtml(f.path)}</code> <span class="muted">+${f.additions} −${f.deletions}</span></div>`,
+      )
+      .join("");
+    el.innerHTML = `<div>${escapeHtml(head)}</div>${rows}`;
+  }
+
+  private async loadAcceptancePanel(sessionId: string): Promise<void> {
+    const res = await sendRuntime({ type: "get_session", sessionId });
+    if (!res.ok) {
+      this.setStatus(`加载验收面板失败：${escapeHtml(res.error)}`);
+      return;
+    }
+    const data = res.data as {
+      diff_summary?: {
+        files?: Array<{ path: string; additions: number; deletions: number }>;
+        additions?: number;
+        deletions?: number;
+      } | null;
+      verify?: { ok?: boolean; log_tail?: string; command?: string | null } | null;
+      recall_hits?: Array<{
+        title?: string;
+        score?: number | null;
+        body_preview?: string;
+      }>;
+      timeline?: Array<{ label?: string; detail?: string | null; kind?: string }>;
+      latest_knowledge?: {
+        id?: string;
+        title?: string;
+        kind?: string;
+        body_preview?: string;
+      } | null;
+    };
+    const diffRes = await sendRuntime({ type: "get_diff", sessionId });
+    const patch =
+      diffRes.ok
+        ? String((diffRes.data as { patch?: string })?.patch ?? "")
+        : "";
+    this.renderDiffSummary(
+      data.diff_summary ??
+        (diffRes.ok
+          ? ((diffRes.data as { summary?: typeof data.diff_summary }).summary ??
+            null)
+          : null),
+      patch,
+    );
+    this.renderVerify(data.verify ?? null);
+    this.renderRecall(data.recall_hits ?? []);
+    this.renderTimeline(data.timeline ?? []);
+    if (data.latest_knowledge) this.showDistill(data.latest_knowledge);
   }
 
   private async review(
@@ -456,12 +716,28 @@ export class SightLoopToolbar {
       this.setStatus(`Review failed: ${escapeHtml(res.error)}`);
       return;
     }
-    const session = (res.data as { session?: { status: string } })?.session;
+    const data = res.data as {
+      session?: { status: string };
+      distilled_knowledge?: {
+        id?: string;
+        title?: string;
+        kind?: string;
+        body_preview?: string;
+      };
+      timeline?: Array<{ label?: string; detail?: string | null; kind?: string }>;
+    };
     this.setStatus(
-      `Review ${decision} → ${escapeHtml(session?.status ?? "ok")}`,
+      `Review ${decision} → ${escapeHtml(data.session?.status ?? "ok")}`,
     );
-    if (decision !== "refine") {
+    if (data.timeline) this.renderTimeline(data.timeline);
+    if (decision === "accept" && data.distilled_knowledge) {
+      this.showDistill(data.distilled_knowledge);
+    } else if (decision === "revert") {
       this.setReviewVisible(false);
+      this.hideDistill();
+    } else if (decision === "refine") {
+      this.setReviewVisible(false);
+      // Panel will reopen on next awaiting_review; keep timeline for next load.
     }
   }
 }

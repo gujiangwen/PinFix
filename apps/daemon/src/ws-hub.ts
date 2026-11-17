@@ -82,6 +82,78 @@ export class SessionWsHub {
     this.sendToSession(sessionId, event);
   }
 
+  broadcastVerify(
+    sessionId: string,
+    verify: {
+      ok: boolean;
+      exit_code?: number | null;
+      log_tail: string;
+      command?: string | null;
+    },
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.verify",
+      session_id: sessionId,
+      verify,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
+  broadcastRecall(
+    sessionId: string,
+    hits: Array<{
+      knowledge_id: string | null;
+      title: string;
+      score?: number | null;
+      distance?: number | null;
+      retrieve?: string | null;
+      kind?: string | null;
+      body_preview?: string;
+    }>,
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.recall",
+      session_id: sessionId,
+      hits,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
+  broadcastTimeline(
+    sessionId: string,
+    eventPayload: {
+      at: number;
+      kind: string;
+      label: string;
+      detail?: string | null;
+      note?: string;
+    },
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.timeline",
+      session_id: sessionId,
+      event: eventPayload,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
+  broadcastKnowledgeDistilled(
+    sessionId: string,
+    knowledge: {
+      id: string;
+      title: string;
+      kind: string;
+      body_preview: string;
+    },
+  ): void {
+    const event: WsServerEvent = {
+      type: "session.knowledge_distilled",
+      session_id: sessionId,
+      knowledge,
+    };
+    this.sendToSession(sessionId, event);
+  }
+
   broadcastSecurity(
     eventName: string,
     detail?: Record<string, unknown>,

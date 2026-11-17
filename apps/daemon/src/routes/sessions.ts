@@ -9,8 +9,6 @@ import {
   getProject,
   getSession,
   listSessions,
-  listAgentSteps,
-  listReviews,
   type Database,
 } from "@sightloop/db";
 import type { SessionWsHub } from "../ws-hub.js";
@@ -21,6 +19,10 @@ import {
   getSessionDiff,
   writeSessionMarkup,
 } from "../loop-service.js";
+import {
+  buildSessionReadModel,
+  summarizePatch,
+} from "../session-read-model.js";
 
 export type SessionsRouteOpts = {
   db: Database;
@@ -43,15 +45,22 @@ export const sessionsRoutes: FastifyPluginAsync<SessionsRouteOpts> = async (
   );
 
   app.get<{ Params: { id: string } }>("/v1/sessions/:id", async (req, reply) => {
-    const session = getSession(db, req.params.id);
-    if (!session) {
+    const model = buildSessionReadModel(db, req.params.id);
+    if (!model) {
       return reply
         .code(404)
         .send(apiError("not_found", `Session ${req.params.id} not found`));
     }
-    const steps = listAgentSteps(db, session.id);
-    const reviews = listReviews(db, session.id);
-    return { session, steps, reviews };
+    return {
+      session: model.session,
+      steps: model.steps,
+      reviews: model.reviews,
+      timeline: model.timeline,
+      verify: model.verify,
+      recall_hits: model.recall_hits,
+      diff_summary: model.diff_summary,
+      latest_knowledge: model.latest_knowledge,
+    };
   });
 
   app.post("/v1/sessions", async (req, reply) => {
@@ -169,7 +178,11 @@ export const sessionsRoutes: FastifyPluginAsync<SessionsRouteOpts> = async (
     "/v1/sessions/:id/diff",
     async (req, reply) => {
       try {
-        return getSessionDiff(db, req.params.id);
+        const diff = getSessionDiff(db, req.params.id);
+        return {
+          ...diff,
+          summary: summarizePatch(diff.patch),
+        };
       } catch (err) {
         const code = (err as { code?: string }).code ?? "diff_error";
         return reply

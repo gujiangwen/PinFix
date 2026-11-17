@@ -2,7 +2,7 @@
 
 Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Agent Loop daemon + Admin.
 
-**Milestone 5** adds a one-click **local DX** pack: extension Popup discovers the daemon, shows mock vs `pi` runner, ensures a fixture project, and prefills token/project — so a cold start reaches pickable Demo in minutes. M4 Admin + sqlite-vec knowledge remain available.
+**Milestone 6** adds an in-page **acceptance overlay**: Diff summary, verify result, recalled knowledge, Refine timeline, and a distilled knowledge card after Accept. M5 DX + M4 Admin remain available.
 
 ## Stack
 
@@ -101,7 +101,18 @@ DX APIs:
 
 ```bash
 ./scripts/smoke-m5.sh
+./scripts/smoke-m6.sh   # acceptance read-model + distilled_knowledge
 ```
+
+### Acceptance overlay (M6)
+
+When a session reaches `awaiting_review`, the Shadow toolbar opens **验收** with:
+
+1. **Diff 摘要** — files +/− counts; expand for unified patch  
+2. **Verify** — pass/fail + log tail (if `verify_cmd` ran)  
+3. **本轮召回** — sqlite-vec / pin knowledge hits from Retrieve  
+4. **时间线** — retrieve → act → verify → refine notes → status  
+5. After **Accept** — **已写入知识** card (`distilled_knowledge` / WS `session.knowledge_distilled`)
 
 ## Run Admin (M4)
 
@@ -137,6 +148,7 @@ Tabs:
 Daemon must be running:
 
 ```bash
+./scripts/smoke-m6.sh   # acceptance overlay read-model + distill card
 ./scripts/smoke-m5.sh   # DX status + ensure-fixture + bootstrap gate
 ./scripts/smoke-m4.sh   # Admin APIs + recall order + AGENTS.md sync
 ./scripts/smoke-m3.sh   # Loop + Accept/Refine/Revert

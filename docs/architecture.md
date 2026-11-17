@@ -10,6 +10,8 @@
 
 **M5:** One-click local DX — `/v1/dx/status` + ensure-fixture + Popup wizard + mock vs `pi` badge.
 
+**M6:** Acceptance overlay — session read-model (`timeline`, `diff_summary`, `verify`, `recall_hits`, `latest_knowledge`) + WS `session.verify` / `recall` / `timeline` / `knowledge_distilled`.
+
 ## Extension worlds
 
 | Script | World | Role |

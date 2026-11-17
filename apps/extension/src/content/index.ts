@@ -22,6 +22,21 @@ chrome.runtime.onMessage.addListener((message) => {
       String(message.status ?? ""),
     );
   }
+  if (message?.type === "session_verify_event") {
+    toolbar.onVerify(String(message.sessionId ?? ""), message.verify ?? {});
+  }
+  if (message?.type === "session_recall_event") {
+    toolbar.onRecall(String(message.sessionId ?? ""), message.hits ?? []);
+  }
+  if (message?.type === "session_timeline_event") {
+    toolbar.onTimelineEvent(String(message.sessionId ?? ""), message.event ?? {});
+  }
+  if (message?.type === "session_knowledge_distilled") {
+    toolbar.onKnowledgeDistilled(
+      String(message.sessionId ?? ""),
+      message.knowledge ?? {},
+    );
+  }
 });
 
 window.addEventListener(

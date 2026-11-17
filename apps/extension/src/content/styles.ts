@@ -121,6 +121,83 @@ export const TOOLBAR_CSS = `
   margin-bottom: 2px;
 }
 
+.sl-viz {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+  margin: 6px 0 8px;
+  padding-right: 2px;
+}
+.sl-viz-block h4 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(61, 214, 198, 0.95);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.sl-viz-body {
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(232, 238, 247, 0.88);
+}
+.sl-viz-body.muted { color: rgba(232, 238, 247, 0.55); }
+.sl-viz-body.ok { color: #3ecf8e; }
+.sl-viz-body.bad { color: #e35d6a; }
+.sl-viz-pre {
+  margin: 4px 0 0;
+  max-height: 100px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px;
+}
+.sl-viz-details summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: rgba(232, 238, 247, 0.65);
+  margin-top: 4px;
+}
+.sl-diff-file {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+.sl-timeline {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 11px;
+  display: grid;
+  gap: 3px;
+}
+.sl-recall {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 4px;
+}
+.sl-distill {
+  border: 1px solid rgba(61, 214, 198, 0.35);
+  border-radius: 8px;
+  padding: 8px;
+  margin: 6px 0 8px;
+  background: rgba(61, 214, 198, 0.08);
+}
+.sl-distill-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #3dd6c6;
+}
+.muted { color: rgba(232, 238, 247, 0.55); }
+
 .sl-status {
   font-size: 11px;
   color: rgba(232, 238, 247, 0.7);

@@ -135,6 +135,34 @@ function ensureWs(settings: ExtensionSettings): WebSocket {
           status: msg.status,
         });
       }
+      if (msg.type === "session.verify" && msg.session_id) {
+        broadcastToTabs({
+          type: "session_verify_event",
+          sessionId: msg.session_id,
+          verify: (msg as { verify?: unknown }).verify,
+        });
+      }
+      if (msg.type === "session.recall" && msg.session_id) {
+        broadcastToTabs({
+          type: "session_recall_event",
+          sessionId: msg.session_id,
+          hits: (msg as { hits?: unknown }).hits,
+        });
+      }
+      if (msg.type === "session.timeline" && msg.session_id) {
+        broadcastToTabs({
+          type: "session_timeline_event",
+          sessionId: msg.session_id,
+          event: (msg as { event?: unknown }).event,
+        });
+      }
+      if (msg.type === "session.knowledge_distilled" && msg.session_id) {
+        broadcastToTabs({
+          type: "session_knowledge_distilled",
+          sessionId: msg.session_id,
+          knowledge: (msg as { knowledge?: unknown }).knowledge,
+        });
+      }
     } catch {
       // ignore malformed
     }
@@ -448,6 +476,21 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
       const res = await daemonFetch(
         settings,
         `/v1/sessions/${message.sessionId}/diff`,
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
+    }
+    case "get_session": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(
+        settings,
+        `/v1/sessions/${message.sessionId}`,
       );
       const json = await res.json();
       if (!res.ok) {

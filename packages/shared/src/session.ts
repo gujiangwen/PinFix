@@ -112,6 +112,52 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
     status: SessionStatusSchema,
   }),
   z.object({
+    type: z.literal("session.timeline"),
+    session_id: z.string(),
+    event: z.object({
+      at: z.number().int(),
+      kind: z.string(),
+      label: z.string(),
+      detail: z.string().nullable().optional(),
+      note: z.string().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("session.verify"),
+    session_id: z.string(),
+    verify: z.object({
+      ok: z.boolean(),
+      exit_code: z.number().int().nullable().optional(),
+      log_tail: z.string(),
+      command: z.string().nullable().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("session.recall"),
+    session_id: z.string(),
+    hits: z.array(
+      z.object({
+        knowledge_id: z.string().nullable(),
+        title: z.string(),
+        score: z.number().nullable().optional(),
+        distance: z.number().nullable().optional(),
+        retrieve: z.string().nullable().optional(),
+        kind: z.string().nullable().optional(),
+        body_preview: z.string().optional(),
+      }),
+    ),
+  }),
+  z.object({
+    type: z.literal("session.knowledge_distilled"),
+    session_id: z.string(),
+    knowledge: z.object({
+      id: z.string(),
+      title: z.string(),
+      kind: z.string(),
+      body_preview: z.string(),
+    }),
+  }),
+  z.object({
     type: z.literal("security.alert"),
     event: z.string(),
     detail: z.record(z.string(), z.unknown()).optional(),
