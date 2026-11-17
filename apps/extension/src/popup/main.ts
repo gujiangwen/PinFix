@@ -105,6 +105,13 @@ async function discover(): Promise<void> {
       auth?: { token_configured?: boolean; dx_bootstrap_enabled?: boolean };
       runner?: { mode?: string; reason?: string };
       projects?: { count?: number; fixture_project_id?: string | null };
+      github?: {
+        authenticated?: boolean;
+        login?: string | null;
+        git_push_ready?: boolean;
+        heal_hint?: string | null;
+        gh_cli_present?: boolean;
+      };
     } | null;
   };
   daemonUrl.value = data.daemonUrl;
@@ -123,9 +130,25 @@ async function discover(): Promise<void> {
   const fixtureId = data.dx?.projects?.fixture_project_id;
   await refreshProjects(fixtureId ?? current.projectId);
 
+  const gh = data.dx?.github;
+  const ghOk = gh?.authenticated === true && gh?.git_push_ready === true;
+  setLight("github", gh ? ghOk : null);
+  const healEl = document.getElementById("githubHeal") as HTMLParagraphElement | null;
+  if (healEl) {
+    if (gh && !ghOk && gh.heal_hint) {
+      healEl.hidden = false;
+      healEl.textContent = `GitHub 写权限异常：${gh.heal_hint}`;
+    } else {
+      healEl.hidden = true;
+      healEl.textContent = "";
+    }
+  }
+
   summaryLine.textContent = `Daemon v${data.health.version ?? "?"} · ${
     data.dx?.runner?.mode ?? "?"
-  } · 项目 ${data.dx?.projects?.count ?? "?"} 个`;
+  } · 项目 ${data.dx?.projects?.count ?? "?"} 个 · GitHub ${
+    ghOk ? gh?.login ?? "ok" : gh ? "需重连" : "…"
+  }`;
   setStatus(
     data.dx?.auth?.dx_bootstrap_enabled
       ? "已探测到 Daemon（DX bootstrap 已开启）。"

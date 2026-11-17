@@ -16,6 +16,7 @@ import { ensureGitRepo } from "@sightloop/agent-runtime";
 import type { DaemonConfig } from "../config.js";
 import { assertAllowedRepoPath } from "../path-guard.js";
 import { getRunnerStatus } from "../runner-status.js";
+import { probeGithubHealth } from "../github-health.js";
 
 export type DxRouteOpts = {
   db: Database;
@@ -128,8 +129,13 @@ export const dxRoutes: FastifyPluginAsync<DxRouteOpts> = async (app, opts) => {
             ? "no_planner_api_key"
             : null,
       },
+      github: probeGithubHealth(),
     };
     return status;
+  });
+
+  app.post("/v1/dx/github-probe", async () => {
+    return { github: probeGithubHealth(true) };
   });
 
   app.post("/v1/dx/bootstrap", async (_req, reply) => {

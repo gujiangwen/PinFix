@@ -20,6 +20,12 @@
 
 **M9b:** Real Planner/Reviewer LLMs with separate `SIGHTLOOP_PLANNER_*` / `SIGHTLOOP_IMPLEMENTER_*` / optional `SIGHTLOOP_REVIEWER_*` configs; JSON+Zod retries; project-whitelist harden against prompt injection; no planner key → mock fallback + DX `fallback_reason`.
 
+**M10a:** DX `github` credential health + Popup heal UX; PR Accept returns `deploy.heal_hint` when `gh` auth is dead (no token minting).
+
+**M10b:** Extension 验收 drawer shows PlanIR + Agent review; `PATCH /v1/sessions/:id/plan` for human edits under project whitelist.
+
+**M10c:** On Accept, archive Scenario IR + screenshot baselines to `<repo>/acceptance/` for CI/local replay (`SIGHTLOOP_ACCEPTANCE_ARCHIVE=0` to disable).
+
 ## Extension worlds
 
 | Script | World | Role |

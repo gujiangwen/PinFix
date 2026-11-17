@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import type { Database } from "@sightloop/db";
 import {
   getProject,
@@ -503,6 +503,16 @@ export async function reviewSession(
   session: Session;
   knowledge_id?: string;
   pr?: unknown;
+  deploy?: {
+    ok: boolean;
+    detail: string;
+    heal_hint: string | null;
+  };
+  acceptance_archive?: {
+    ok: boolean;
+    path: string | null;
+    detail: string;
+  };
   distilled_knowledge?: {
     id: string;
     title: string;
@@ -663,7 +673,88 @@ export async function reviewSession(
     pageUrl: session.page_url,
   });
 
+  let acceptance_archive:
+    | { ok: boolean; path: string | null; detail: string }
+    | undefined;
+  if (process.env.SIGHTLOOP_ACCEPTANCE_ARCHIVE !== "0") {
+    try {
+      const { getLatestAcceptanceRun } = await import("@sightloop/db");
+      const { artifactsRoot } = await import("./acceptance-gate-service.js");
+      const { archiveAcceptanceToRepo } = await import(
+        "./acceptance-archive.js"
+      );
+      const latest = getLatestAcceptanceRun(db, sessionId);
+      if (latest?.scenario && latest.fingerprint) {
+        const archived = archiveAcceptanceToRepo({
+          repoPath: project.repo_path,
+          projectId: project.id,
+          sessionId,
+          fingerprint: latest.fingerprint,
+          scenario: latest.scenario,
+          startUrl: latest.start_url,
+          baselinesRoot: join(artifactsRoot(cfg), "baselines"),
+          report: latest.report,
+        });
+        acceptance_archive = archived;
+        insertAudit(
+          db,
+          "acceptance_archived",
+          archived,
+          project.id,
+          sessionId,
+        );
+      } else {
+        acceptance_archive = {
+          ok: false,
+          path: null,
+          detail: "no_gate_run",
+        };
+        insertAudit(
+          db,
+          "acceptance_archive_skipped",
+          { reason: "no_gate_run" },
+          project.id,
+          sessionId,
+        );
+      }
+    } catch (err) {
+      acceptance_archive = {
+        ok: false,
+        path: null,
+        detail: (err as Error).message,
+      };
+      insertAudit(
+        db,
+        "acceptance_archive_failed",
+        { message: (err as Error).message },
+        project.id,
+        sessionId,
+      );
+    }
+  }
+
+  let deploy:
+    | {
+        ok: boolean;
+        detail: string;
+        heal_hint: string | null;
+      }
+    | undefined;
+
   if (project.mode === "pr") {
+    const { deployHealHint, probeGithubHealth } = await import(
+      "./github-health.js"
+    );
+    const pr = gitAccept.pr ?? { ok: false, detail: "pr_create_skipped" };
+    deploy = {
+      ok: Boolean(pr.ok),
+      detail: pr.detail,
+      heal_hint: pr.ok ? null : deployHealHint(),
+    };
+    if (!pr.ok) {
+      // Refresh probe so DX lights catch up after a failed deploy.
+      probeGithubHealth(true);
+    }
     insertAudit(
       db,
       "pr_mode_accept",
@@ -671,6 +762,7 @@ export async function reviewSession(
         message:
           "PR mode Accept runs `gh pr create` (requires local gh auth). HMR mode keeps the local temp commit only.",
         pr: gitAccept.pr ?? null,
+        deploy,
       },
       project.id,
       sessionId,
@@ -686,6 +778,8 @@ export async function reviewSession(
     session: updated,
     knowledge_id: knowledge.id,
     pr: gitAccept.pr,
+    deploy,
+    acceptance_archive,
     distilled_knowledge,
     timeline: model?.timeline,
   };

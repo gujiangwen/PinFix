@@ -4,6 +4,8 @@ Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Age
 
 **Milestone 9** adds an optional **LangGraph dual-loop** (Planner → Implementer → Reviewer) behind `SIGHTLOOP_DUAL_LOOP=0` by default. M9a = mock Planner/Reviewer + PlanIR whitelist; **M9b** = real Planner/Reviewer LLMs with **separate** `SIGHTLOOP_PLANNER_*` / `SIGHTLOOP_IMPLEMENTER_*` / optional `SIGHTLOOP_REVIEWER_*` configs (mock fallback when planner key missing).
 
+**Milestone 10:** DX GitHub credential health + heal hints (M10a); editable PlanIR in the extension 验收 drawer (M10b); Accept archives Scenario IR + baselines to `<repo>/acceptance/` (M10c).
+
 ## Stack
 
 | Piece | Choice |
@@ -167,6 +169,9 @@ Daemon must be running:
 ```bash
 ./scripts/smoke-m9a.sh  # dual-loop mock (DUAL_LOOP=1 MOCK=1)
 ./scripts/smoke-m9b.sh  # dual-loop llm mode (DUAL_LOOP=1 MOCK=0; falls back without PLANNER_API_KEY)
+./scripts/smoke-m10a.sh # DX github health + heal_hint (no secrets)
+./scripts/smoke-m10b.sh # PATCH plan under whitelist (needs DUAL_LOOP=1)
+./scripts/smoke-m10c.sh # Accept → acceptance/ archive
 ./scripts/smoke-m8a.sh  # Playwright fixture gate (fail→409, pass→Accept)
 ./scripts/smoke-m7.sh   # locate + source-correct + hints/knowledge
 ./scripts/smoke-m6.sh   # acceptance overlay read-model + distill card

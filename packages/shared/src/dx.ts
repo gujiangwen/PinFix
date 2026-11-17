@@ -55,6 +55,17 @@ export const DxStatusSchema = z.object({
       fallback_reason: z.string().nullable().optional(),
     })
     .optional(),
+  /** M10a: GitHub CLI / push readiness — never includes secrets. */
+  github: z
+    .object({
+      gh_cli_present: z.boolean(),
+      authenticated: z.boolean(),
+      login: z.string().nullable(),
+      git_push_ready: z.boolean(),
+      heal_hint: z.string().nullable(),
+      checked_at: z.number().int().optional(),
+    })
+    .optional(),
 });
 export type DxStatus = z.infer<typeof DxStatusSchema>;
 
