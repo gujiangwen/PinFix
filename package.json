@@ -12,6 +12,9 @@
     "dev": "turbo run dev --parallel",
     "dev:daemon": "pnpm --filter @sightloop/daemon dev",
     "dev:admin": "pnpm --filter @sightloop/admin dev",
+    "dev:extension": "pnpm --filter @sightloop/extension dev",
+    "dev:fixture": "pnpm --filter @sightloop/fixture-react dev",
+    "test": "pnpm --filter @sightloop/sniff test",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint"
   },

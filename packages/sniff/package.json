@@ -2,11 +2,26 @@
   "name": "@sightloop/sniff",
   "version": "0.1.0",
   "private": true,
-  "description": "Stub — React/Vue/DOM sniffing lands in M2",
+  "description": "React Fiber / Vue 3 / generic DOM source sniffing",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "build": "node -e \"console.log('sniff stub — no build')\"",
-    "typecheck": "node -e \"process.exit(0)\""
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "happy-dom": "^17.4.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
   }
 }

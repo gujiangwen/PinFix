@@ -8,3 +8,9 @@ export {
   deleteProject,
   insertAudit,
 } from "./projects.js";
+export {
+  createSession,
+  getSession,
+  listSessions,
+  updateSessionStatus,
+} from "./sessions.js";

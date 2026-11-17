@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SightLoop</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>SightLoop</h1>
+      <p class="hint">Chrome extension ↔ local daemon</p>
+
+      <label>
+        Daemon URL
+        <input id="daemonUrl" type="url" spellcheck="false" />
+      </label>
+      <label>
+        Token
+        <input id="token" type="password" autocomplete="off" spellcheck="false" />
+      </label>
+      <label>
+        Project
+        <select id="projectId">
+          <option value="">— load projects —</option>
+        </select>
+      </label>
+
+      <div class="row">
+        <button id="refresh" type="button">Refresh projects</button>
+        <button id="save" type="button" class="primary">Save</button>
+      </div>
+      <div class="row">
+        <button id="pick" type="button">Toggle pick on tab</button>
+      </div>
+      <p id="status" class="status"></p>
+      <p class="hint">Hotkey: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd></p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

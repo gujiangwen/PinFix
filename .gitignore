@@ -11,3 +11,5 @@ data/sandboxes/
 *.log
 .DS_Store
 coverage/
+apps/extension/dist/
+apps/fixture-react/dist/

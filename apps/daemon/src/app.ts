@@ -4,15 +4,20 @@ import { openDatabase, migrate, type Database } from "@sightloop/db";
 import type { DaemonConfig } from "./config.js";
 import { createAuthPlugin } from "./auth.js";
 import { projectsRoutes } from "./routes/projects.js";
+import { sessionsRoutes } from "./routes/sessions.js";
+import { wsRoutes } from "./routes/ws.js";
+import { SessionWsHub } from "./ws-hub.js";
 
 export type BuiltApp = {
   app: ReturnType<typeof Fastify>;
   db: Database;
+  hub: SessionWsHub;
 };
 
 export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
   const db = openDatabase(cfg.dbPath);
   migrate(db);
+  const hub = new SessionWsHub();
 
   const app = Fastify({
     logger: true,
@@ -43,5 +48,8 @@ export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
     allowedRoots: cfg.allowedRoots,
   });
 
-  return { app, db };
+  await app.register(sessionsRoutes, { db, hub });
+  await app.register(wsRoutes, { db, hub, token: cfg.token });
+
+  return { app, db, hub };
 }

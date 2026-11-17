@@ -12,6 +12,21 @@ function extractToken(req: FastifyRequest): string | undefined {
 
   const auth = h.authorization;
   if (auth?.startsWith("Bearer ")) return auth.slice("Bearer ".length);
+
+  // WebSocket clients cannot set custom headers reliably — allow ?token=.
+  const path = req.url.split("?")[0] ?? req.url;
+  if (path === "/v1/ws") {
+    try {
+      const u = new URL(req.url, "http://127.0.0.1");
+      return (
+        u.searchParams.get("token") ??
+        u.searchParams.get("access_token") ??
+        undefined
+      );
+    } catch {
+      return undefined;
+    }
+  }
   return undefined;
 }
 
