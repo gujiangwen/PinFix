@@ -13,6 +13,7 @@ import { projectsRoutes } from "./routes/projects.js";
 import { sessionsRoutes } from "./routes/sessions.js";
 import { knowledgeRoutes } from "./routes/knowledge.js";
 import { adminRoutes } from "./routes/admin.js";
+import { dxRoutes } from "./routes/dx.js";
 import { wsRoutes } from "./routes/ws.js";
 import { SessionWsHub } from "./ws-hub.js";
 
@@ -65,6 +66,7 @@ export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
   await app.register(sessionsRoutes, { db, hub, cfg });
   await app.register(knowledgeRoutes, { db, cfg });
   await app.register(adminRoutes, { db });
+  await app.register(dxRoutes, { db, cfg });
   await app.register(wsRoutes, { db, hub, token: cfg.token });
 
   return { app, db, hub };

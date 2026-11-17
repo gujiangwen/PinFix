@@ -42,6 +42,9 @@ export type DaemonConfig = {
   lockDir: string;
   markupAdapter: MarkupAdapterKind;
   markupLicenseKey?: string;
+  /** Local DX: allow POST /v1/dx/bootstrap to return the loopback token. */
+  dxBootstrap: boolean;
+  dxLabel: string;
 };
 
 export function loadConfig(): DaemonConfig {
@@ -64,7 +67,7 @@ export function loadConfig(): DaemonConfig {
     dbPath: resolveFromRoot(
       process.env.SIGHTLOOP_DB_PATH ?? "./data/projects.sqlite",
     ),
-    version: "0.4.0",
+    version: "0.5.0",
     markupWorkspaceRoot: resolveFromRoot(
       process.env.MARKUP_WORKSPACE ?? "./data/markup-workspace",
     ),
@@ -73,5 +76,9 @@ export function loadConfig(): DaemonConfig {
     ),
     markupAdapter,
     markupLicenseKey: process.env.MARKUP_LICENSE_KEY || undefined,
+    dxBootstrap:
+      process.env.SIGHTLOOP_DX_BOOTSTRAP === "1" ||
+      process.env.SIGHTLOOP_DX_BOOTSTRAP === "true",
+    dxLabel: process.env.SIGHTLOOP_DX_LABEL ?? "local",
   };
 }

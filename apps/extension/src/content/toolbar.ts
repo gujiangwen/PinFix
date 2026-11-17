@@ -19,6 +19,7 @@ export class SightLoopToolbar {
   private bubble: HTMLDivElement | null = null;
   private statusEl!: HTMLElement;
   private queueEl!: HTMLElement;
+  private dxEl!: HTMLElement;
   private pickActive = false;
   private queue: PickItem[] = [];
   private activeSessionId: string | null = null;
@@ -51,6 +52,7 @@ export class SightLoopToolbar {
     this.toolbar.className = "sl-toolbar";
     this.toolbar.innerHTML = `
       <div class="sl-brand">SightLoop</div>
+      <div class="sl-dx" data-ref="dx" title="Open the extension Popup for local DX">Daemon · Runner: …</div>
       <div class="sl-status" data-ref="status">Idle — press <span class="sl-kbd">Alt+Shift+A</span> or Pick</div>
       <div class="sl-row">
         <button class="sl-btn primary" data-action="toggle-pick">Pick</button>
@@ -74,9 +76,14 @@ export class SightLoopToolbar {
     this.statusEl = this.toolbar.querySelector('[data-ref="status"]')!;
     this.queueEl = this.toolbar.querySelector('[data-ref="queue"]')!;
     this.reviewEl = this.toolbar.querySelector('[data-ref="review"]')!;
+    this.dxEl = this.toolbar.querySelector('[data-ref="dx"]')!;
 
     this.toolbar.addEventListener("click", (e) => {
       const t = e.target as HTMLElement | null;
+      if (t?.closest("[data-ref=dx]")) {
+        this.setStatus("Open the SightLoop extension Popup for the local DX wizard.");
+        return;
+      }
       const action = t?.closest("[data-action]")?.getAttribute("data-action");
       if (action === "toggle-pick") this.togglePick();
       if (action === "submit-batch") void this.submitBatch();
@@ -88,6 +95,23 @@ export class SightLoopToolbar {
 
     document.documentElement.appendChild(this.host);
     ensureBridge();
+    void this.refreshDxStrip();
+  }
+
+  async refreshDxStrip(): Promise<void> {
+    try {
+      const res = (await chrome.runtime.sendMessage({
+        type: "dx_status",
+      })) as RuntimeResponse;
+      if (!res.ok) {
+        this.dxEl.textContent = "Daemon ✗ · open Popup";
+        return;
+      }
+      const dx = res.data as { runner?: { mode?: string } };
+      this.dxEl.textContent = `Daemon ● · Runner: ${dx.runner?.mode ?? "?"}`;
+    } catch {
+      this.dxEl.textContent = "Daemon ✗ · open Popup";
+    }
   }
 
   setStatus(text: string): void {

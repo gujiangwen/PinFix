@@ -1,4 +1,4 @@
-/** Cross-world + extension message contracts (M2/M3). */
+/** Cross-world + extension message contracts (M2–M5). */
 
 export const EXT_SOURCE = "sightloop-ext" as const;
 export const PAGE_SOURCE = "sightloop-page" as const;
@@ -18,6 +18,8 @@ export type ExtensionSettings = {
   projectId: string;
   /** When true (default), start Agent Loop right after session create. */
   autoStart?: boolean;
+  /** ISO timestamp when DX wizard completed once. */
+  dxOnboardedAt?: string | null;
 };
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
@@ -25,7 +27,10 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   token: "dev-token-change-me",
   projectId: "",
   autoStart: true,
+  dxOnboardedAt: null,
 };
+
+export const DAEMON_PORT_CANDIDATES = [7420, 7421, 7430] as const;
 
 /** window.postMessage between content ↔ injected */
 export type PageBridgeMessage =
@@ -69,6 +74,17 @@ export type RuntimeMessage =
   | { type: "get_settings" }
   | { type: "save_settings"; settings: ExtensionSettings }
   | { type: "list_projects" }
+  | { type: "discover_daemon" }
+  | { type: "dx_status" }
+  | { type: "dx_bootstrap" }
+  | { type: "dx_ensure_fixture" }
+  | {
+      type: "dx_bind_repo";
+      repo_path: string;
+      name?: string;
+      origin_pattern?: string;
+      mode?: "hmr" | "pr";
+    }
   | {
       type: "create_session";
       pageUrl: string;

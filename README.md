@@ -2,7 +2,7 @@
 
 Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Agent Loop daemon + Admin.
 
-**Milestone 4** adds full Admin observability (session timelines, diff, audit, metrics), Knowledge Hub (browse/edit/pin/archive + AGENTS.md sync), dual-loop retrieve with **sqlite-vec** similarity (Markdown cards remain source of truth), and HMR/PR mode controls.
+**Milestone 5** adds a one-click **local DX** pack: extension Popup discovers the daemon, shows mock vs `pi` runner, ensures a fixture project, and prefills token/project — so a cold start reaches pickable Demo in minutes. M4 Admin + sqlite-vec knowledge remain available.
 
 ## Stack
 
@@ -71,6 +71,38 @@ Health check (no token):
 curl -s http://127.0.0.1:7420/health
 ```
 
+## 一键本地 DX（M5）
+
+Cold start without hand-copying `.env` into the extension:
+
+```bash
+pnpm install && pnpm build
+cp -n .env.example .env   # if needed
+pnpm dev:daemon           # terminal 1 — http://127.0.0.1:7420
+pnpm --filter @sightloop/extension build
+# Chrome → chrome://extensions → Developer mode → Load unpacked → apps/extension/dist
+```
+
+1. Open the SightLoop **Popup** (本地 DX wizard).
+2. It probes `GET /health` on port candidates (`7420`, …) then `GET /v1/dx/status` (loopback, no token).
+3. Click **一键准备 Demo** → `POST /v1/dx/ensure-fixture-project` (sandbox under allowed roots + `origin_pattern=http://localhost:5175/*`).
+4. Optional: set `SIGHTLOOP_DX_BOOTSTRAP=1` and restart daemon so **Bootstrap token** can fill the loopback token (never enable on shared hosts).
+5. Run `pnpm dev:fixture` → open http://localhost:5175 → **Alt+Shift+A** to pick.
+
+Status lights: **Daemon / Token / Project**. Runner badge: **mock** (no LLM key) vs **pi** (key present). Toolbar strip mirrors `Daemon ● · Runner: mock|pi`.
+
+DX APIs:
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/v1/dx/status` | Loopback public; runner mode + fixture id (no secrets) |
+| `POST` | `/v1/dx/bootstrap` | Only if `SIGHTLOOP_DX_BOOTSTRAP=1` |
+| `POST` | `/v1/dx/ensure-fixture-project` | Idempotent demo project (token required) |
+
+```bash
+./scripts/smoke-m5.sh
+```
+
 ## Run Admin (M4)
 
 ```bash
@@ -105,6 +137,7 @@ Tabs:
 Daemon must be running:
 
 ```bash
+./scripts/smoke-m5.sh   # DX status + ensure-fixture + bootstrap gate
 ./scripts/smoke-m4.sh   # Admin APIs + recall order + AGENTS.md sync
 ./scripts/smoke-m3.sh   # Loop + Accept/Refine/Revert
 ./scripts/smoke-m2.sh

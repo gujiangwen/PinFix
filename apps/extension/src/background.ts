@@ -3,7 +3,7 @@ import type {
   RuntimeMessage,
   RuntimeResponse,
 } from "./shared/protocol";
-import { DEFAULT_SETTINGS } from "./shared/protocol";
+import { DAEMON_PORT_CANDIDATES, DEFAULT_SETTINGS } from "./shared/protocol";
 
 const SESSION_STATUS = new Map<string, { status: string; step_count: number }>();
 let ws: WebSocket | null = null;
@@ -254,6 +254,138 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
           (json as { error?: { message?: string } }).error?.message ??
             `HTTP ${res.status}`,
         );
+      }
+      return { ok: true, data: json };
+    }
+    case "discover_daemon": {
+      const settings = await loadSettings();
+      const tried: string[] = [];
+      const bases = [
+        settings.daemonUrl.replace(/\/$/, ""),
+        ...DAEMON_PORT_CANDIDATES.map((p) => `http://127.0.0.1:${p}`),
+      ];
+      const unique = [...new Set(bases)];
+      for (const base of unique) {
+        tried.push(base);
+        try {
+          const res = await fetch(`${base}/health`, {
+            signal: AbortSignal.timeout(1500),
+          });
+          if (!res.ok) continue;
+          const health = (await res.json()) as {
+            ok?: boolean;
+            version?: string;
+            service?: string;
+          };
+          if (!health.ok) continue;
+          let dx: unknown = null;
+          try {
+            const dxRes = await fetch(`${base}/v1/dx/status`, {
+              signal: AbortSignal.timeout(1500),
+            });
+            if (dxRes.ok) dx = await dxRes.json();
+          } catch {
+            // status optional during discover
+          }
+          return {
+            ok: true,
+            data: {
+              daemonUrl: base,
+              health,
+              dx,
+              tried,
+            },
+          };
+        } catch {
+          // try next
+        }
+      }
+      return {
+        ok: false,
+        error: `未探测到 Daemon。请先运行：pnpm dev:daemon（已试 ${tried.join(", ")}）`,
+      };
+    }
+    case "dx_status": {
+      const settings = await loadSettings();
+      const res = await fetch(
+        `${settings.daemonUrl.replace(/\/$/, "")}/v1/dx/status`,
+        { signal: AbortSignal.timeout(2000) },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
+    }
+    case "dx_bootstrap": {
+      const settings = await loadSettings();
+      const res = await fetch(
+        `${settings.daemonUrl.replace(/\/$/, "")}/v1/dx/bootstrap`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      const token = (json as { token?: string | null }).token;
+      if (token) {
+        await saveSettings({ ...settings, token });
+      }
+      return { ok: true, data: json };
+    }
+    case "dx_ensure_fixture": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(
+        settings,
+        "/v1/dx/ensure-fixture-project",
+        { method: "POST", body: "{}" },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      const projectId =
+        (json as { project_id?: string }).project_id ??
+        settings.projectId;
+      await saveSettings({
+        ...settings,
+        projectId,
+        dxOnboardedAt: new Date().toISOString(),
+      });
+      return { ok: true, data: json };
+    }
+    case "dx_bind_repo": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(settings, "/v1/projects", {
+        method: "POST",
+        body: JSON.stringify({
+          name: message.name ?? "local-repo",
+          repo_path: message.repo_path,
+          origin_pattern:
+            message.origin_pattern ?? "http://localhost:*/*",
+          file_whitelist: ["src/**", "AGENTS.md"],
+          mode: message.mode ?? "hmr",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      const project = (json as { project?: { id: string } }).project;
+      if (project?.id) {
+        await saveSettings({ ...settings, projectId: project.id });
       }
       return { ok: true, data: json };
     }

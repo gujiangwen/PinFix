@@ -113,6 +113,14 @@ export const TOOLBAR_CSS = `
   padding: 6px;
 }
 
+.sl-dx {
+  font-size: 11px;
+  color: rgba(61, 214, 198, 0.9);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
 .sl-status {
   font-size: 11px;
   color: rgba(232, 238, 247, 0.7);

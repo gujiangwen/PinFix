@@ -8,6 +8,8 @@
 
 **M4:** Admin observability + Knowledge Hub + dual-loop retrieve (knowledge before markup) + HMR/PR mode polish + AGENTS.md sync.
 
+**M5:** One-click local DX — `/v1/dx/status` + ensure-fixture + Popup wizard + mock vs `pi` badge.
+
 ## Extension worlds
 
 | Script | World | Role |

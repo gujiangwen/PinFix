@@ -3,6 +3,16 @@ import { apiError } from "@sightloop/shared";
 
 const PUBLIC_PATHS = new Set(["/health"]);
 
+/** Loopback-only, no token required (DX discovery). */
+const LOOPBACK_PUBLIC_PATHS = new Set([
+  "/v1/dx/status",
+  "/v1/dx/bootstrap",
+]);
+
+function isLoopbackIp(ip: string): boolean {
+  return ip === "127.0.0.1" || ip === "::1" || ip === ":ffff:127.0.0.1";
+}
+
 function extractToken(req: FastifyRequest): string | undefined {
   const h = req.headers;
   const sight =
@@ -36,9 +46,8 @@ export function createAuthPlugin(expectedToken: string): FastifyPluginAsync {
       const path = req.url.split("?")[0] ?? req.url;
       if (PUBLIC_PATHS.has(path)) return;
 
-      // Defense in depth: only accept loopback peers for mutating/API routes.
       const ip = req.ip;
-      if (ip !== "127.0.0.1" && ip !== "::1" && ip !== ":ffff:127.0.0.1") {
+      if (!isLoopbackIp(ip)) {
         return reply
           .code(403)
           .send(
@@ -49,6 +58,8 @@ export function createAuthPlugin(expectedToken: string): FastifyPluginAsync {
             ),
           );
       }
+
+      if (LOOPBACK_PUBLIC_PATHS.has(path)) return;
 
       const token = extractToken(req);
       if (!token || token !== expectedToken) {
