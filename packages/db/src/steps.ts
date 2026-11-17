@@ -14,6 +14,10 @@ type StepRow = {
   input_json: string | null;
   output_json: string | null;
   error: string | null;
+  summary: string | null;
+  duration_ms: number | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
   created_at: number;
 };
 
@@ -27,6 +31,10 @@ function rowToStep(row: StepRow): AgentStep {
     input: row.input_json ? (JSON.parse(row.input_json) as unknown) : null,
     output: row.output_json ? (JSON.parse(row.output_json) as unknown) : null,
     error: row.error,
+    summary: row.summary ?? null,
+    duration_ms: row.duration_ms ?? null,
+    tokens_in: row.tokens_in ?? null,
+    tokens_out: row.tokens_out ?? null,
     created_at: row.created_at,
   };
 }
@@ -41,6 +49,10 @@ export function insertAgentStep(
     input?: unknown;
     output?: unknown;
     error?: string | null;
+    summary?: string | null;
+    duration_ms?: number | null;
+    tokens_in?: number | null;
+    tokens_out?: number | null;
   },
 ): AgentStep {
   const step: AgentStep = {
@@ -52,14 +64,20 @@ export function insertAgentStep(
     input: input.input ?? null,
     output: input.output ?? null,
     error: input.error ?? null,
+    summary: input.summary ?? null,
+    duration_ms: input.duration_ms ?? null,
+    tokens_in: input.tokens_in ?? null,
+    tokens_out: input.tokens_out ?? null,
     created_at: Date.now(),
   };
 
   db.prepare(
     `INSERT INTO agent_steps (
-      id, session_id, idx, phase, tool_name, input_json, output_json, error, created_at
+      id, session_id, idx, phase, tool_name, input_json, output_json, error,
+      summary, duration_ms, tokens_in, tokens_out, created_at
     ) VALUES (
-      @id, @session_id, @idx, @phase, @tool_name, @input_json, @output_json, @error, @created_at
+      @id, @session_id, @idx, @phase, @tool_name, @input_json, @output_json, @error,
+      @summary, @duration_ms, @tokens_in, @tokens_out, @created_at
     )`,
   ).run({
     id: step.id,
@@ -70,6 +88,10 @@ export function insertAgentStep(
     input_json: step.input == null ? null : JSON.stringify(step.input),
     output_json: step.output == null ? null : JSON.stringify(step.output),
     error: step.error,
+    summary: step.summary ?? null,
+    duration_ms: step.duration_ms ?? null,
+    tokens_in: step.tokens_in ?? null,
+    tokens_out: step.tokens_out ?? null,
     created_at: step.created_at,
   });
 

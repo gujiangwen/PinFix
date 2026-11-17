@@ -1,11 +1,18 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import { openDatabase, migrate, type Database } from "@sightloop/db";
+import {
+  openDatabase,
+  migrate,
+  reindexAllKnowledge,
+  isVecReady,
+  type Database,
+} from "@sightloop/db";
 import type { DaemonConfig } from "./config.js";
 import { createAuthPlugin } from "./auth.js";
 import { projectsRoutes } from "./routes/projects.js";
 import { sessionsRoutes } from "./routes/sessions.js";
 import { knowledgeRoutes } from "./routes/knowledge.js";
+import { adminRoutes } from "./routes/admin.js";
 import { wsRoutes } from "./routes/ws.js";
 import { SessionWsHub } from "./ws-hub.js";
 
@@ -18,6 +25,12 @@ export type BuiltApp = {
 export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
   const db = openDatabase(cfg.dbPath);
   migrate(db);
+  if (isVecReady()) {
+    const n = reindexAllKnowledge(db);
+    if (n > 0) {
+      console.info(`[sightloop] sqlite-vec reindexed ${n} knowledge cards`);
+    }
+  }
   const hub = new SessionWsHub();
 
   const app = Fastify({
@@ -50,7 +63,8 @@ export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
   });
 
   await app.register(sessionsRoutes, { db, hub, cfg });
-  await app.register(knowledgeRoutes, { db });
+  await app.register(knowledgeRoutes, { db, cfg });
+  await app.register(adminRoutes, { db });
   await app.register(wsRoutes, { db, hub, token: cfg.token });
 
   return { app, db, hub };

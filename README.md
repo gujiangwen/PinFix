@@ -2,7 +2,7 @@
 
 Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Agent Loop daemon + Admin.
 
-**Milestone 3** adds markup workspace dual-adapters, Agent Loop (retrieve → act → verify → temp commit), Accept / Refine / Revert, Distill-on-Accept, and a mock runner so demos work without LLM keys.
+**Milestone 4** adds full Admin observability (session timelines, diff, audit, metrics), Knowledge Hub (browse/edit/pin/archive + AGENTS.md sync), dual-loop retrieve with **sqlite-vec** similarity (Markdown cards remain source of truth), and HMR/PR mode controls.
 
 ## Stack
 
@@ -23,12 +23,12 @@ Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Age
 
 ```text
 apps/
-  daemon/          # Registry + sessions + Agent Loop + WS
-  admin/           # Minimal project CRUD UI
+  daemon/          # Registry + sessions + Agent Loop + Admin APIs + WS
+  admin/           # Observability UI + Knowledge Hub
   extension/       # MV3 pick / annotate / review
   fixture-react/   # Sample page for pick demos
 packages/
-  shared/          # Zod DTOs / API error shape / session + review + WS
+  shared/          # Zod DTOs / API error shape / session + review + admin
   db/              # Schema migrations + repositories
   sniff/           # React Fiber / Vue3 / DOM waterfall
   markup-bridge/   # Workspace writer/reader + dual adapters
@@ -42,6 +42,7 @@ data/              # runtime sqlite / markup / locks (gitignored)
 - pnpm 10.x (`corepack enable` or install via npm)
 - Google Chrome (extension is Chrome-only)
 - `git` on PATH (temp commits / revert)
+- Optional: `gh` authenticated for PR-mode Accept
 
 ## Setup
 
@@ -70,59 +71,52 @@ Health check (no token):
 curl -s http://127.0.0.1:7420/health
 ```
 
-Register a project pointed at a git repo under allowed roots:
+## Run Admin (M4)
 
 ```bash
-mkdir -p /tmp/sightloop-m3-demo && git -C /tmp/sightloop-m3-demo init
-curl -s -X POST http://127.0.0.1:7420/v1/projects \
-  -H 'Content-Type: application/json' \
-  -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN" \
-  -d '{
-    "name": "fixture-react",
-    "repo_path": "/tmp/sightloop-m3-demo",
-    "origin_pattern": "http://localhost:5175/*",
-    "file_whitelist": ["src/**"],
-    "mode": "hmr"
-  }'
+pnpm dev:admin
 ```
 
-### Agent Loop + review (M3)
+Open **http://127.0.0.1:5173** — set `VITE_DAEMON_URL` / `VITE_DAEMON_TOKEN` (see `apps/admin/.env.example`).
+
+Tabs:
+
+| Tab | Purpose |
+|---|---|
+| Projects | Registry + **HMR / PR mode** toggle |
+| Sessions | List, step timeline (incl. knowledge recall hits), tool/reasoning summaries, timing/tokens when recorded, diff viewer |
+| Knowledge | Browse / edit / pin / archive; filter by project / stack / tags; export MD; one-click **AGENTS.md** sync (allowed roots + whitelist) |
+| Audit | Security / sync / path-escape events |
+| Metrics | Session counts, failure rate, avg steps, knowledge totals |
+
+### HMR vs PR mode
+
+- **HMR** — Accept keeps the local temp commit for hot-reload preview; no remote push.
+- **PR** — Accept also runs `gh pr create` (needs local `gh` auth). Outcome is audited; distill still succeeds if `gh` fails.
+
+## Knowledge dual-loop + sqlite-vec
+
+1. **Loop A (session):** Distill-on-Accept writes **Markdown** knowledge cards (source of truth; tags/stack from sniff).
+2. **Loop B (cross-session):** On write, cards are embedded (`local-hash-v1`) into a **sqlite-vec** `vec0` index. Retrieve-before-act runs **similarity search first**, blends with text/pin scoring, then loads markup annotations. Admin timeline shows recall hits (`engine: sqlite-vec`) on the `list_knowledge` step.
+3. No separate vector DB — same SQLite file as projects/sessions (`SIGHTLOOP_DB_PATH`).
+
+## Smoke tests
+
+Daemon must be running:
 
 ```bash
-# 1) create session — also writes markup workspace files
-curl -s -X POST http://127.0.0.1:7420/v1/sessions \
-  -H 'Content-Type: application/json' \
-  -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN" \
-  -d '{
-    "project_id": "<id>",
-    "page_url": "http://localhost:5175/",
-    "sniff": { "framework": "react", "componentStack": [{"name":"ProductCard"}] },
-    "annotation": { "note": "button color", "selector": "[data-testid=buy]" }
-  }'
-
-# 2) start loop → awaiting_review
-curl -s -X POST http://127.0.0.1:7420/v1/sessions/<id>/start \
-  -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN" -H 'Content-Type: application/json' -d '{}'
-
-# 3) inspect diff
-curl -s http://127.0.0.1:7420/v1/sessions/<id>/diff \
-  -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN"
-
-# 4) accept | refine | revert
-curl -s -X POST http://127.0.0.1:7420/v1/sessions/<id>/review \
-  -H "X-SightLoop-Token: $SIGHTLOOP_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"decision":"accept"}'
+./scripts/smoke-m4.sh   # Admin APIs + recall order + AGENTS.md sync
+./scripts/smoke-m3.sh   # Loop + Accept/Refine/Revert
+./scripts/smoke-m2.sh
+./scripts/smoke-m1.sh
 ```
 
-Automated smoke (daemon must be running; uses mock runner when no LLM key):
+## Agent Loop + review (curl)
 
 ```bash
-./scripts/smoke-m3.sh
-# optional: SIGHTLOOP_SMOKE_DECISION=revert ./scripts/smoke-m3.sh
-# optional: SIGHTLOOP_SMOKE_DECISION=refine ./scripts/smoke-m3.sh
+# create session → start → diff → accept|refine|revert
+# see scripts/smoke-m3.sh for a full scripted path
 ```
-
-M2 smoke remains available: `./scripts/smoke-m2.sh`.
 
 ## Run fixture (pick demo page)
 
@@ -130,7 +124,7 @@ M2 smoke remains available: `./scripts/smoke-m2.sh`.
 pnpm dev:fixture
 ```
 
-Open http://localhost:5175 — React components with Fiber metadata for sniffing.
+Open http://localhost:5175.
 
 ## Load the Chrome extension
 
@@ -139,29 +133,7 @@ pnpm --filter @sightloop/extension build
 # output: apps/extension/dist
 ```
 
-Or for HMR during development:
-
-```bash
-pnpm dev:extension
-```
-
-Then in Chrome:
-
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. **Load unpacked** → select `apps/extension/dist`
-4. Open the SightLoop popup → set Daemon URL `http://127.0.0.1:7420`, token from `.env`, **Refresh projects**, select the fixture project, **Save**
-5. Open http://localhost:5175
-6. Press **Alt+Shift+A** → pick → annotate → **Submit** (creates session, writes markup, starts loop)
-7. When status is `awaiting_review`, use **Accept / Refine / Revert** in the toolbar
-
-## Run Admin
-
-```bash
-pnpm dev:admin
-```
-
-Open http://127.0.0.1:5173 — set `VITE_DAEMON_URL` / `VITE_DAEMON_TOKEN` (see `apps/admin/.env.example`).
+Then in Chrome: `chrome://extensions` → Developer mode → Load unpacked → `apps/extension/dist`.
 
 ## Project Registry fields
 
@@ -170,20 +142,31 @@ Open http://127.0.0.1:5173 — set `VITE_DAEMON_URL` / `VITE_DAEMON_TOKEN` (see 
 | `repo_path` | Absolute path; `realpath` must sit under allowed roots |
 | `origin_pattern` | Which page origins may attach (extension guidance) |
 | `verify_cmd` | Optional post-edit verify shell command |
-| `file_whitelist` | Relative globs the agent may edit |
+| `file_whitelist` | Relative globs the agent may edit; include `AGENTS.md` for Knowledge sync |
 | `mode` | `hmr` \| `pr` (PR mode Accept tries `gh pr create`) |
 | `markup_workspace` | Optional override; default under `MARKUP_WORKSPACE/<projectId>` |
+
+## Admin / knowledge APIs (M4)
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/v1/admin/metrics` | Session / failure / knowledge totals |
+| `GET` | `/v1/admin/audit` | Security audit log |
+| `GET` | `/v1/knowledge` | Filters: `project_id`, `stack`, `tag`, `kind`, `pinned`, `q`, `include_archived` |
+| `POST` | `/v1/knowledge` | Create card |
+| `PATCH` | `/v1/knowledge/:id` | Edit / pin / archive |
+| `GET` | `/v1/knowledge/:id/export` | Markdown export |
+| `POST` | `/v1/projects/:id/knowledge/sync-agents` | Safe AGENTS.md sync (`dry_run` supported) |
 
 ## Security
 
 - Daemon binds loopback by default.
 - Non-`/health` routes require the shared token **and** a loopback peer.
 - WS auth: `?token=` (or header on upgrade).
-- `repo_path` registration is rejected with `path_escape_blocked` when outside allowed roots.
+- `repo_path` registration / AGENTS.md sync rejected when outside allowed roots or whitelist.
 - Agent edits are locked per `repo_path`; `max_steps` capped at 5.
-- LLM / MarkUp license keys live only in Daemon env (see `.env.example`) — never in the extension.
-- Sniff redacts sensitive prop keys; never serializes input values by default.
+- LLM / MarkUp license keys live only in Daemon env — never in the extension.
 
-## Out of scope for M3
+## Out of scope
 
-Full Admin observability UI / knowledge hub polish (Milestone 4).
+New browser platforms beyond Chrome; vector DB (Markdown knowledge only).

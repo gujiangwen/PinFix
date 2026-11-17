@@ -14,16 +14,19 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node ./scripts/copy-migrations.mjs",
     "dev": "tsc -p tsconfig.json --watch",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@sightloop/shared": "workspace:*",
     "better-sqlite3": "^11.10.0",
+    "sqlite-vec": "0.1.9",
     "ulid": "^2.3.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.21",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
   }
 }

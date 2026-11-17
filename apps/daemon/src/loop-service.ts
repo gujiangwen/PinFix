@@ -8,7 +8,7 @@ import {
   insertReview,
   insertKnowledge,
   insertAudit,
-  listKnowledge,
+  matchKnowledgeForRetrieve,
   listAgentSteps,
   countActiveSessionsForProject,
 } from "@sightloop/db";
@@ -29,6 +29,25 @@ import type { ReviewDecision, Session } from "@sightloop/shared";
 import type { SessionWsHub } from "./ws-hub.js";
 import type { DaemonConfig } from "./config.js";
 const running = new Set<string>();
+
+function extractComponentNames(sniff: unknown): string[] {
+  if (!sniff || typeof sniff !== "object") return [];
+  const stack = (sniff as { componentStack?: unknown }).componentStack;
+  if (!Array.isArray(stack)) return [];
+  return stack
+    .map((c) =>
+      c && typeof c === "object" && "name" in c
+        ? String((c as { name: unknown }).name)
+        : null,
+    )
+    .filter((n): n is string => Boolean(n));
+}
+
+function inferStack(sniff: unknown): string | null {
+  if (!sniff || typeof sniff !== "object") return null;
+  const fw = (sniff as { framework?: unknown }).framework;
+  return typeof fw === "string" && fw.trim() ? fw.trim() : null;
+}
 
 function defaultMarkupWorkspace(
   cfg: DaemonConfig,
@@ -62,6 +81,10 @@ function makeHooks(
         input: step.input,
         output: step.output,
         error: step.error,
+        summary: step.summary ?? null,
+        duration_ms: step.duration_ms ?? null,
+        tokens_in: step.tokens_in ?? null,
+        tokens_out: step.tokens_out ?? null,
       });
       hub.broadcastStep(sessionId, {
         idx: step.idx,
@@ -181,14 +204,30 @@ export async function startSessionLoop(
     licenseKey: cfg.markupLicenseKey,
   });
 
-  const knowledgeRows = listKnowledge(db, project.id, 10);
-  const knowledgeStub = knowledgeRows.map((k) => ({
-    title: k.title,
-    body_md: k.body_md,
-  }));
-
   const runner = selectAgentRunner(process.env);
   const fresh = getSession(db, sessionId)!;
+  const componentNames = extractComponentNames(fresh.sniff);
+  const knowledgeRows = matchKnowledgeForRetrieve(
+    db,
+    project.id,
+    {
+      selector: fresh.annotation?.selector,
+      note: fresh.annotation?.note,
+      componentNames,
+    },
+    10,
+  );
+  const knowledgeStub = knowledgeRows.map((k) => ({
+    id: k.id,
+    title: k.title,
+    body_md: k.body_md,
+    score: k.score,
+    kind: k.kind,
+    tags: k.tags,
+    distance: k.distance,
+    retrieve: k.retrieve,
+  }));
+
   running.add(sessionId);
 
   try {
@@ -346,12 +385,21 @@ export async function reviewSession(
         : session.annotation?.note ?? "accepted",
   });
 
+  const distillTags = [
+    ...(session.annotation?.selector
+      ? [`selector:${session.annotation.selector.slice(0, 80)}`]
+      : []),
+    ...extractComponentNames(session.sniff).slice(0, 5),
+  ];
   const knowledge = insertKnowledge(db, {
     project_id: project.id,
     session_id: sessionId,
     kind: distill.kind,
     title: distill.title,
     body_md: distill.body_md,
+    tags: distillTags,
+    stack: inferStack(session.sniff),
+    pinned: false,
   });
 
   const gitAccept = acceptSessionGit({
@@ -369,6 +417,20 @@ export async function reviewSession(
     sessionId,
     pageUrl: session.page_url,
   });
+
+  if (project.mode === "pr") {
+    insertAudit(
+      db,
+      "pr_mode_accept",
+      {
+        message:
+          "PR mode Accept runs `gh pr create` (requires local gh auth). HMR mode keeps the local temp commit only.",
+        pr: gitAccept.pr ?? null,
+      },
+      project.id,
+      sessionId,
+    );
+  }
 
   const updated = updateSession(db, sessionId, { status: "accepted" })!;
   hub.broadcastStatus(sessionId, "accepted", updated.step_count);

@@ -20,6 +20,8 @@ export type AgentActResult = {
   dryRun: boolean;
   runner: "mock" | "pi";
   detail?: unknown;
+  tokensIn?: number | null;
+  tokensOut?: number | null;
 };
 
 export type AgentRunner = {

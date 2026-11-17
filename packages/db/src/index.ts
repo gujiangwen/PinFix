@@ -6,7 +6,6 @@ export {
   createProject,
   updateProject,
   deleteProject,
-  insertAudit,
 } from "./projects.js";
 export {
   createSession,
@@ -19,4 +18,25 @@ export {
 } from "./sessions.js";
 export { insertAgentStep, listAgentSteps } from "./steps.js";
 export { insertReview, listReviews } from "./reviews.js";
-export { insertKnowledge, listKnowledge } from "./knowledge.js";
+export {
+  insertKnowledge,
+  createKnowledgeFromInput,
+  getKnowledge,
+  listKnowledge,
+  queryKnowledge,
+  matchKnowledgeForRetrieve,
+  updateKnowledge,
+  deleteKnowledge,
+  listKnowledgeByIds,
+} from "./knowledge.js";
+export { insertAudit, listAudit, getMetrics } from "./audit.js";
+export {
+  loadSqliteVec,
+  ensureVectorSchema,
+  upsertKnowledgeEmbedding,
+  deleteKnowledgeEmbedding,
+  searchKnowledgeVec,
+  reindexAllKnowledge,
+  isVecReady,
+} from "./vectors.js";
+export { embedText, embedKnowledgeCard, EMBED_DIM, EMBED_MODEL_ID } from "./embed.js";

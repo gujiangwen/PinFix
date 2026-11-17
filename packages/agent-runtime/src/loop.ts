@@ -33,6 +33,9 @@ export type LoopHooks = {
     input?: unknown;
     output?: unknown;
     error?: string | null;
+    duration_ms?: number | null;
+    tokens_in?: number | null;
+    tokens_out?: number | null;
   }) => void;
   onAwaitingReview: (preview: {
     temp_commit_sha: string | null;
@@ -65,7 +68,16 @@ export type LoopProject = {
   markupWorkspace: string;
 };
 
-export type KnowledgeHit = { title: string; body_md: string };
+export type KnowledgeHit = {
+  title: string;
+  body_md: string;
+  id?: string;
+  score?: number;
+  kind?: string;
+  tags?: string[];
+  distance?: number;
+  retrieve?: string;
+};
 
 export type RunLoopInput = {
   session: LoopSessionState;
@@ -130,8 +142,37 @@ export async function runAgentLoop(
     const gitBaseSha = input.session.gitBaseSha ?? getHeadSha(input.project.repoPath);
 
     // --- Retrieve (hard gate) ---
+    // Dual-loop: prefer project knowledge BEFORE markup annotations.
     input.hooks.onStatus("retrieving", stepCount);
+    const knowledge = input.knowledgeStub ?? [];
+    const knowledgeStarted = Date.now();
+    input.hooks.onStep({
+      idx: stepCount,
+      phase: "retrieve",
+      tool_name: "list_knowledge",
+      summary: `project knowledge hits: ${knowledge.length} (preferred before markup)`,
+      output: {
+        count: knowledge.length,
+        preferred: "project_knowledge",
+        hits: knowledge.map((k) => ({
+          id: k.id ?? null,
+          title: k.title,
+          score: k.score ?? null,
+          kind: k.kind ?? null,
+          tags: k.tags ?? [],
+          distance: k.distance ?? null,
+          retrieve: k.retrieve ?? null,
+        })),
+        engine: knowledge.some((k) => k.retrieve?.includes("sqlite-vec"))
+          ? "sqlite-vec"
+          : "text",
+      },
+      duration_ms: Date.now() - knowledgeStarted,
+    });
+    stepCount += 1;
+
     const retrieveIdx = stepCount;
+    const markupStarted = Date.now();
     let annotation: AnnotationSessionDetail | null = null;
     try {
       annotation = await input.markupTools.getLatestAnnotations();
@@ -150,11 +191,16 @@ export async function runAgentLoop(
         phase: "retrieve",
         tool_name: "get_latest_annotations",
         summary: annotation
-          ? `Retrieved ${annotation.id}`
+          ? `Retrieved markup ${annotation.id}`
           : "No annotations in workspace",
         output: annotation
-          ? { id: annotation.id, selector: annotation.selector }
+          ? {
+              id: annotation.id,
+              selector: annotation.selector,
+              after_knowledge: true,
+            }
           : null,
+        duration_ms: Date.now() - markupStarted,
       });
     } catch (err) {
       stepCount += 1;
@@ -163,6 +209,7 @@ export async function runAgentLoop(
         phase: "retrieve",
         tool_name: "get_latest_annotations",
         error: (err as Error).message,
+        duration_ms: Date.now() - markupStarted,
       });
       input.hooks.onStatus("failed", stepCount);
       input.hooks.onTerminal("failed");
@@ -193,17 +240,6 @@ export async function runAgentLoop(
       };
     }
 
-    // Knowledge stub retrieve (empty table is OK)
-    const knowledge = input.knowledgeStub ?? [];
-    input.hooks.onStep({
-      idx: stepCount,
-      phase: "retrieve",
-      tool_name: "list_knowledge",
-      summary: `knowledge hits: ${knowledge.length}`,
-      output: { count: knowledge.length },
-    });
-    stepCount += 1;
-
     // --- Act ---
     input.hooks.onStatus("acting", stepCount);
     const remaining = Math.max(0, maxSteps - stepCount);
@@ -212,6 +248,7 @@ export async function runAgentLoop(
 
     let act: AgentActResult;
     try {
+      const actStarted = Date.now();
       act = await input.runner.act({
         sessionId: input.session.id,
         repoPath: input.project.repoPath,
@@ -233,7 +270,11 @@ export async function runAgentLoop(
           filesTouched: act.filesTouched,
           dryRun: act.dryRun,
           stepsUsed: act.stepsUsed,
+          knowledge_used: knowledge.length,
         },
+        duration_ms: Date.now() - actStarted,
+        tokens_in: act.tokensIn ?? null,
+        tokens_out: act.tokensOut ?? null,
       });
       stepCount += Math.max(1, act.stepsUsed);
     } catch (err) {

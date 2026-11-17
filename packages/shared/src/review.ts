@@ -35,6 +35,10 @@ export const AgentStepSchema = z.object({
   input: z.unknown().nullable(),
   output: z.unknown().nullable(),
   error: z.string().nullable(),
+  summary: z.string().nullable().optional(),
+  duration_ms: z.number().int().nullable().optional(),
+  tokens_in: z.number().int().nullable().optional(),
+  tokens_out: z.number().int().nullable().optional(),
   created_at: z.number().int(),
 });
 export type AgentStep = z.infer<typeof AgentStepSchema>;
@@ -55,7 +59,12 @@ export const KnowledgeSchema = z.object({
   title: z.string().min(1),
   body_md: z.string(),
   embedding_ref: z.string().nullable(),
+  tags: z.array(z.string()).default([]),
+  stack: z.string().nullable().optional(),
+  pinned: z.boolean().default(false),
+  archived: z.boolean().default(false),
   created_at: z.number().int(),
+  updated_at: z.number().int().nullable().optional(),
 });
 export type Knowledge = z.infer<typeof KnowledgeSchema>;
 

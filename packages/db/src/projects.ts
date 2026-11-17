@@ -147,23 +147,3 @@ export function deleteProject(db: Database.Database, id: string): boolean {
   const result = db.prepare("DELETE FROM projects WHERE id = ?").run(id);
   return result.changes > 0;
 }
-
-export function insertAudit(
-  db: Database.Database,
-  event: string,
-  detail: unknown,
-  projectId?: string | null,
-  sessionId?: string | null,
-): void {
-  db.prepare(
-    `INSERT INTO audit_log (id, project_id, session_id, event, detail_json, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(
-    ulid(),
-    projectId ?? null,
-    sessionId ?? null,
-    event,
-    JSON.stringify(detail),
-    Date.now(),
-  );
-}
