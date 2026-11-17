@@ -2,7 +2,7 @@
 
 Business-decoupled R&D self-healing platform: Chromium MV3 extension + local Agent Loop daemon + Admin.
 
-**Milestone 9a** adds an optional **LangGraph dual-loop** (Planner → Implementer → Reviewer) behind `SIGHTLOOP_DUAL_LOOP=0` by default; M9a uses mock Planner/Reviewer and PlanIR whitelist intercept. M8a Playwright gate and earlier milestones remain.
+**Milestone 9** adds an optional **LangGraph dual-loop** (Planner → Implementer → Reviewer) behind `SIGHTLOOP_DUAL_LOOP=0` by default. M9a = mock Planner/Reviewer + PlanIR whitelist; **M9b** = real Planner/Reviewer LLMs with **separate** `SIGHTLOOP_PLANNER_*` / `SIGHTLOOP_IMPLEMENTER_*` / optional `SIGHTLOOP_REVIEWER_*` configs (mock fallback when planner key missing).
 
 ## Stack
 
@@ -165,7 +165,8 @@ Tabs:
 Daemon must be running:
 
 ```bash
-./scripts/smoke-m9a.sh  # dual-loop mock (requires SIGHTLOOP_DUAL_LOOP=1 on daemon)
+./scripts/smoke-m9a.sh  # dual-loop mock (DUAL_LOOP=1 MOCK=1)
+./scripts/smoke-m9b.sh  # dual-loop llm mode (DUAL_LOOP=1 MOCK=0; falls back without PLANNER_API_KEY)
 ./scripts/smoke-m8a.sh  # Playwright fixture gate (fail→409, pass→Accept)
 ./scripts/smoke-m7.sh   # locate + source-correct + hints/knowledge
 ./scripts/smoke-m6.sh   # acceptance overlay read-model + distill card
@@ -178,20 +179,26 @@ Daemon must be running:
 
 Requires: `pnpm --filter @sightloop/acceptance-gate exec playwright install chromium` before smoke-m8a.
 
-### Dual-loop (M9a)
+### Dual-loop (M9a mock / M9b LLM)
 
-Default **off** (`SIGHTLOOP_DUAL_LOOP=0`) — legacy single-loop unchanged. Enable mock graph:
+Default **off** (`SIGHTLOOP_DUAL_LOOP=0`) — legacy single-loop unchanged.
 
 ```bash
+# M9a mock
 SIGHTLOOP_DUAL_LOOP=1
 SIGHTLOOP_DUAL_LOOP_MOCK=1
 SIGHTLOOP_DUAL_LOOP_FORCE_REFINE=1   # smoke: one inner refine
-# Separate LLM placeholders (M9b wires real clients):
-# SIGHTLOOP_PLANNER_MODEL=…  SIGHTLOOP_IMPLEMENTER_MODEL=…
-# SIGHTLOOP_REVIEWER_MODEL=… (optional; defaults to planner)
+
+# M9b real Planner/Reviewer (Implementer stays pi|mock via its own keys)
+SIGHTLOOP_DUAL_LOOP=1
+SIGHTLOOP_DUAL_LOOP_MOCK=0
+SIGHTLOOP_PLANNER_API_KEY=…         # required for llm backend; else mock fallback
+SIGHTLOOP_PLANNER_MODEL=gpt-4o-mini
+# SIGHTLOOP_REVIEWER_API_KEY=…      # optional; defaults to planner
+# SIGHTLOOP_IMPLEMENTER_API_KEY=…   # separate from planner (pi path)
 ```
 
-`GET /v1/dx/status` exposes `dual_loop.{enabled,mode,max_inner_refines,planner_model,implementer_model,reviewer_model}`.
+`GET /v1/dx/status` exposes `dual_loop.{enabled,mode,planner_backend,reviewer_backend,fallback_reason,planner_model,implementer_model,reviewer_model}`.
 
 ## Agent Loop + review (curl)
 

@@ -45,13 +45,16 @@ export type DaemonConfig = {
   /** Local DX: allow POST /v1/dx/bootstrap to return the loopback token. */
   dxBootstrap: boolean;
   dxLabel: string;
-  /** M9a LangGraph dual-loop (default off). */
+  /** M9 LangGraph dual-loop (default off). */
   dualLoop: boolean;
   dualLoopMock: boolean;
   maxInnerRefines: number;
+  maxPlanAttempts: number;
   plannerModel: string | null;
   implementerModel: string | null;
   reviewerModel: string | null;
+  plannerKeyConfigured: boolean;
+  reviewerKeyConfigured: boolean;
 };
 
 export function loadConfig(): DaemonConfig {
@@ -66,6 +69,14 @@ export function loadConfig(): DaemonConfig {
   const markupAdapter: MarkupAdapterKind =
     adapterRaw === "official" ? "official" : "self";
 
+  const plannerKeyConfigured = Boolean(
+    process.env.SIGHTLOOP_PLANNER_API_KEY?.trim(),
+  );
+  const reviewerKeyConfigured = Boolean(
+    process.env.SIGHTLOOP_REVIEWER_API_KEY?.trim() ||
+      process.env.SIGHTLOOP_PLANNER_API_KEY?.trim(),
+  );
+
   return {
     host,
     port: Number.parseInt(process.env.SIGHTLOOP_PORT ?? "7420", 10),
@@ -74,7 +85,7 @@ export function loadConfig(): DaemonConfig {
     dbPath: resolveFromRoot(
       process.env.SIGHTLOOP_DB_PATH ?? "./data/projects.sqlite",
     ),
-    version: "0.9.0",
+    version: "0.9.1",
     markupWorkspaceRoot: resolveFromRoot(
       process.env.MARKUP_WORKSPACE ?? "./data/markup-workspace",
     ),
@@ -101,6 +112,14 @@ export function loadConfig(): DaemonConfig {
           2,
       ),
     ),
+    maxPlanAttempts: Math.min(
+      4,
+      Math.max(
+        1,
+        Number.parseInt(process.env.SIGHTLOOP_MAX_PLAN_ATTEMPTS ?? "2", 10) ||
+          2,
+      ),
+    ),
     plannerModel:
       process.env.SIGHTLOOP_PLANNER_MODEL ??
       process.env.SIGHTLOOP_PLANNER_LLM_MODEL ??
@@ -113,5 +132,7 @@ export function loadConfig(): DaemonConfig {
       process.env.SIGHTLOOP_REVIEWER_MODEL ??
       process.env.SIGHTLOOP_PLANNER_MODEL ??
       null,
+    plannerKeyConfigured,
+    reviewerKeyConfigured,
   };
 }

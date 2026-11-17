@@ -63,10 +63,18 @@ export type DualLoopMode = z.infer<typeof DualLoopModeSchema>;
 
 export const DualLoopDxSchema = z.object({
   enabled: z.boolean(),
+  /** Requested mode from SIGHTLOOP_DUAL_LOOP_MOCK (mock|llm). */
   mode: z.enum(["mock", "llm"]),
   max_inner_refines: z.number().int(),
   planner_model: z.string().nullable().optional(),
   implementer_model: z.string().nullable().optional(),
   reviewer_model: z.string().nullable().optional(),
+  /** Effective backend after key detection (M9b). */
+  planner_backend: z.enum(["mock", "llm"]).optional(),
+  reviewer_backend: z.enum(["mock", "llm"]).optional(),
+  planner_key_configured: z.boolean().optional(),
+  reviewer_key_configured: z.boolean().optional(),
+  /** Set when mode=llm but keys missing → mock fallback. */
+  fallback_reason: z.string().nullable().optional(),
 });
 export type DualLoopDx = z.infer<typeof DualLoopDxSchema>;

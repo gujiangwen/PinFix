@@ -48,6 +48,11 @@ export const DxStatusSchema = z.object({
       planner_model: z.string().nullable().optional(),
       implementer_model: z.string().nullable().optional(),
       reviewer_model: z.string().nullable().optional(),
+      planner_backend: z.enum(["mock", "llm"]).optional(),
+      reviewer_backend: z.enum(["mock", "llm"]).optional(),
+      planner_key_configured: z.boolean().optional(),
+      reviewer_key_configured: z.boolean().optional(),
+      fallback_reason: z.string().nullable().optional(),
     })
     .optional(),
 });

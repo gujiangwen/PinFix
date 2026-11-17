@@ -306,6 +306,8 @@ export async function startSessionLoop(
             )
           : undefined,
         runner,
+        use_mock_llm: cfg.dualLoopMock,
+        max_plan_attempts: cfg.maxPlanAttempts,
         planner_model_label: cfg.plannerModel ?? (cfg.dualLoopMock ? "mock-planner" : null) ?? undefined,
         implementer_model_label:
           cfg.implementerModel ?? runner.name,

@@ -117,6 +117,16 @@ export const dxRoutes: FastifyPluginAsync<DxRouteOpts> = async (app, opts) => {
         planner_model: cfg.plannerModel,
         implementer_model: cfg.implementerModel,
         reviewer_model: cfg.reviewerModel,
+        planner_backend:
+          !cfg.dualLoopMock && cfg.plannerKeyConfigured ? "llm" : "mock",
+        reviewer_backend:
+          !cfg.dualLoopMock && cfg.reviewerKeyConfigured ? "llm" : "mock",
+        planner_key_configured: cfg.plannerKeyConfigured,
+        reviewer_key_configured: cfg.reviewerKeyConfigured,
+        fallback_reason:
+          !cfg.dualLoopMock && !cfg.plannerKeyConfigured
+            ? "no_planner_api_key"
+            : null,
       },
     };
     return status;

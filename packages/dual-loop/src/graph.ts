@@ -9,8 +9,13 @@ import {
   acquireRepoLock,
 } from "@sightloop/agent-runtime";
 import type { PlanIR, ReviewIR } from "@sightloop/shared";
-import { mockPlan } from "./mock-planner.js";
-import { mockReview } from "./mock-reviewer.js";
+import { callPlanner } from "./llm-planner.js";
+import { callReviewer } from "./llm-reviewer.js";
+import {
+  resolvePlannerConfig,
+  resolveReviewerConfig,
+  type RoleLlmConfig,
+} from "./role-config.js";
 import { assertWriteAllowed } from "./whitelist.js";
 
 export type DualLoopHooks = {
@@ -64,9 +69,16 @@ export type DualLoopInput = {
     report?: unknown;
   }>;
   hooks: DualLoopHooks;
+  /** M9a mock / M9b llm. When llm and no planner key → mock fallback. */
+  use_mock_llm?: boolean;
+  max_plan_attempts?: number;
+  planner_config?: RoleLlmConfig;
+  reviewer_config?: RoleLlmConfig;
   planner_model_label?: string;
   implementer_model_label?: string;
   reviewer_model_label?: string;
+  /** Inject fetch for LLM unit/integration tests. */
+  fetchImpl?: typeof fetch;
 };
 
 export type DualLoopResult = {
@@ -166,32 +178,56 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       return {};
     };
 
+    const plannerCfg =
+      input.planner_config ?? resolvePlannerConfig(process.env);
+    const reviewerCfg =
+      input.reviewer_config ?? resolveReviewerConfig(process.env);
+    const useMock = input.use_mock_llm !== false;
+
     const plannerNode = async (state: S): Promise<Partial<S>> => {
       hooks.onDualLoop?.({ node: "planner", status: "enter" });
       hooks.onStatus?.("retrieving", stepCount);
       const started = Date.now();
-      const plan = mockPlan({
-        session_id: state.session_id,
-        project_whitelist: state.file_whitelist,
-        annotation: state.annotation,
-        sniff: state.sniff,
-        human_refine_note: state.human_refine_note,
-        review_notes: state.review_notes,
-        force_allowed_files: input.force_plan_files,
+      const result = await callPlanner({
+        input: {
+          session_id: state.session_id,
+          project_whitelist: state.file_whitelist,
+          annotation: state.annotation,
+          sniff: state.sniff,
+          human_refine_note: state.human_refine_note,
+          review_notes: state.review_notes,
+          force_allowed_files: input.force_plan_files,
+          suggested_allowed_files: state.review?.suggested_allowed_files,
+          knowledge_hits: state.knowledge_hits,
+        },
+        config: plannerCfg,
+        useMock,
+        maxAttempts: input.max_plan_attempts ?? 2,
+        fetchImpl: input.fetchImpl,
       });
-      if (input.planner_model_label) {
+      const plan = result.plan;
+      if (input.planner_model_label && result.backend === "mock") {
         plan.planner_model = input.planner_model_label;
+      }
+      if (result.fallback_reason && result.fallback_reason !== "dual_loop_mock") {
+        hooks.onSecurityAlert?.("planner_llm_fallback", {
+          reason: result.fallback_reason,
+          attempts: result.attempts,
+        });
       }
       hooks.onPlan?.(plan);
       hooks.onStep?.({
         idx: stepCount,
         phase: "plan",
-        tool_name: "mock_planner",
-        summary: `Plan allowed_files=${plan.allowed_files.join(",")}`,
+        tool_name: result.backend === "llm" ? "llm_planner" : "mock_planner",
+        summary: `Plan[${result.backend}] allowed_files=${plan.allowed_files.join(",")}`,
         output: {
           root_cause: plan.root_cause,
           allowed_files: plan.allowed_files,
           model: plan.planner_model,
+          backend: result.backend,
+          fallback_reason: result.fallback_reason ?? null,
+          attempts: result.attempts,
         },
         duration_ms: Date.now() - started,
       });
@@ -199,7 +235,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onDualLoop?.({
         node: "planner",
         status: "exit",
-        summary: plan.root_cause.slice(0, 80),
+        summary: `${result.backend}: ${plan.root_cause.slice(0, 80)}`,
       });
       return { plan, implement_only: false };
     };
@@ -398,32 +434,60 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onDualLoop?.({ node: "reviewer", status: "enter" });
       hooks.onStatus?.("acting", stepCount);
       const started = Date.now();
-      const review = mockReview({
-        session_id: state.session_id,
-        shell_ok: state.shell_ok ?? true,
-        gate_status: state.gate_status,
-        force_refine_once: input.force_inner_refine_once,
-        inner_refine_count: state.inner_refine_count,
-        files_touched: state.files_touched,
-        plan_allowed_files: state.plan?.allowed_files,
+      const diffSummary = diffPatch(
+        state.repo_path,
+        state.git_base_sha,
+        state.temp_commit_sha,
+      );
+      const result = await callReviewer({
+        input: {
+          session_id: state.session_id,
+          shell_ok: state.shell_ok ?? true,
+          gate_status: state.gate_status,
+          force_refine_once: input.force_inner_refine_once,
+          inner_refine_count: state.inner_refine_count,
+          files_touched: state.files_touched,
+          plan_allowed_files: state.plan?.allowed_files,
+          plan: state.plan,
+          diff_summary: diffSummary,
+        },
+        config: reviewerCfg,
+        useMock,
+        maxAttempts: input.max_plan_attempts ?? 2,
+        fetchImpl: input.fetchImpl,
       });
-      if (input.reviewer_model_label) {
+      const review = result.review;
+      if (input.reviewer_model_label && result.backend === "mock") {
         review.reviewer_model = input.reviewer_model_label;
+      }
+      if (
+        result.fallback_reason &&
+        result.fallback_reason !== "dual_loop_mock" &&
+        result.fallback_reason !== "force_refine_once"
+      ) {
+        hooks.onSecurityAlert?.("reviewer_llm_fallback", {
+          reason: result.fallback_reason,
+          attempts: result.attempts,
+        });
       }
       hooks.onAgentReview?.(review);
       hooks.onStep?.({
         idx: stepCount,
         phase: "review",
-        tool_name: "mock_reviewer",
-        summary: `verdict=${review.verdict}`,
-        output: review,
+        tool_name: result.backend === "llm" ? "llm_reviewer" : "mock_reviewer",
+        summary: `verdict=${review.verdict} [${result.backend}]`,
+        output: {
+          ...review,
+          backend: result.backend,
+          fallback_reason: result.fallback_reason ?? null,
+        },
         duration_ms: Date.now() - started,
       });
       stepCount += 1;
       hooks.onDualLoop?.({
         node: "reviewer",
         status: "exit",
-        summary: review.verdict,
+        summary: `${review.verdict}/${result.backend}`,
       });
       return { review };
     };

@@ -18,6 +18,8 @@
 
 **M9a:** LangGraph dual-loop (feature-flagged, default off) — mock Planner/Reviewer; Implementer = existing runner; PlanIR `allowed_files` hard intercept; WS `session.dual_loop` / `session.plan` / `session.review_agent`.
 
+**M9b:** Real Planner/Reviewer LLMs with separate `SIGHTLOOP_PLANNER_*` / `SIGHTLOOP_IMPLEMENTER_*` / optional `SIGHTLOOP_REVIEWER_*` configs; JSON+Zod retries; project-whitelist harden against prompt injection; no planner key → mock fallback + DX `fallback_reason`.
+
 ## Extension worlds
 
 | Script | World | Role |
