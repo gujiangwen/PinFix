@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import {
   CreateSessionInputSchema,
+  PlanIRSchema,
   ReviewInputSchema,
   apiError,
 } from "@sightloop/shared";
@@ -10,9 +11,12 @@ import {
   getSession,
   getSessionAgentReview,
   getSessionPlan,
+  insertAudit,
   listSessions,
+  setSessionPlan,
   type Database,
 } from "@sightloop/db";
+import { filterPlanFilesByProject } from "@sightloop/dual-loop";
 import type { SessionWsHub } from "../ws-hub.js";
 import type { DaemonConfig } from "../config.js";
 import {
@@ -63,6 +67,8 @@ export const sessionsRoutes: FastifyPluginAsync<SessionsRouteOpts> = async (
       diff_summary: model.diff_summary,
       latest_knowledge: model.latest_knowledge,
       acceptance_gate: model.acceptance_gate,
+      plan: model.plan,
+      agent_review: model.agent_review,
     };
   });
 
@@ -192,6 +198,112 @@ export const sessionsRoutes: FastifyPluginAsync<SessionsRouteOpts> = async (
           .send(apiError("not_found", `Session ${req.params.id} not found`));
       }
       return { plan: getSessionPlan(db, req.params.id) };
+    },
+  );
+
+  app.patch<{ Params: { id: string } }>(
+    "/v1/sessions/:id/plan",
+    async (req, reply) => {
+      const session = getSession(db, req.params.id);
+      if (!session) {
+        return reply
+          .code(404)
+          .send(apiError("not_found", `Session ${req.params.id} not found`));
+      }
+      if (
+        session.status !== "awaiting_review" &&
+        session.status !== "idle" &&
+        session.status !== "failed"
+      ) {
+        return reply
+          .code(409)
+          .send(
+            apiError(
+              "invalid_status",
+              `Plan edit requires awaiting_review (have ${session.status})`,
+            ),
+          );
+      }
+      const project = getProject(db, session.project_id);
+      if (!project) {
+        return reply
+          .code(404)
+          .send(apiError("not_found", "Project not found"));
+      }
+
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const existing = getSessionPlan(db, session.id);
+      const allowedRaw = Array.isArray(body.allowed_files)
+        ? body.allowed_files.map(String)
+        : typeof body.allowed_files === "string"
+          ? String(body.allowed_files)
+              .split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : existing?.allowed_files ?? [];
+      const allowed = filterPlanFilesByProject(
+        allowedRaw
+          .map((f) => f.replace(/\\/g, "/").replace(/^\.\//, "").trim())
+          .filter((f) => f && !f.startsWith("/") && !f.includes("..")),
+        project.file_whitelist,
+      );
+      if (!allowed.length) {
+        return reply
+          .code(400)
+          .send(
+            apiError(
+              "validation_error",
+              "allowed_files empty after project whitelist filter",
+            ),
+          );
+      }
+
+      const parsed = PlanIRSchema.safeParse({
+        version: 1,
+        session_id: session.id,
+        root_cause: String(
+          body.root_cause ?? existing?.root_cause ?? "Human-edited plan",
+        ),
+        hypothesis:
+          body.hypothesis != null
+            ? String(body.hypothesis)
+            : existing?.hypothesis,
+        allowed_files: allowed,
+        forbidden_files: existing?.forbidden_files,
+        risks: existing?.risks ?? [],
+        steps_hint: existing?.steps_hint ?? [],
+        confidence: existing?.confidence,
+        planner_model: existing?.planner_model ?? "human-edit",
+        created_at: Date.now(),
+      });
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send(
+            apiError(
+              "validation_error",
+              "Invalid PlanIR",
+              parsed.error.flatten(),
+            ),
+          );
+      }
+
+      setSessionPlan(db, session.id, parsed.data);
+      insertAudit(
+        db,
+        "plan_human_edited",
+        {
+          allowed_files: parsed.data.allowed_files,
+          root_cause: parsed.data.root_cause.slice(0, 200),
+        },
+        project.id,
+        session.id,
+      );
+      hub.broadcastPlan(
+        session.id,
+        parsed.data as unknown as Record<string, unknown>,
+      );
+      return { plan: parsed.data };
     },
   );
 

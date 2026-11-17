@@ -512,6 +512,35 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse> 
       }
       return { ok: true, data: json };
     }
+    case "patch_plan": {
+      const settings = await loadSettings();
+      const res = await daemonFetch(
+        settings,
+        `/v1/sessions/${message.sessionId}/plan`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            ...(message.root_cause != null
+              ? { root_cause: message.root_cause }
+              : {}),
+            ...(message.hypothesis != null
+              ? { hypothesis: message.hypothesis }
+              : {}),
+            ...(message.allowed_files
+              ? { allowed_files: message.allowed_files }
+              : {}),
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          (json as { error?: { message?: string } }).error?.message ??
+            `HTTP ${res.status}`,
+        );
+      }
+      return { ok: true, data: json };
+    }
     case "subscribe_session": {
       const settings = await loadSettings();
       wsSend(settings, { op: "subscribe", session_id: message.sessionId });

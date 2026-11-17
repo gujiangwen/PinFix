@@ -130,6 +130,24 @@ export const TOOLBAR_CSS = `
   margin: 6px 0 8px;
   padding-right: 2px;
 }
+.sl-plan-label {
+  display: block;
+  font-size: 11px;
+  color: rgba(232, 238, 247, 0.7);
+  margin-top: 6px;
+}
+.sl-plan-label textarea {
+  width: 100%;
+  margin-top: 4px;
+  resize: vertical;
+  font: inherit;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #e8eef7;
+  border: 1px solid rgba(61, 214, 198, 0.25);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
 .sl-viz-block h4 {
   margin: 0 0 4px;
   font-size: 11px;

@@ -113,6 +113,13 @@ export type RuntimeMessage =
   | { type: "get_acceptance_gate"; sessionId: string }
   | { type: "get_diff"; sessionId: string }
   | { type: "get_session"; sessionId: string }
+  | {
+      type: "patch_plan";
+      sessionId: string;
+      root_cause?: string;
+      hypothesis?: string;
+      allowed_files?: string[];
+    }
   | { type: "subscribe_session"; sessionId: string }
   | {
       type: "source_correct";

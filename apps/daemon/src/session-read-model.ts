@@ -4,6 +4,8 @@ import {
   getLatestAcceptanceRun,
   getProject,
   getSession,
+  getSessionAgentReview,
+  getSessionPlan,
   listAgentSteps,
   listReviews,
   queryKnowledge,
@@ -12,7 +14,9 @@ import { diffPatch } from "@sightloop/agent-runtime";
 import type {
   DiffSummary,
   DistilledKnowledgePreview,
+  PlanIR,
   RecallHit,
+  ReviewIR,
   TimelineEvent,
   VerifyResult,
 } from "@sightloop/shared";
@@ -172,6 +176,8 @@ export function buildSessionReadModel(
   diff_summary: DiffSummary | null;
   latest_knowledge: DistilledKnowledgePreview | null;
   acceptance_gate: ReturnType<typeof getLatestAcceptanceRun> | null;
+  plan: PlanIR | null;
+  agent_review: ReviewIR | null;
   patch: string;
 } | null {
   const session = getSession(db, sessionId);
@@ -228,6 +234,8 @@ export function buildSessionReadModel(
     diff_summary: patch ? summarizePatch(patch) : null,
     latest_knowledge,
     acceptance_gate,
+    plan: getSessionPlan(db, sessionId),
+    agent_review: getSessionAgentReview(db, sessionId),
     patch,
   };
 }

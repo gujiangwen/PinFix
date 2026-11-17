@@ -117,6 +117,26 @@ export class SightLoopToolbar {
             <div data-ref="loc-summary" class="sl-viz-body muted">暂无 location</div>
           </section>
           <section class="sl-viz-block">
+            <h4>计划 / Agent 复核</h4>
+            <div data-ref="plan-summary" class="sl-viz-body muted">无双环计划</div>
+            <div data-ref="plan-edit" hidden>
+              <label class="sl-plan-label">root_cause
+                <textarea data-ref="plan-root" rows="2"></textarea>
+              </label>
+              <label class="sl-plan-label">hypothesis
+                <textarea data-ref="plan-hyp" rows="2"></textarea>
+              </label>
+              <label class="sl-plan-label">allowed_files（每行一个）
+                <textarea data-ref="plan-files" rows="3"></textarea>
+              </label>
+              <div class="sl-row" style="margin-top:6px">
+                <button class="sl-btn" data-action="save-plan" type="button">保存计划</button>
+                <button class="sl-btn" data-action="refine-with-plan" type="button">用此计划 Refine</button>
+              </div>
+            </div>
+            <div data-ref="agent-review" class="sl-viz-body muted" style="margin-top:6px"></div>
+          </section>
+          <section class="sl-viz-block">
             <h4>Diff 摘要</h4>
             <div data-ref="diff-summary" class="sl-viz-body muted">加载中…</div>
             <details class="sl-viz-details">
@@ -174,6 +194,8 @@ export class SightLoopToolbar {
       if (action === "rerun-gate") void this.rerunAcceptanceGate();
       if (action === "gate-to-refine") this.fillRefineFromGate();
       if (action === "dismiss-distill") this.hideDistill();
+      if (action === "save-plan") void this.savePlan();
+      if (action === "refine-with-plan") void this.refineWithPlan();
     });
 
     document.documentElement.appendChild(this.host);
@@ -948,6 +970,18 @@ export class SightLoopToolbar {
           refine_note_draft?: string;
         } | null;
       } | null;
+      plan?: {
+        root_cause?: string;
+        hypothesis?: string;
+        allowed_files?: string[];
+        planner_model?: string;
+        confidence?: number;
+      } | null;
+      agent_review?: {
+        verdict?: string;
+        notes?: string;
+        reviewer_model?: string;
+      } | null;
       diff_summary?: {
         files?: Array<{ path: string; additions: number; deletions: number }>;
         additions?: number;
@@ -968,6 +1002,7 @@ export class SightLoopToolbar {
       } | null;
     };
     this.renderGateSummary(data.acceptance_gate ?? null);
+    this.renderPlan(data.plan ?? null, data.agent_review ?? null);
     this.renderLocationSummary(data.session?.sniff);
     const diffRes = await sendRuntime({ type: "get_diff", sessionId });
     const patch =
@@ -1084,6 +1119,140 @@ export class SightLoopToolbar {
     this.setStatus("已填入 Refine 失败摘要");
   }
 
+  private renderPlan(
+    plan: {
+      root_cause?: string;
+      hypothesis?: string;
+      allowed_files?: string[];
+      planner_model?: string;
+      confidence?: number;
+    } | null,
+    review: {
+      verdict?: string;
+      notes?: string;
+      reviewer_model?: string;
+    } | null,
+  ): void {
+    const summary = this.reviewEl.querySelector(
+      '[data-ref="plan-summary"]',
+    ) as HTMLElement | null;
+    const edit = this.reviewEl.querySelector(
+      '[data-ref="plan-edit"]',
+    ) as HTMLElement | null;
+    const revEl = this.reviewEl.querySelector(
+      '[data-ref="agent-review"]',
+    ) as HTMLElement | null;
+    if (!summary || !edit) return;
+    if (!plan?.allowed_files?.length) {
+      summary.className = "sl-viz-body muted";
+      summary.textContent = "无双环计划";
+      edit.hidden = true;
+      if (revEl) {
+        revEl.className = "sl-viz-body muted";
+        revEl.textContent = "";
+      }
+      return;
+    }
+    summary.className = "sl-viz-body";
+    summary.innerHTML = `model=${escapeHtml(plan.planner_model ?? "?")}${
+      plan.confidence != null
+        ? ` · conf=${Number(plan.confidence).toFixed(2)}`
+        : ""
+    }`;
+    edit.hidden = false;
+    const root = edit.querySelector(
+      '[data-ref="plan-root"]',
+    ) as HTMLTextAreaElement | null;
+    const hyp = edit.querySelector(
+      '[data-ref="plan-hyp"]',
+    ) as HTMLTextAreaElement | null;
+    const files = edit.querySelector(
+      '[data-ref="plan-files"]',
+    ) as HTMLTextAreaElement | null;
+    if (root) root.value = plan.root_cause ?? "";
+    if (hyp) hyp.value = plan.hypothesis ?? "";
+    if (files) files.value = (plan.allowed_files ?? []).join("\n");
+    if (revEl) {
+      if (!review?.verdict) {
+        revEl.className = "sl-viz-body muted";
+        revEl.textContent = "尚无 Agent 复核";
+      } else {
+        revEl.className = "sl-viz-body";
+        revEl.innerHTML = `Agent 复核 · <strong>${escapeHtml(
+          review.verdict,
+        )}</strong>${
+          review.reviewer_model
+            ? ` <span class="muted">(${escapeHtml(review.reviewer_model)})</span>`
+            : ""
+        }<div class="muted">${escapeHtml((review.notes ?? "").slice(0, 280))}</div>`;
+      }
+    }
+  }
+
+  private readPlanForm(): {
+    root_cause: string;
+    hypothesis: string;
+    allowed_files: string[];
+  } {
+    const root =
+      (
+        this.reviewEl.querySelector(
+          '[data-ref="plan-root"]',
+        ) as HTMLTextAreaElement | null
+      )?.value ?? "";
+    const hypothesis =
+      (
+        this.reviewEl.querySelector(
+          '[data-ref="plan-hyp"]',
+        ) as HTMLTextAreaElement | null
+      )?.value ?? "";
+    const allowed_files = (
+      (
+        this.reviewEl.querySelector(
+          '[data-ref="plan-files"]',
+        ) as HTMLTextAreaElement | null
+      )?.value ?? ""
+    )
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return { root_cause: root, hypothesis, allowed_files };
+  }
+
+  private async savePlan(): Promise<void> {
+    if (!this.activeSessionId) return;
+    const form = this.readPlanForm();
+    this.setStatus("保存计划…");
+    const res = await sendRuntime({
+      type: "patch_plan",
+      sessionId: this.activeSessionId,
+      ...form,
+    });
+    if (!res.ok) {
+      this.setStatus(`保存计划失败：${escapeHtml(res.error)}`);
+      return;
+    }
+    const plan = (res.data as { plan?: typeof form & { planner_model?: string } })
+      ?.plan;
+    this.renderPlan(plan ?? form, null);
+    this.setStatus("计划已保存（白名单已校验）");
+  }
+
+  private async refineWithPlan(): Promise<void> {
+    if (!this.activeSessionId) return;
+    await this.savePlan();
+    const form = this.readPlanForm();
+    const ta = this.reviewEl.querySelector(
+      '[data-ref="refine-note"]',
+    ) as HTMLTextAreaElement | null;
+    if (ta) {
+      ta.value = `Human plan edit → allowed_files=${form.allowed_files.join(
+        ", ",
+      )}; ${form.root_cause.slice(0, 200)}`;
+    }
+    await this.review("refine");
+  }
+
   private async review(
     decision: "accept" | "refine" | "revert",
   ): Promise<void> {
@@ -1125,10 +1294,20 @@ export class SightLoopToolbar {
         body_preview?: string;
       };
       timeline?: Array<{ label?: string; detail?: string | null; kind?: string }>;
+      deploy?: {
+        ok?: boolean;
+        detail?: string;
+        heal_hint?: string | null;
+      };
+      acceptance_archive?: { ok?: boolean; path?: string | null };
     };
-    this.setStatus(
-      `Review ${decision} → ${escapeHtml(data.session?.status ?? "ok")}`,
-    );
+    let statusMsg = `Review ${decision} → ${escapeHtml(data.session?.status ?? "ok")}`;
+    if (decision === "accept" && data.deploy && data.deploy.ok === false) {
+      statusMsg += ` · PR/push 失败 — ${escapeHtml(
+        data.deploy.heal_hint ?? data.deploy.detail ?? "reconnect GitHub",
+      )}`;
+    }
+    this.setStatus(statusMsg);
     if (data.timeline) this.renderTimeline(data.timeline);
     if (decision === "accept" && data.distilled_knowledge) {
       this.showDistill(data.distilled_knowledge);
