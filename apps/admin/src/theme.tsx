@@ -12,6 +12,10 @@ export type Theme = "light" | "dark";
 
 const STORAGE_KEY = "sightloop.admin.theme";
 const META_NAME = "color-scheme";
+const THEME_COLOR: Record<Theme, string> = {
+  dark: "#0f1419",
+  light: "#eef2f6",
+};
 
 function systemTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -40,6 +44,10 @@ function applyTheme(theme: Theme) {
     document.head.prepend(meta);
   }
   meta.content = theme;
+  // Colors the title bar of the installed app; mirrors --bg in styles.css.
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", THEME_COLOR[theme]);
 }
 
 type ThemeCtx = {

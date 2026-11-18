@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>SightLoop Admin</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #eef2f6;
+        --text: #152033;
+        --muted: #5b6b7c;
+        --line: #c9d4e0;
+        --accent: #1f6fd1;
+      }
+      :root[data-theme="dark"] {
+        --bg: #0f1419;
+        --text: #e8eef4;
+        --muted: #8b9aab;
+        --line: #2a3542;
+        --accent: #3d9cfd;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        display: grid;
+        place-items: center;
+        font-family: system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      main {
+        max-width: 26rem;
+        padding: 2rem 1.5rem;
+        text-align: center;
+      }
+      img {
+        width: 64px;
+        height: 64px;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 1rem 0 0.5rem;
+      }
+      p {
+        margin: 0 0 1.25rem;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        padding: 0.5rem 1.1rem;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon.svg" alt="" />
+      <h1 id="title">SightLoop Admin is not running</h1>
+      <p id="body">
+        The Admin server on this machine did not respond. Start the SightLoop
+        services (Docker) and this page will reload by itself.
+      </p>
+      <button id="retry" type="button">Retry now</button>
+    </main>
+    <script>
+      (function () {
+        var theme = null;
+        var locale = null;
+        try {
+          theme = localStorage.getItem("sightloop.admin.theme");
+          locale = localStorage.getItem("sightloop.admin.locale");
+        } catch (e) {}
+        if (theme !== "light" && theme !== "dark") {
+          theme = matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+        }
+        document.documentElement.dataset.theme = theme;
+
+        var zh =
+          locale === "zh-CN" ||
+          (locale !== "en" &&
+            (navigator.language || "").toLowerCase().indexOf("zh") === 0);
+        if (zh) {
+          document.documentElement.lang = "zh-CN";
+          document.getElementById("title").textContent =
+            "SightLoop Admin 没有在运行";
+          document.getElementById("body").textContent =
+            "本机的 Admin 服务没有响应。请启动 SightLoop 服务（Docker），页面会自动重新加载。";
+          document.getElementById("retry").textContent = "立即重试";
+        }
+
+        document.getElementById("retry").addEventListener("click", function () {
+          location.reload();
+        });
+
+        // Probe with a non-navigation request so the answer comes from the
+        // server, never from this cached page.
+        setInterval(function () {
+          fetch("/manifest.webmanifest", { cache: "no-store" })
+            .then(function (res) {
+              if (res.ok) location.reload();
+            })
+            .catch(function () {});
+        }, 5000);
+      })();
+    </script>
+  </body>
+</html>

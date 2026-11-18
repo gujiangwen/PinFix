@@ -713,6 +713,19 @@ dialog::backdrop {
   accent-color: var(--accent);
 }
 
+.install-btn {
+  margin-top: 0.85rem;
+}
+
+.install-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.install-status {
+  margin-top: 0.6rem;
+}
+
 @media (max-width: 640px) {
   .settings-layout {
     grid-template-columns: 1fr;

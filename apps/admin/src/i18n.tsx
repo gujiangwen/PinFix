@@ -192,6 +192,15 @@ const en = {
   "models.save": "Save settings",
   "models.saved": "Pi settings saved (applied live)",
   "models.path": "Settings file",
+
+  "install.title": "Desktop app",
+  "install.lede": "Install SightLoop Admin as an app with its own window and taskbar icon. It still needs the local SightLoop services running.",
+  "install.button": "Install to desktop",
+  "install.standalone": "Running as an installed app.",
+  "install.unavailable": "This browser is not offering installation right now: the app may already be installed, or the browser may not support installing web apps.",
+  "install.done": "The app was installed or opened.",
+  "install.dismissed": "Installation was canceled.",
+  "install.failed": "Installation could not start.",
 } as const;
 
 type MessageKey = keyof typeof en;
@@ -375,6 +384,15 @@ const zhCN: Record<MessageKey, string> = {
   "models.save": "保存设置",
   "models.saved": "Pi 设置已保存（已热更新到进程）",
   "models.path": "设置文件",
+
+  "install.title": "桌面应用",
+  "install.lede": "把 SightLoop Admin 安装成独立窗口的桌面应用，可固定到任务栏。它仍然需要本机的 SightLoop 服务在运行。",
+  "install.button": "安装到桌面",
+  "install.standalone": "当前正以已安装的桌面应用运行。",
+  "install.unavailable": "浏览器当前没有提供安装入口：可能已经安装过，或该浏览器不支持安装网页应用。",
+  "install.done": "应用已安装（或已打开）。",
+  "install.dismissed": "已取消安装。",
+  "install.failed": "无法开始安装。",
 };
 
 const catalogs: Record<Locale, Record<MessageKey, string>> = {
