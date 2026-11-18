@@ -1,0 +1,94 @@
+# Local Docker stack for SightLoop (Marx-G / Docker Desktop).
+# Host binds are loopback-only. Inside containers Daemon listens on 0.0.0.0.
+#
+# Usage (from this repo root):
+#   copy .env.example .env   # set SIGHTLOOP_TOKEN
+#   docker compose up --build -d
+#   curl http://127.0.0.1:7420/health
+
+services:
+  daemon:
+    build: .
+    image: sightloop-local:latest
+    container_name: sightloop-daemon
+    env_file:
+      - .env
+    environment:
+      # Container must bind all interfaces; host maps 127.0.0.1 only.
+      SIGHTLOOP_HOST: "0.0.0.0"
+      SIGHTLOOP_PORT: "7420"
+      SIGHTLOOP_ALLOWED_ROOTS: "/workspace,/app"
+      SIGHTLOOP_DB_PATH: "./data/projects.sqlite"
+      MARKUP_WORKSPACE: "./data/markup-workspace"
+      SIGHTLOOP_LOCK_DIR: "./data/locks"
+      SIGHTLOOP_DX_LABEL: "docker-local"
+    ports:
+      - "127.0.0.1:7420:7420"
+    volumes:
+      - sightloop-data:/app/data
+      - sightloop-workspace:/workspace
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7420/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  admin:
+    build: .
+    image: sightloop-local:latest
+    pull_policy: never
+    container_name: sightloop-admin
+    depends_on:
+      daemon:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      VITE_DAEMON_URL: "http://127.0.0.1:7420"
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@sightloop/admin",
+        "exec",
+        "vite",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5173",
+      ]
+    ports:
+      # Host 5176 — 5173/5174 often taken by other local stacks (e.g. pomelo).
+      - "127.0.0.1:5176:5173"
+    restart: unless-stopped
+
+  fixture:
+    build: .
+    image: sightloop-local:latest
+    pull_policy: never
+    container_name: sightloop-fixture
+    depends_on:
+      daemon:
+        condition: service_healthy
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@sightloop/fixture-react",
+        "exec",
+        "vite",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5175",
+        "--strictPort",
+      ]
+    ports:
+      - "127.0.0.1:5175:5175"
+    restart: unless-stopped
+
+volumes:
+  sightloop-data:
+  sightloop-workspace:
