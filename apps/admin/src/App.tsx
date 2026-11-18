@@ -11,6 +11,8 @@ import type {
   KnowledgeKind,
 } from "@sightloop/shared";
 import { api, baseUrl } from "./api";
+import { useI18n } from "./i18n";
+import { useTheme } from "./theme";
 
 type Tab = "projects" | "sessions" | "knowledge" | "audit" | "metrics";
 
@@ -64,6 +66,8 @@ function tabFromHash(): Tab {
 }
 
 export function App() {
+  const { t, locale, setLocale } = useI18n();
+  const { theme, setTheme } = useTheme();
   const [tab, setTab] = useState<Tab>(tabFromHash);
   const [projects, setProjects] = useState<Project[]>([]);
   const [daemonOk, setDaemonOk] = useState<boolean | null>(null);
@@ -89,56 +93,99 @@ export function App() {
         setDaemonOk(true);
         setVersion(h.version);
         await refreshProjects();
-        setStatus(`Connected to ${baseUrl} (v${h.version})`);
+        setStatus(
+          t("status.connected", { url: baseUrl, version: h.version }),
+        );
       } catch (err) {
         setDaemonOk(false);
         setError(
-          `Cannot reach daemon at ${baseUrl}: ${(err as Error).message}`,
+          t("status.unreachable", {
+            url: baseUrl,
+            message: (err as Error).message,
+          }),
         );
       }
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
 
   function go(next: Tab) {
     location.hash = next;
     setTab(next);
   }
 
+  const tabs = [
+    ["projects", t("nav.projects")],
+    ["sessions", t("nav.sessions")],
+    ["knowledge", t("nav.knowledge")],
+    ["audit", t("nav.audit")],
+    ["metrics", t("nav.metrics")],
+  ] as const;
+
   return (
     <div className="shell wide">
       <header className="topbar">
         <div className="brand">
           <h1>SightLoop</h1>
-          <span className="tag">Admin · Observability</span>
+          <span className="tag">{t("brand.tag")}</span>
           {daemonOk != null ? (
             <span className={`dot ${daemonOk ? "ok" : "bad"}`} title={status} />
           ) : null}
         </div>
-        <nav className="tabs" aria-label="Admin sections">
-          {(
-            [
-              ["projects", "Projects"],
-              ["sessions", "Sessions"],
-              ["knowledge", "Knowledge"],
-              ["audit", "Audit"],
-              ["metrics", "Metrics"],
-            ] as const
-          ).map(([id, label]) => (
+        <div className="chrome-controls">
+          <div className="seg" role="group" aria-label={t("chrome.lang")}>
             <button
-              key={id}
               type="button"
-              className={`tab ${tab === id ? "active" : ""}`}
-              onClick={() => go(id)}
+              className={locale === "zh-CN" ? "active" : ""}
+              aria-pressed={locale === "zh-CN"}
+              onClick={() => setLocale("zh-CN")}
             >
-              {label}
+              {t("chrome.lang.zh")}
             </button>
-          ))}
-        </nav>
+            <button
+              type="button"
+              className={locale === "en" ? "active" : ""}
+              aria-pressed={locale === "en"}
+              onClick={() => setLocale("en")}
+            >
+              {t("chrome.lang.en")}
+            </button>
+          </div>
+          <div className="seg" role="group" aria-label={t("chrome.theme")}>
+            <button
+              type="button"
+              className={theme === "light" ? "active" : ""}
+              aria-pressed={theme === "light"}
+              onClick={() => setTheme("light")}
+            >
+              {t("chrome.theme.light")}
+            </button>
+            <button
+              type="button"
+              className={theme === "dark" ? "active" : ""}
+              aria-pressed={theme === "dark"}
+              onClick={() => setTheme("dark")}
+            >
+              {t("chrome.theme.dark")}
+            </button>
+          </div>
+          <nav className="tabs" aria-label={t("nav.aria")}>
+            {tabs.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`tab ${tab === id ? "active" : ""}`}
+                onClick={() => go(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </header>
 
       <p className="lede">
-        Full M4 observability: session timelines, knowledge dual-loop, HMR/PR
-        mode, audit, and metrics. Daemon{" "}
+        {t("lede")}{" "}
         <code>
           {baseUrl}
           {version ? ` · ${version}` : ""}
@@ -159,14 +206,20 @@ export function App() {
         <SessionsPanel projects={projects} onError={setError} />
       ) : null}
       {tab === "knowledge" ? (
-        <KnowledgePanel projects={projects} onError={setError} onStatus={setStatus} />
+        <KnowledgePanel
+          projects={projects}
+          onError={setError}
+          onStatus={setStatus}
+        />
       ) : null}
       {tab === "audit" ? (
         <AuditPanel projects={projects} onError={setError} />
       ) : null}
       {tab === "metrics" ? <MetricsPanel onError={setError} /> : null}
 
-      {!error && status ? <p className="status ok footer-status">{status}</p> : null}
+      {!error && status ? (
+        <p className="status ok footer-status">{status}</p>
+      ) : null}
     </div>
   );
 }
@@ -177,6 +230,7 @@ function ProjectsPanel(props: {
   onStatus: (s: string) => void;
   onError: (s: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -215,10 +269,12 @@ function ProjectsPanel(props: {
       };
       if (editingId) {
         await api.updateProject(editingId, payload);
-        props.onStatus(`Updated project ${editingId} (mode=${payload.mode})`);
+        props.onStatus(
+          t("projects.status.updated", { id: editingId, mode: payload.mode }),
+        );
       } else {
         const created = await api.createProject(payload);
-        props.onStatus(`Created project ${created.id}`);
+        props.onStatus(t("projects.status.created", { id: created.id }));
       }
       resetForm();
       await props.onRefresh();
@@ -236,8 +292,8 @@ function ProjectsPanel(props: {
       await api.updateProject(p.id, { mode });
       props.onStatus(
         mode === "pr"
-          ? `Project ${p.name} → PR mode (Accept runs gh pr create)`
-          : `Project ${p.name} → HMR mode (Accept keeps local commit)`,
+          ? t("projects.status.prMode", { name: p.name })
+          : t("projects.status.hmrMode", { name: p.name }),
       );
       await props.onRefresh();
     } catch (err) {
@@ -250,26 +306,24 @@ function ProjectsPanel(props: {
   return (
     <>
       <div className="panel mode-doc">
-        <h2>HMR vs PR mode</h2>
+        <h2>{t("projects.modeDoc.title")}</h2>
         <ul className="doc-list">
           <li>
-            <strong>HMR</strong> — Accept keeps the local temp commit for hot
-            reload preview; no remote push.
+            <strong>HMR</strong> — {t("projects.modeDoc.hmr").replace(/^HMR — /, "")}
           </li>
           <li>
-            <strong>PR</strong> — Accept additionally runs{" "}
-            <code>gh pr create</code> (requires <code>gh</code> authenticated
-            for the repo). Failures are recorded in Audit without failing the
-            Accept/distill path.
+            <strong>PR</strong> — {t("projects.modeDoc.pr").replace(/^PR — /, "")}
           </li>
         </ul>
       </div>
 
       <div className="panel">
-        <h2>{editingId ? "Edit project" : "Register project"}</h2>
+        <h2>
+          {editingId ? t("projects.form.edit") : t("projects.form.register")}
+        </h2>
         <form className="form-grid" onSubmit={onSubmit}>
           <label>
-            Name
+            {t("projects.form.name")}
             <input
               required
               value={form.name}
@@ -277,7 +331,7 @@ function ProjectsPanel(props: {
             />
           </label>
           <label>
-            Repo path (absolute)
+            {t("projects.form.repo")}
             <input
               required
               className="mono"
@@ -286,7 +340,7 @@ function ProjectsPanel(props: {
             />
           </label>
           <label>
-            Origin pattern
+            {t("projects.form.origin")}
             <input
               required
               value={form.origin_pattern}
@@ -296,14 +350,14 @@ function ProjectsPanel(props: {
             />
           </label>
           <label>
-            Verify command (optional)
+            {t("projects.form.verify")}
             <input
               value={form.verify_cmd}
               onChange={(e) => setForm({ ...form, verify_cmd: e.target.value })}
             />
           </label>
           <label>
-            File whitelist (include AGENTS.md for Knowledge sync)
+            {t("projects.form.whitelist")}
             <textarea
               value={form.file_whitelist}
               onChange={(e) =>
@@ -313,7 +367,7 @@ function ProjectsPanel(props: {
           </label>
           <div className="row">
             <label>
-              Mode
+              {t("projects.form.mode")}
               <select
                 value={form.mode}
                 onChange={(e) =>
@@ -325,7 +379,7 @@ function ProjectsPanel(props: {
               </select>
             </label>
             <label>
-              Default branch
+              {t("projects.form.branch")}
               <input
                 value={form.default_branch}
                 onChange={(e) =>
@@ -336,7 +390,7 @@ function ProjectsPanel(props: {
           </div>
           <div className="row">
             <button className="btn" type="submit" disabled={busy}>
-              {editingId ? "Save changes" : "Create project"}
+              {editingId ? t("projects.form.save") : t("projects.form.create")}
             </button>
             {editingId ? (
               <button
@@ -345,7 +399,7 @@ function ProjectsPanel(props: {
                 onClick={resetForm}
                 disabled={busy}
               >
-                Cancel
+                {t("projects.form.cancel")}
               </button>
             ) : null}
           </div>
@@ -353,18 +407,18 @@ function ProjectsPanel(props: {
       </div>
 
       <div className="panel">
-        <h2>Projects</h2>
+        <h2>{t("projects.list.title")}</h2>
         {props.projects.length === 0 ? (
-          <p className="empty">No projects registered yet.</p>
+          <p className="empty">{t("projects.list.empty")}</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Mode</th>
-                  <th>Repo</th>
-                  <th>Origin</th>
+                  <th>{t("projects.col.name")}</th>
+                  <th>{t("projects.col.mode")}</th>
+                  <th>{t("projects.col.repo")}</th>
+                  <th>{t("projects.col.origin")}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -384,7 +438,7 @@ function ProjectsPanel(props: {
                           disabled={busy || p.mode === "hmr"}
                           onClick={() => setMode(p, "hmr")}
                         >
-                          HMR
+                          {t("projects.btn.hmr")}
                         </button>
                         <button
                           type="button"
@@ -392,7 +446,7 @@ function ProjectsPanel(props: {
                           disabled={busy || p.mode === "pr"}
                           onClick={() => setMode(p, "pr")}
                         >
-                          PR
+                          {t("projects.btn.pr")}
                         </button>
                       </div>
                     </td>
@@ -405,7 +459,7 @@ function ProjectsPanel(props: {
                         onClick={() => startEdit(p)}
                         disabled={busy}
                       >
-                        Edit
+                        {t("projects.btn.edit")}
                       </button>
                     </td>
                   </tr>
@@ -423,6 +477,7 @@ function SessionsPanel(props: {
   projects: Project[];
   onError: (s: string) => void;
 }) {
+  const { t } = useI18n();
   const [projectId, setProjectId] = useState("");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -460,9 +515,9 @@ function SessionsPanel(props: {
       setDetail(d);
       try {
         const diffRes = await api.getDiff(id);
-        setDiff(diffRes.patch || "(empty patch)");
+        setDiff(diffRes.patch || t("sessions.diffEmpty"));
       } catch {
-        setDiff("(diff unavailable)");
+        setDiff(t("sessions.diffUnavailable"));
       }
     } catch (err) {
       props.onError((err as Error).message);
@@ -478,23 +533,23 @@ function SessionsPanel(props: {
     <div className="split">
       <div className="panel">
         <div className="row between">
-          <h2>Sessions</h2>
+          <h2>{t("sessions.title")}</h2>
           <button
             type="button"
             className="btn secondary tiny"
             onClick={() => void loadList()}
             disabled={busy}
           >
-            Refresh
+            {t("sessions.refresh")}
           </button>
         </div>
         <label className="inline-filter">
-          Project
+          {t("sessions.project")}
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
           >
-            <option value="">All</option>
+            <option value="">{t("sessions.all")}</option>
             {props.projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -503,7 +558,7 @@ function SessionsPanel(props: {
           </select>
         </label>
         {sessions.length === 0 ? (
-          <p className="empty">No sessions yet.</p>
+          <p className="empty">{t("sessions.empty")}</p>
         ) : (
           <ul className="session-list">
             {sessions.map((s) => (
@@ -516,7 +571,8 @@ function SessionsPanel(props: {
                   <span className={`badge status-${s.status}`}>{s.status}</span>
                   <span className="mono">{s.id.slice(0, 10)}</span>
                   <span className="muted">
-                    {projectName(s.project_id)} · steps {s.step_count}
+                    {projectName(s.project_id)} ·{" "}
+                    {t("sessions.steps", { count: s.step_count })}
                   </span>
                   <span className="muted tiny">{fmtTime(s.created_at)}</span>
                 </button>
@@ -527,14 +583,14 @@ function SessionsPanel(props: {
       </div>
 
       <div className="panel">
-        <h2>Timeline &amp; diff</h2>
+        <h2>{t("sessions.timeline")}</h2>
         {!detail ? (
-          <p className="empty">Select a session to inspect steps, recall hits, and patch.</p>
+          <p className="empty">{t("sessions.select")}</p>
         ) : (
           <>
             <div className="meta-grid">
               <div>
-                <span className="muted">Status</span>
+                <span className="muted">{t("sessions.status")}</span>
                 <div>
                   <span className={`badge status-${detail.session.status}`}>
                     {detail.session.status}
@@ -542,11 +598,11 @@ function SessionsPanel(props: {
                 </div>
               </div>
               <div>
-                <span className="muted">Page</span>
+                <span className="muted">{t("sessions.page")}</span>
                 <div className="mono wrap">{detail.session.page_url}</div>
               </div>
               <div>
-                <span className="muted">Base → temp</span>
+                <span className="muted">{t("sessions.baseTemp")}</span>
                 <div className="mono wrap">
                   {(detail.session.git_base_sha ?? "—").slice(0, 8)} →{" "}
                   {(detail.session.temp_commit_sha ?? "—").slice(0, 8)}
@@ -554,7 +610,7 @@ function SessionsPanel(props: {
               </div>
             </div>
 
-            <h3 className="subhead">Step timeline</h3>
+            <h3 className="subhead">{t("sessions.stepTimeline")}</h3>
             <ol className="timeline">
               {detail.steps.map((step) => (
                 <li key={step.id}>
@@ -572,7 +628,9 @@ function SessionsPanel(props: {
                       </span>
                     ) : null}
                   </div>
-                  {step.summary ? <p className="tl-summary">{step.summary}</p> : null}
+                  {step.summary ? (
+                    <p className="tl-summary">{step.summary}</p>
+                  ) : null}
                   {step.error ? (
                     <p className="status error">{step.error}</p>
                   ) : null}
@@ -590,7 +648,7 @@ function SessionsPanel(props: {
 
             {detail.reviews.length > 0 ? (
               <>
-                <h3 className="subhead">Reviews</h3>
+                <h3 className="subhead">{t("sessions.reviews")}</h3>
                 <ul className="doc-list">
                   {detail.reviews.map((r) => (
                     <li key={r.id}>
@@ -603,7 +661,7 @@ function SessionsPanel(props: {
               </>
             ) : null}
 
-            <h3 className="subhead">Diff viewer</h3>
+            <h3 className="subhead">{t("sessions.diff")}</h3>
             <pre className="code-block diff">{diff}</pre>
           </>
         )}
@@ -613,14 +671,15 @@ function SessionsPanel(props: {
 }
 
 function RecallHits({ output }: { output: unknown }) {
+  const { t } = useI18n();
   if (!output || typeof output !== "object") return null;
   const hits = (output as { hits?: unknown }).hits;
   if (!Array.isArray(hits) || hits.length === 0) {
-    return <p className="muted">No knowledge recall hits.</p>;
+    return <p className="muted">{t("sessions.recallNone")}</p>;
   }
   return (
     <div className="recall">
-      <div className="muted">Knowledge recall (preferred before markup)</div>
+      <div className="muted">{t("sessions.recallTitle")}</div>
       <ul>
         {hits.map((h, i) => {
           const hit = h as {
@@ -632,12 +691,18 @@ function RecallHits({ output }: { output: unknown }) {
           };
           return (
             <li key={hit.id ?? i}>
-              <strong>{hit.title ?? "(untitled)"}</strong>
+              <strong>{hit.title ?? t("sessions.untitled")}</strong>
               {hit.score != null ? (
-                <span className="muted"> score={Number(hit.score).toFixed(2)}</span>
+                <span className="muted">
+                  {" "}
+                  score={Number(hit.score).toFixed(2)}
+                </span>
               ) : null}
               {hit.distance != null ? (
-                <span className="muted"> dist={Number(hit.distance).toFixed(3)}</span>
+                <span className="muted">
+                  {" "}
+                  dist={Number(hit.distance).toFixed(3)}
+                </span>
               ) : null}
               {hit.retrieve ? (
                 <span className="muted"> · {hit.retrieve}</span>
@@ -655,6 +720,7 @@ function KnowledgePanel(props: {
   onError: (s: string) => void;
   onStatus: (s: string) => void;
 }) {
+  const { t } = useI18n();
   const [projectId, setProjectId] = useState("");
   const [stack, setStack] = useState("");
   const [tag, setTag] = useState("");
@@ -719,11 +785,11 @@ function KnowledgePanel(props: {
         kind: draft.kind,
         tags: draft.tags
           .split(/[,]/)
-          .map((t) => t.trim())
+          .map((x) => x.trim())
           .filter(Boolean),
         stack: draft.stack.trim() || null,
       });
-      props.onStatus(`Updated knowledge ${editing.id}`);
+      props.onStatus(t("knowledge.status.updated", { id: editing.id }));
       setEditing(null);
       await load();
     } catch (err) {
@@ -756,21 +822,29 @@ function KnowledgePanel(props: {
 
   async function syncAgents(dryRun: boolean) {
     if (!projectId) {
-      props.onError("Select a project to sync AGENTS.md");
+      props.onError(t("knowledge.err.selectProject"));
       return;
     }
     setBusy(true);
     props.onError("");
     try {
-      const pinned = items.filter((i) => i.pinned && !i.archived).map((i) => i.id);
+      const pinned = items
+        .filter((i) => i.pinned && !i.archived)
+        .map((i) => i.id);
       const sync = await api.syncAgentsMd(projectId, {
         knowledge_ids: pinned.length ? pinned : undefined,
         dry_run: dryRun,
       });
       props.onStatus(
         dryRun
-          ? `Preview AGENTS.md (${sync.bytes} bytes) → ${sync.path}`
-          : `Wrote AGENTS.md (${sync.bytes} bytes) → ${sync.path}`,
+          ? t("knowledge.status.preview", {
+              bytes: sync.bytes,
+              path: sync.path,
+            })
+          : t("knowledge.status.wrote", {
+              bytes: sync.bytes,
+              path: sync.path,
+            }),
       );
       if (dryRun) {
         console.info(sync.markdown);
@@ -786,7 +860,7 @@ function KnowledgePanel(props: {
     <>
       <div className="panel">
         <div className="row between">
-          <h2>Knowledge Hub</h2>
+          <h2>{t("knowledge.title")}</h2>
           <div className="row">
             <button
               type="button"
@@ -794,7 +868,7 @@ function KnowledgePanel(props: {
               disabled={busy}
               onClick={() => void syncAgents(true)}
             >
-              Preview AGENTS.md
+              {t("knowledge.previewAgents")}
             </button>
             <button
               type="button"
@@ -802,18 +876,18 @@ function KnowledgePanel(props: {
               disabled={busy}
               onClick={() => void syncAgents(false)}
             >
-              Sync AGENTS.md
+              {t("knowledge.syncAgents")}
             </button>
           </div>
         </div>
         <div className="filters">
           <label>
-            Project
+            {t("knowledge.project")}
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
             >
-              <option value="">All</option>
+              <option value="">{t("knowledge.all")}</option>
               {props.projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -822,7 +896,7 @@ function KnowledgePanel(props: {
             </select>
           </label>
           <label>
-            Stack
+            {t("knowledge.stack")}
             <input
               value={stack}
               onChange={(e) => setStack(e.target.value)}
@@ -830,7 +904,7 @@ function KnowledgePanel(props: {
             />
           </label>
           <label>
-            Tag
+            {t("knowledge.tag")}
             <input
               value={tag}
               onChange={(e) => setTag(e.target.value)}
@@ -838,7 +912,7 @@ function KnowledgePanel(props: {
             />
           </label>
           <label>
-            Search
+            {t("knowledge.search")}
             <input value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
           <label className="check">
@@ -847,7 +921,7 @@ function KnowledgePanel(props: {
               checked={includeArchived}
               onChange={(e) => setIncludeArchived(e.target.checked)}
             />
-            Include archived
+            {t("knowledge.includeArchived")}
           </label>
           <button
             type="button"
@@ -855,23 +929,25 @@ function KnowledgePanel(props: {
             disabled={busy}
             onClick={() => void load()}
           >
-            Filter
+            {t("knowledge.filter")}
           </button>
         </div>
       </div>
 
       <div className="split">
         <div className="panel">
-          <h2>Cards ({items.length})</h2>
+          <h2>{t("knowledge.cards", { count: items.length })}</h2>
           {items.length === 0 ? (
-            <p className="empty">No knowledge cards.</p>
+            <p className="empty">{t("knowledge.empty")}</p>
           ) : (
             <ul className="knowledge-list">
               {items.map((k) => (
                 <li key={k.id} className={k.archived ? "archived" : ""}>
                   <div className="row between">
                     <div>
-                      {k.pinned ? <span className="pin">Pinned</span> : null}
+                      {k.pinned ? (
+                        <span className="pin">{t("knowledge.pinned")}</span>
+                      ) : null}
                       <strong>{k.title}</strong>
                       <div className="muted">
                         {k.kind}
@@ -887,32 +963,36 @@ function KnowledgePanel(props: {
                         className="btn secondary tiny"
                         onClick={() => startEdit(k)}
                       >
-                        Edit
+                        {t("knowledge.edit")}
                       </button>
                       <button
                         type="button"
                         className="btn secondary tiny"
                         onClick={() => void togglePin(k)}
                       >
-                        {k.pinned ? "Unpin" : "Pin"}
+                        {k.pinned ? t("knowledge.unpin") : t("knowledge.pin")}
                       </button>
                       <button
                         type="button"
                         className="btn secondary tiny"
                         onClick={() => void toggleArchive(k)}
                       >
-                        {k.archived ? "Unarchive" : "Archive"}
+                        {k.archived
+                          ? t("knowledge.unarchive")
+                          : t("knowledge.archive")}
                       </button>
                       <button
                         type="button"
                         className="btn secondary tiny"
                         onClick={() => void exportCard(k)}
                       >
-                        Export
+                        {t("knowledge.export")}
                       </button>
                     </div>
                   </div>
-                  <pre className="code-block compact">{k.body_md.slice(0, 400)}</pre>
+                  <pre className="code-block compact">
+                    {k.body_md.slice(0, 400)}
+                  </pre>
                 </li>
               ))}
             </ul>
@@ -920,13 +1000,15 @@ function KnowledgePanel(props: {
         </div>
 
         <div className="panel">
-          <h2>{editing ? "Edit card" : "Editor"}</h2>
+          <h2>
+            {editing ? t("knowledge.editCard") : t("knowledge.editor")}
+          </h2>
           {!editing ? (
-            <p className="empty">Select Edit on a card.</p>
+            <p className="empty">{t("knowledge.selectEdit")}</p>
           ) : (
             <form className="form-grid" onSubmit={saveEdit}>
               <label>
-                Title
+                {t("knowledge.titleField")}
                 <input
                   required
                   value={draft.title}
@@ -936,7 +1018,7 @@ function KnowledgePanel(props: {
                 />
               </label>
               <label>
-                Kind
+                {t("knowledge.kind")}
                 <select
                   value={draft.kind}
                   onChange={(e) =>
@@ -953,7 +1035,7 @@ function KnowledgePanel(props: {
                 </select>
               </label>
               <label>
-                Stack
+                {t("knowledge.stack")}
                 <input
                   value={draft.stack}
                   onChange={(e) =>
@@ -962,14 +1044,14 @@ function KnowledgePanel(props: {
                 />
               </label>
               <label>
-                Tags (comma-separated)
+                {t("knowledge.tags")}
                 <input
                   value={draft.tags}
                   onChange={(e) => setDraft({ ...draft, tags: e.target.value })}
                 />
               </label>
               <label>
-                Body (Markdown)
+                {t("knowledge.body")}
                 <textarea
                   className="tall"
                   value={draft.body_md}
@@ -980,14 +1062,14 @@ function KnowledgePanel(props: {
               </label>
               <div className="row">
                 <button className="btn" type="submit" disabled={busy}>
-                  Save
+                  {t("knowledge.save")}
                 </button>
                 <button
                   className="btn secondary"
                   type="button"
                   onClick={() => setEditing(null)}
                 >
-                  Cancel
+                  {t("knowledge.cancel")}
                 </button>
               </div>
             </form>
@@ -1002,6 +1084,7 @@ function AuditPanel(props: {
   projects: Project[];
   onError: (s: string) => void;
 }) {
+  const { t } = useI18n();
   const [projectId, setProjectId] = useState("");
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [busy, setBusy] = useState(false);
@@ -1031,23 +1114,23 @@ function AuditPanel(props: {
   return (
     <div className="panel">
       <div className="row between">
-        <h2>Security audit log</h2>
+        <h2>{t("audit.title")}</h2>
         <button
           type="button"
           className="btn secondary tiny"
           disabled={busy}
           onClick={() => void load()}
         >
-          Refresh
+          {t("audit.refresh")}
         </button>
       </div>
       <label className="inline-filter">
-        Project
+        {t("audit.project")}
         <select
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
         >
-          <option value="">All</option>
+          <option value="">{t("audit.all")}</option>
           {props.projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -1056,17 +1139,17 @@ function AuditPanel(props: {
         </select>
       </label>
       {events.length === 0 ? (
-        <p className="empty">No audit events.</p>
+        <p className="empty">{t("audit.empty")}</p>
       ) : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>When</th>
-                <th>Event</th>
-                <th>Project</th>
-                <th>Session</th>
-                <th>Detail</th>
+                <th>{t("audit.col.when")}</th>
+                <th>{t("audit.col.event")}</th>
+                <th>{t("audit.col.project")}</th>
+                <th>{t("audit.col.session")}</th>
+                <th>{t("audit.col.detail")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1094,6 +1177,7 @@ function AuditPanel(props: {
 }
 
 function MetricsPanel(props: { onError: (s: string) => void }) {
+  const { t } = useI18n();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
 
   useEffect(() => {
@@ -1107,35 +1191,44 @@ function MetricsPanel(props: { onError: (s: string) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!metrics) return <p className="empty">Loading metrics…</p>;
+  if (!metrics) return <p className="empty">{t("metrics.loading")}</p>;
 
   return (
     <div className="panel">
-      <h2>Basic metrics</h2>
+      <h2>{t("metrics.title")}</h2>
       <div className="metrics-grid">
-        <Metric label="Sessions" value={String(metrics.sessions_total)} />
+        <Metric label={t("metrics.sessions")} value={String(metrics.sessions_total)} />
         <Metric
-          label="Failure rate"
+          label={t("metrics.failureRate")}
           value={`${Math.round(metrics.failure_rate * 1000) / 10}%`}
         />
-        <Metric label="Avg steps" value={String(metrics.avg_steps)} />
-        <Metric label="Knowledge" value={String(metrics.knowledge_total)} />
-        <Metric label="Pinned" value={String(metrics.knowledge_pinned)} />
-        <Metric label="Audit events" value={String(metrics.audit_total)} />
+        <Metric label={t("metrics.avgSteps")} value={String(metrics.avg_steps)} />
         <Metric
-          label="sqlite-vec"
+          label={t("metrics.knowledge")}
+          value={String(metrics.knowledge_total)}
+        />
+        <Metric
+          label={t("metrics.pinned")}
+          value={String(metrics.knowledge_pinned)}
+        />
+        <Metric
+          label={t("metrics.auditEvents")}
+          value={String(metrics.audit_total)}
+        />
+        <Metric
+          label={t("metrics.vec")}
           value={
             metrics.vec_ready
-              ? `ready · ${metrics.vec_indexed ?? 0} indexed`
-              : "unavailable"
+              ? t("metrics.vecReady", { count: metrics.vec_indexed ?? 0 })
+              : t("metrics.vecUnavailable")
           }
         />
       </div>
-      <h3 className="subhead">Sessions by status</h3>
+      <h3 className="subhead">{t("metrics.byStatus")}</h3>
       <pre className="code-block">
         {JSON.stringify(metrics.sessions_by_status, null, 2)}
       </pre>
-      <h3 className="subhead">Reviews by decision</h3>
+      <h3 className="subhead">{t("metrics.byDecision")}</h3>
       <pre className="code-block">
         {JSON.stringify(metrics.reviews_by_decision, null, 2)}
       </pre>
