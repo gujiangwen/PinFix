@@ -86,8 +86,7 @@ li {
   text-wrap: pretty;
 }
 
-.session-meta a,
-.mono {
+:where(a, code, .mono) {
   overflow-wrap: anywhere;
 }
 
@@ -102,19 +101,9 @@ li {
 .shell.wide {
   width: 100%;
   max-width: none;
-  min-height: 100dvh;
   margin: 0;
   padding: clamp(1rem, 2vw, 2.25rem);
-  display: flex;
-  flex-direction: column;
   container: shell / inline-size;
-}
-
-.shell > main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
 }
 
 .topbar {
@@ -761,18 +750,10 @@ dialog::backdrop {
 /* ---- Agent Loop page ---- */
 
 .loop-layout {
-  flex: 1;
   display: grid;
-  grid-template-columns: clamp(17rem, 22vw, 22rem) minmax(0, 1fr);
+  grid-template-columns: 16rem minmax(0, 1fr);
   gap: 1.25rem;
-  align-items: stretch;
-}
-
-.loop-main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 100%;
+  align-items: start;
 }
 
 .rail {
@@ -781,7 +762,6 @@ dialog::backdrop {
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
   display: grid;
-  align-content: start;
   gap: 0.75rem;
 }
 
@@ -821,15 +801,7 @@ dialog::backdrop {
 
 .rail-title {
   font-size: 0.9rem;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-
-.inline-filter select {
-  width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .rail-meta {
@@ -940,11 +912,7 @@ dialog::backdrop {
   margin: 0;
   padding: 0.25rem 0;
   display: grid;
-  /* Cap the columns so a wide window does not pull the seven nodes apart. */
-  grid-template-columns: repeat(7, minmax(5.25rem, 8.5rem));
-  justify-content: start;
-  width: fit-content;
-  max-width: 100%;
+  grid-template-columns: repeat(7, minmax(5.25rem, 1fr));
   min-width: 37rem;
 }
 
@@ -1015,7 +983,6 @@ dialog::backdrop {
 /* Narrow track: a vertical list instead of a 37rem-wide row that only scrolls. */
 @container track (inline-size < 38rem) {
   .track {
-    width: 100%;
     min-width: 0;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1084,10 +1051,6 @@ dialog::backdrop {
     animation: none;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
   }
-}
-
-.node-detail {
-  flex: 1;
 }
 
 .node-detail > header {
