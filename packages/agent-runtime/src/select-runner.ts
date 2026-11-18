@@ -1,15 +1,11 @@
 import type { AgentRunner } from "./runners/types.js";
 import { createMockRunner } from "./runners/mock.js";
 import { createPiRunner } from "./runners/pi.js";
+import { hasPiCredential } from "./pi-connection.js";
 
-/** True when a cloud LLM key is present for pi / provider use. */
+/** True when the shared Pi credential is configured. */
 export function hasLlmApiKey(env: NodeJS.ProcessEnv = process.env): boolean {
-  return Boolean(
-    env.OPENAI_API_KEY ||
-      env.ANTHROPIC_API_KEY ||
-      env.SIGHTLOOP_LLM_API_KEY ||
-      env.PI_API_KEY,
-  );
+  return hasPiCredential(env);
 }
 
 /**

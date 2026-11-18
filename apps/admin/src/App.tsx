@@ -1461,46 +1461,18 @@ function ModelsPanel(props: {
   const [dualLoop, setDualLoop] = useState(false);
   const [dualMock, setDualMock] = useState(true);
   const [crossJudge, setCrossJudge] = useState(false);
-  const [draft, setDraft] = useState<
-    Record<
-      LlmRoleId,
-      {
-        provider: string;
-        model: string;
-        base_url: string;
-        api_key: string;
-        clear_api_key: boolean;
-      }
-    >
-  >({
-    planner: {
-      provider: "",
-      model: "",
-      base_url: "",
-      api_key: "",
-      clear_api_key: false,
-    },
-    implementer: {
-      provider: "",
-      model: "",
-      base_url: "",
-      api_key: "",
-      clear_api_key: false,
-    },
-    reviewer: {
-      provider: "",
-      model: "",
-      base_url: "",
-      api_key: "",
-      clear_api_key: false,
-    },
-    judge: {
-      provider: "",
-      model: "",
-      base_url: "",
-      api_key: "",
-      clear_api_key: false,
-    },
+  const [pi, setPi] = useState({
+    provider: "",
+    base_url: "",
+    default_model: "",
+    api_key: "",
+    clear_api_key: false,
+  });
+  const [roleModels, setRoleModels] = useState<Record<LlmRoleId, string>>({
+    planner: "",
+    implementer: "",
+    reviewer: "",
+    judge: "",
   });
 
   function hydrate(s: LlmSettingsPublic) {
@@ -1508,35 +1480,18 @@ function ModelsPanel(props: {
     setDualLoop(s.dual_loop_enabled);
     setDualMock(s.dual_loop_mock);
     setCrossJudge(s.cross_judge);
-    setDraft({
-      planner: {
-        provider: s.roles.planner.provider ?? "",
-        model: s.roles.planner.model ?? "",
-        base_url: s.roles.planner.base_url ?? "",
-        api_key: "",
-        clear_api_key: false,
-      },
-      implementer: {
-        provider: s.roles.implementer.provider ?? "",
-        model: s.roles.implementer.model ?? "",
-        base_url: s.roles.implementer.base_url ?? "",
-        api_key: "",
-        clear_api_key: false,
-      },
-      reviewer: {
-        provider: s.roles.reviewer.provider ?? "",
-        model: s.roles.reviewer.model ?? "",
-        base_url: s.roles.reviewer.base_url ?? "",
-        api_key: "",
-        clear_api_key: false,
-      },
-      judge: {
-        provider: s.roles.judge.provider ?? "",
-        model: s.roles.judge.model ?? "",
-        base_url: s.roles.judge.base_url ?? "",
-        api_key: "",
-        clear_api_key: false,
-      },
+    setPi({
+      provider: s.pi.provider ?? "",
+      base_url: s.pi.base_url ?? "",
+      default_model: s.pi.default_model ?? "",
+      api_key: "",
+      clear_api_key: false,
+    });
+    setRoleModels({
+      planner: s.role_models.planner ?? "",
+      implementer: s.role_models.implementer ?? "",
+      reviewer: s.role_models.reviewer ?? "",
+      judge: s.role_models.judge ?? "",
     });
   }
 
@@ -1560,23 +1515,20 @@ function ModelsPanel(props: {
         dual_loop_enabled: dualLoop,
         dual_loop_mock: dualMock,
         cross_judge: crossJudge,
+        pi: {
+          provider: pi.provider.trim() || null,
+          base_url: pi.base_url.trim() || null,
+          default_model: pi.default_model.trim() || null,
+          clear_api_key: pi.clear_api_key || undefined,
+          api_key: pi.clear_api_key ? undefined : pi.api_key || undefined,
+        },
+        role_models: {
+          planner: roleModels.planner.trim() || null,
+          implementer: roleModels.implementer.trim() || null,
+          reviewer: roleModels.reviewer.trim() || null,
+          judge: roleModels.judge.trim() || null,
+        },
       };
-      for (const role of [
-        "planner",
-        "implementer",
-        "reviewer",
-        "judge",
-      ] as const) {
-        const d = draft[role];
-        patch[role] = {
-          provider: role === "implementer" || role === "judge" ? undefined : d.provider,
-          model: d.model,
-          base_url:
-            role === "implementer" || role === "judge" ? undefined : d.base_url,
-          api_key: d.clear_api_key ? undefined : d.api_key || undefined,
-          clear_api_key: d.clear_api_key || undefined,
-        };
-      }
       const res = await api.putLlmSettings(patch);
       hydrate(res.settings);
       props.onStatus(t("models.saved"));
@@ -1628,116 +1580,116 @@ function ModelsPanel(props: {
           {t("models.crossJudge")}
         </label>
 
-        {roles.map((role) => {
-          const r = settings.roles[role];
-          const d = draft[role];
-          const showProvider = role === "planner" || role === "reviewer";
-          const roleTitle =
-            role === "planner"
-              ? t("models.role.planner")
-              : role === "implementer"
-                ? t("models.role.implementer")
-                : role === "reviewer"
-                  ? t("models.role.reviewer")
-                  : t("models.role.judge");
-          return (
-            <div key={role} className="panel" style={{ marginBottom: 0 }}>
-              <h3 className="subhead" style={{ marginTop: 0 }}>
-                {roleTitle}
-                <span className="muted">
-                  {" "}
-                  ·{" "}
-                  {r.api_key_set
-                    ? t("models.keySet", { hint: r.api_key_hint ?? "••••" })
-                    : t("models.keyMissing")}
-                </span>
-              </h3>
-              <div className="form-grid">
-                {showProvider ? (
-                  <label>
-                    {t("models.provider")}
-                    <input
-                      value={d.provider}
-                      placeholder="openai | anthropic | compatible"
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          [role]: { ...d, provider: e.target.value },
-                        })
-                      }
-                    />
-                  </label>
-                ) : null}
-                <label>
-                  {t("models.model")}
+        <div className="panel" style={{ marginBottom: 0 }}>
+          <h3 className="subhead" style={{ marginTop: 0 }}>
+            {t("models.piSection")}
+            <span className="muted">
+              {" "}
+              ·{" "}
+              {settings.pi.api_key_set
+                ? t("models.keySet", {
+                    hint: settings.pi.api_key_hint ?? "••••",
+                  })
+                : t("models.keyMissing")}
+            </span>
+          </h3>
+          <div className="form-grid">
+            <label>
+              {t("models.provider")}
+              <input
+                value={pi.provider}
+                placeholder="openai | anthropic | compatible"
+                onChange={(e) => setPi({ ...pi, provider: e.target.value })}
+              />
+            </label>
+            <label>
+              {t("models.defaultModel")}
+              <input
+                value={pi.default_model}
+                placeholder="gpt-4o-mini"
+                onChange={(e) =>
+                  setPi({ ...pi, default_model: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              {t("models.baseUrl")}
+              <input
+                value={pi.base_url}
+                placeholder="https://…"
+                onChange={(e) => setPi({ ...pi, base_url: e.target.value })}
+              />
+            </label>
+            <label>
+              {t("models.apiKey")}
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={pi.api_key}
+                placeholder={t("models.apiKeyPlaceholder")}
+                onChange={(e) =>
+                  setPi({
+                    ...pi,
+                    api_key: e.target.value,
+                    clear_api_key: false,
+                  })
+                }
+              />
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={pi.clear_api_key}
+                onChange={(e) =>
+                  setPi({
+                    ...pi,
+                    clear_api_key: e.target.checked,
+                    api_key: e.target.checked ? "" : pi.api_key,
+                  })
+                }
+              />
+              {t("models.clearKey")}
+            </label>
+          </div>
+        </div>
+
+        <div className="panel" style={{ marginBottom: 0 }}>
+          <h3 className="subhead" style={{ marginTop: 0 }}>
+            {t("models.rolesSection")}
+          </h3>
+          <div className="form-grid">
+            {roles.map((role) => {
+              const roleTitle =
+                role === "planner"
+                  ? t("models.role.planner")
+                  : role === "implementer"
+                    ? t("models.role.implementer")
+                    : role === "reviewer"
+                      ? t("models.role.reviewer")
+                      : t("models.role.judge");
+              return (
+                <label key={role}>
+                  {roleTitle}
                   <input
-                    value={d.model}
-                    placeholder="gpt-4o-mini"
+                    value={roleModels[role]}
+                    placeholder={pi.default_model || "inherit default"}
                     onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        [role]: { ...d, model: e.target.value },
+                      setRoleModels({
+                        ...roleModels,
+                        [role]: e.target.value,
                       })
                     }
                   />
                 </label>
-                {showProvider ? (
-                  <label>
-                    {t("models.baseUrl")}
-                    <input
-                      value={d.base_url}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          [role]: { ...d, base_url: e.target.value },
-                        })
-                      }
-                    />
-                  </label>
-                ) : null}
-                <label>
-                  {t("models.apiKey")}
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={d.api_key}
-                    placeholder={t("models.apiKeyPlaceholder")}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        [role]: {
-                          ...d,
-                          api_key: e.target.value,
-                          clear_api_key: false,
-                        },
-                      })
-                    }
-                  />
-                </label>
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={d.clear_api_key}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        [role]: {
-                          ...d,
-                          clear_api_key: e.target.checked,
-                          api_key: e.target.checked ? "" : d.api_key,
-                        },
-                      })
-                    }
-                  />
-                  {t("models.clearKey")}
-                </label>
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        </div>
 
         <p className="muted mono wrap">
           {t("models.path")}: {settings.settings_path}
+          <br />
+          {settings.host_env_note}
         </p>
         <div className="row">
           <button className="btn" type="submit" disabled={busy}>

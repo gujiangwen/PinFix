@@ -43,17 +43,19 @@ export const DxStatusSchema = z.object({
   dual_loop: z
     .object({
       enabled: z.boolean(),
-      mode: z.enum(["mock", "llm"]),
+      /** mock = dual-loop mock roles; pi = shared Pi credential path (legacy alias: llm). */
+      mode: z.enum(["mock", "pi", "llm"]),
       max_inner_refines: z.number().int(),
       planner_model: z.string().nullable().optional(),
       implementer_model: z.string().nullable().optional(),
       reviewer_model: z.string().nullable().optional(),
-      planner_backend: z.enum(["mock", "llm"]).optional(),
-      reviewer_backend: z.enum(["mock", "llm"]).optional(),
+      planner_backend: z.enum(["mock", "pi", "llm"]).optional(),
+      reviewer_backend: z.enum(["mock", "pi", "llm"]).optional(),
+      /** Shared Pi credential present (not a per-role key). */
       planner_key_configured: z.boolean().optional(),
       reviewer_key_configured: z.boolean().optional(),
       fallback_reason: z.string().nullable().optional(),
-      /** M12e/R5: CROSS_JUDGE default off; skip when no JUDGE key. */
+      /** M12e/R5: CROSS_JUDGE default off; skip when no Pi key. */
       cross_judge: z.boolean().optional(),
       judge_key_configured: z.boolean().optional(),
       /** M12c/R3 */

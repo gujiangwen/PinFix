@@ -24,7 +24,7 @@ export type PlannerCallInput = MockPlannerInput & {
 };
 export type PlannerResult = {
   plan: PlanIR;
-  backend: "mock" | "llm";
+  backend: "mock" | "pi";
   fallback_reason?: string;
   attempts: number;
 };
@@ -108,7 +108,7 @@ export async function callPlanner(opts: {
       backend: "mock",
       fallback_reason: opts.useMock
         ? "dual_loop_mock"
-        : "no_planner_api_key",
+        : "no_pi_api_key",
       attempts: 0,
     };
   }
@@ -156,7 +156,7 @@ export async function callPlanner(opts: {
           : [],
         confidence:
           typeof raw.confidence === "number" ? raw.confidence : undefined,
-        planner_model: opts.config.model ?? "llm-planner",
+        planner_model: opts.config.model ?? "pi-planner",
         created_at: Date.now(),
         issue_resolutions,
         verify_contract:
@@ -174,7 +174,7 @@ export async function callPlanner(opts: {
         lastErr = "plan_missing_verify_contract";
         continue;
       }
-      return { plan, backend: "llm", attempts: attempt };
+      return { plan, backend: "pi", attempts: attempt };
     } catch (err) {
       lastErr = (err as Error).message ?? String(err);
     }
@@ -185,7 +185,7 @@ export async function callPlanner(opts: {
   return {
     plan,
     backend: "mock",
-    fallback_reason: `planner_llm_failed:${lastErr.slice(0, 120)}`,
+    fallback_reason: `planner_pi_failed:${lastErr.slice(0, 120)}`,
     attempts: maxAttempts,
   };
 }

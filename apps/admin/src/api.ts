@@ -188,10 +188,10 @@ export const api = {
 
 export type LlmRoleId = "planner" | "implementer" | "reviewer" | "judge";
 
-export type LlmRolePublic = {
+export type PiConnectionPublic = {
   provider: string | null;
-  model: string | null;
   base_url: string | null;
+  default_model: string | null;
   api_key_set: boolean;
   api_key_hint: string | null;
 };
@@ -200,27 +200,24 @@ export type LlmSettingsPublic = {
   dual_loop_enabled: boolean;
   dual_loop_mock: boolean;
   cross_judge: boolean;
-  roles: Record<LlmRoleId, LlmRolePublic>;
+  pi: PiConnectionPublic;
+  role_models: Record<LlmRoleId, string | null>;
   settings_path: string;
   host_env_note: string;
-};
-
-export type LlmRolePatch = {
-  provider?: string | null;
-  model?: string | null;
-  base_url?: string | null;
-  api_key?: string | null;
-  clear_api_key?: boolean;
 };
 
 export type LlmSettingsPatch = {
   dual_loop_enabled?: boolean;
   dual_loop_mock?: boolean;
   cross_judge?: boolean;
-  planner?: LlmRolePatch;
-  implementer?: LlmRolePatch;
-  reviewer?: LlmRolePatch;
-  judge?: LlmRolePatch;
+  pi?: {
+    provider?: string | null;
+    base_url?: string | null;
+    default_model?: string | null;
+    api_key?: string | null;
+    clear_api_key?: boolean;
+  };
+  role_models?: Partial<Record<LlmRoleId, string | null>>;
 };
 
 export type ExtensionInstallInfo = {

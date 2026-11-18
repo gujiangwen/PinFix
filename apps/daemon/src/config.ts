@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { findMonorepoRoot, resolveFromRoot } from "./paths.js";
 import type { MarkupAdapterKind } from "@sightloop/markup-bridge";
 import { loadLlmSettingsFileIntoEnv } from "./llm-settings.js";
+import { resolvePiConnection } from "@sightloop/agent-runtime";
 
 loadEnv({ path: resolve(findMonorepoRoot(), ".env") });
 // Admin-managed LLM overrides (data volume) win over base .env
@@ -79,17 +80,11 @@ export function loadConfig(): DaemonConfig {
   const markupAdapter: MarkupAdapterKind =
     adapterRaw === "official" ? "official" : "self";
 
-  const plannerKeyConfigured = Boolean(
-    process.env.SIGHTLOOP_PLANNER_API_KEY?.trim(),
-  );
-  const reviewerKeyConfigured = Boolean(
-    process.env.SIGHTLOOP_REVIEWER_API_KEY?.trim() ||
-      process.env.SIGHTLOOP_PLANNER_API_KEY?.trim(),
-  );
-  const judgeKeyConfigured = Boolean(
-    process.env.SIGHTLOOP_JUDGE_API_KEY?.trim() ||
-      process.env.SIGHTLOOP_PLANNER_API_KEY?.trim(),
-  );
+  // Shared Pi credential — all dual-loop roles use the same key presence bit.
+  const piKey = resolvePiConnection(process.env).keyConfigured;
+  const plannerKeyConfigured = piKey;
+  const reviewerKeyConfigured = piKey;
+  const judgeKeyConfigured = piKey;
 
   return {
     host,

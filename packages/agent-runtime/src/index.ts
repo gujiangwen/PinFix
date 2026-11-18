@@ -6,6 +6,18 @@ export type {
 export { createMockRunner } from "./runners/mock.js";
 export { createPiRunner, type PiRunnerOptions } from "./runners/pi.js";
 export { selectAgentRunner, hasLlmApiKey } from "./select-runner.js";
+export {
+  resolvePiConnection,
+  hasPiCredential,
+  type PiConnection,
+  type PiProvider,
+} from "./pi-connection.js";
+export {
+  piChatText,
+  extractJsonObject,
+  PiChatError,
+  type PiChatOptions,
+} from "./pi-chat.js";
 export { acquireRepoLock, type RepoLock } from "./lock.js";
 export {
   ensureGitRepo,

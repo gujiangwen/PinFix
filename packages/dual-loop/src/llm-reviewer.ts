@@ -13,7 +13,7 @@ export type ReviewerCallInput = MockReviewerInput & {
 
 export type ReviewerResult = {
   review: ReviewIR;
-  backend: "mock" | "llm";
+  backend: "mock" | "pi";
   fallback_reason?: string;
   attempts: number;
 };
@@ -63,7 +63,7 @@ export async function callReviewer(opts: {
 }): Promise<ReviewerResult> {
   const maxAttempts = Math.min(4, Math.max(1, opts.maxAttempts ?? 2));
 
-  // Smoke force-refine stays deterministic even in llm mode.
+  // Smoke force-refine stays deterministic even in pi mode.
   if (
     opts.input.force_refine_once &&
     (opts.input.inner_refine_count ?? 0) === 0
@@ -72,7 +72,7 @@ export async function callReviewer(opts: {
     if (opts.config.model) review.reviewer_model = opts.config.model;
     return {
       review,
-      backend: opts.useMock || !opts.config.keyConfigured ? "mock" : "llm",
+      backend: opts.useMock || !opts.config.keyConfigured ? "mock" : "pi",
       fallback_reason: "force_refine_once",
       attempts: 0,
     };
@@ -86,7 +86,7 @@ export async function callReviewer(opts: {
       backend: "mock",
       fallback_reason: opts.useMock
         ? "dual_loop_mock"
-        : "no_reviewer_api_key",
+        : "no_pi_api_key",
       attempts: 0,
     };
   }
@@ -122,9 +122,9 @@ export async function callReviewer(opts: {
             : undefined,
         consume_gate:
           typeof raw.consume_gate === "boolean" ? raw.consume_gate : true,
-        reviewer_model: opts.config.model ?? "llm-reviewer",
+        reviewer_model: opts.config.model ?? "pi-reviewer",
       });
-      return { review, backend: "llm", attempts: attempt };
+      return { review, backend: "pi", attempts: attempt };
     } catch (err) {
       lastErr = (err as Error).message ?? String(err);
     }
@@ -135,7 +135,7 @@ export async function callReviewer(opts: {
   return {
     review,
     backend: "mock",
-    fallback_reason: `reviewer_llm_failed:${lastErr.slice(0, 120)}`,
+    fallback_reason: `reviewer_pi_failed:${lastErr.slice(0, 120)}`,
     attempts: maxAttempts,
   };
 }

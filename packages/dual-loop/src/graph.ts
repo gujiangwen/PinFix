@@ -318,7 +318,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onStep?.({
         idx: stepCount,
         phase: "plan",
-        tool_name: result.backend === "llm" ? "llm_planner" : "mock_planner",
+        tool_name: result.backend === "pi" ? "pi_planner" : "mock_planner",
         summary: `Plan[${result.backend}] allowed_files=${plan.allowed_files.join(",")}`,
         output: {
           root_cause: plan.root_cause,
@@ -858,7 +858,7 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onStep?.({
         idx: stepCount,
         phase: "review",
-        tool_name: result.backend === "llm" ? "llm_reviewer" : "mock_reviewer",
+        tool_name: result.backend === "pi" ? "pi_reviewer" : "mock_reviewer",
         summary: `verdict=${review.verdict} [${result.backend}] agent_judge_pass=${agent_judge_pass}`,
         output: {
           ...review,

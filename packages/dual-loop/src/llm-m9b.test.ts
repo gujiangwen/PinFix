@@ -10,40 +10,42 @@ import {
 } from "./role-config.js";
 import { filterPlanFilesByProject } from "./whitelist.js";
 
-describe("role config separation", () => {
-  it("planner does not inherit implementer/openai keys", () => {
+describe("role config (Pi-centric)", () => {
+  it("all roles share one Pi credential; models can differ", () => {
     const env = {
       OPENAI_API_KEY: "sk-openai",
-      SIGHTLOOP_IMPLEMENTER_API_KEY: "sk-impl",
       SIGHTLOOP_IMPLEMENTER_MODEL: "gpt-impl",
+      SIGHTLOOP_PLANNER_MODEL: "gpt-plan",
     } as NodeJS.ProcessEnv;
     const planner = resolvePlannerConfig(env);
     const impl = resolveImplementerConfig(env);
-    expect(planner.keyConfigured).toBe(false);
+    expect(planner.keyConfigured).toBe(true);
     expect(impl.keyConfigured).toBe(true);
+    expect(planner.apiKey).toBe("sk-openai");
+    expect(impl.apiKey).toBe("sk-openai");
+    expect(planner.model).toBe("gpt-plan");
     expect(impl.model).toBe("gpt-impl");
   });
 
-  it("reviewer defaults to planner key/model", () => {
+  it("reviewer inherits planner model when unset", () => {
     const env = {
-      SIGHTLOOP_PLANNER_API_KEY: "sk-plan",
+      SIGHTLOOP_LLM_API_KEY: "sk-shared",
       SIGHTLOOP_PLANNER_MODEL: "gpt-plan",
     } as NodeJS.ProcessEnv;
     const rev = resolveReviewerConfig(env);
     expect(rev.keyConfigured).toBe(true);
-    expect(rev.apiKey).toBe("sk-plan");
+    expect(rev.apiKey).toBe("sk-shared");
     expect(rev.model).toBe("gpt-plan");
   });
 
-  it("reviewer can override planner", () => {
+  it("reviewer can override model only", () => {
     const env = {
-      SIGHTLOOP_PLANNER_API_KEY: "sk-plan",
+      SIGHTLOOP_LLM_API_KEY: "sk-shared",
       SIGHTLOOP_PLANNER_MODEL: "gpt-plan",
-      SIGHTLOOP_REVIEWER_API_KEY: "sk-rev",
       SIGHTLOOP_REVIEWER_MODEL: "gpt-rev",
     } as NodeJS.ProcessEnv;
     const rev = resolveReviewerConfig(env);
-    expect(rev.apiKey).toBe("sk-rev");
+    expect(rev.apiKey).toBe("sk-shared");
     expect(rev.model).toBe("gpt-rev");
   });
 });
@@ -114,13 +116,13 @@ describe("callPlanner / callReviewer", () => {
       useMock: false,
     });
     expect(r.backend).toBe("mock");
-    expect(r.fallback_reason).toBe("no_planner_api_key");
+    expect(r.fallback_reason).toBe("no_pi_api_key");
     expect(
       r.plan.allowed_files.every((f) => !f.startsWith("/") && !f.includes("..")),
     ).toBe(true);
   });
 
-  it("uses LLM when stub server returns PlanIR JSON", async () => {
+  it("uses Pi chat when stub server returns PlanIR JSON", async () => {
     const server = createServer((req, res) => {
       let body = "";
       req.on("data", (c) => {
@@ -172,7 +174,7 @@ describe("callPlanner / callReviewer", () => {
         },
         useMock: false,
       });
-      expect(r.backend).toBe("llm");
+      expect(r.backend).toBe("pi");
       expect(r.plan.allowed_files).toEqual(["src/app.ts"]);
       expect(r.plan.allowed_files).not.toContain("/etc/passwd");
     } finally {
@@ -182,7 +184,7 @@ describe("callPlanner / callReviewer", () => {
     }
   });
 
-  it("reviewer LLM path parses ReviewIR", async () => {
+  it("reviewer Pi path parses ReviewIR", async () => {
     const server = createServer((_req, res) => {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(
@@ -233,7 +235,7 @@ describe("callPlanner / callReviewer", () => {
         },
         useMock: false,
       });
-      expect(r.backend).toBe("llm");
+      expect(r.backend).toBe("pi");
       expect(r.review.verdict).toBe("pass");
     } finally {
       await new Promise<void>((resolve, reject) =>
