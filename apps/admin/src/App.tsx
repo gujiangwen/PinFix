@@ -67,7 +67,7 @@ function tabFromHash(): Tab {
 
 export function App() {
   const { t, locale, setLocale } = useI18n();
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const [tab, setTab] = useState<Tab>(tabFromHash);
   const [projects, setProjects] = useState<Project[]>([]);
   const [daemonOk, setDaemonOk] = useState<boolean | null>(null);
@@ -132,55 +132,71 @@ export function App() {
             <span className={`dot ${daemonOk ? "ok" : "bad"}`} title={status} />
           ) : null}
         </div>
-        <div className="chrome-controls">
-          <div className="seg" role="group" aria-label={t("chrome.lang")}>
+        <nav className="tabs" aria-label={t("nav.aria")}>
+          {tabs.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`tab ${tab === id ? "active" : ""}`}
+              onClick={() => go(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="chrome-prefs" aria-label={`${t("chrome.lang")} · ${t("chrome.theme")}`}>
+          <div className="lang-quiet" role="group" aria-label={t("chrome.lang")}>
             <button
               type="button"
-              className={locale === "zh-CN" ? "active" : ""}
+              className={locale === "zh-CN" ? "on" : ""}
               aria-pressed={locale === "zh-CN"}
               onClick={() => setLocale("zh-CN")}
             >
               {t("chrome.lang.zh")}
             </button>
+            <span className="sep" aria-hidden="true">
+              |
+            </span>
             <button
               type="button"
-              className={locale === "en" ? "active" : ""}
+              className={locale === "en" ? "on" : ""}
               aria-pressed={locale === "en"}
               onClick={() => setLocale("en")}
             >
               {t("chrome.lang.en")}
             </button>
           </div>
-          <div className="seg" role="group" aria-label={t("chrome.theme")}>
-            <button
-              type="button"
-              className={theme === "light" ? "active" : ""}
-              aria-pressed={theme === "light"}
-              onClick={() => setTheme("light")}
-            >
-              {t("chrome.theme.light")}
-            </button>
-            <button
-              type="button"
-              className={theme === "dark" ? "active" : ""}
-              aria-pressed={theme === "dark"}
-              onClick={() => setTheme("dark")}
-            >
-              {t("chrome.theme.dark")}
-            </button>
-          </div>
-          <nav className="tabs" aria-label={t("nav.aria")}>
-            {tabs.map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                className={`tab ${tab === id ? "active" : ""}`}
-                onClick={() => go(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
+          <button
+            type="button"
+            className="theme-quiet"
+            aria-label={
+              theme === "dark"
+                ? t("chrome.theme.light")
+                : t("chrome.theme.dark")
+            }
+            title={
+              theme === "dark"
+                ? t("chrome.theme.light")
+                : t("chrome.theme.dark")
+            }
+            onClick={() => toggleTheme()}
+          >
+            {theme === "dark" ? (
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M12 4.5a1 1 0 0 1 1 1V7a1 1 0 1 1-2 0V5.5a1 1 0 0 1 1-1Zm0 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5-2.5a1 1 0 1 1 0-2H21a1 1 0 1 1 0 2h-1.5ZM3 12a1 1 0 0 1 1-1h1.5a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm13.95 5.45a1 1 0 0 1 1.41 0l1.06 1.06a1 1 0 1 1-1.41 1.41l-1.06-1.06a1 1 0 0 1 0-1.41ZM4.58 4.58a1 1 0 0 1 1.41 0L7.05 5.64A1 1 0 1 1 5.64 7.05L4.58 5.99a1 1 0 0 1 0-1.41Zm12.73-1.41 1.06 1.06a1 1 0 1 1-1.41 1.41L15.9 4.58a1 1 0 0 1 1.41-1.41ZM5.64 16.95l1.06 1.06a1 1 0 1 1-1.41 1.41L4.23 18.36a1 1 0 0 1 1.41-1.41ZM12 17a1 1 0 0 1 1 1v1.5a1 1 0 1 1-2 0V18a1 1 0 0 1 1-1Z"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M14.6 3.1a1 1 0 0 1 1.2 1.3A7.5 7.5 0 1 0 19.6 14a1 1 0 0 1 1.85.76A9.5 9.5 0 1 1 13.4 2.85a1 1 0 0 1 1.2.25Z"
+                />
+              </svg>
+            )}
+          </button>
         </div>
       </header>
 
