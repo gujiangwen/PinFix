@@ -1,6 +1,11 @@
 # Local Docker stack for SightLoop (Marx-G / Docker Desktop).
 # Host binds are loopback-only. Inside containers Daemon listens on 0.0.0.0.
 #
+# Admin (5176) and Daemon (7420) bind-mount their source and reload on save.
+# Windows Docker does not deliver inotify, so both watchers poll. Edits under
+# apps/admin and apps/daemon/src do not need an image rebuild. Workspace
+# packages still run from the image's dist until the image is rebuilt.
+#
 # Usage (from this repo root):
 #   copy .env.example .env   # set SIGHTLOOP_TOKEN
 #   docker compose up --build -d
@@ -25,11 +30,24 @@ services:
       # Host paths for Chrome Load unpacked (Windows Marx-G)
       SIGHTLOOP_HOST_REPO: "D:\\AIStudio\\PinFix"
       SIGHTLOOP_HOST_EXTENSION_DIST: "D:\\AIStudio\\PinFix\\apps\\extension\\dist"
+      # Bind-mounted sources do not emit inotify events from the Windows host.
+      # tsx watch uses chokidar, which honors these.
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@sightloop/daemon",
+        "dev",
+      ]
     ports:
       - "127.0.0.1:7420:7420"
     volumes:
       - sightloop-data:/app/data
       - sightloop-workspace:/workspace
+      # Live daemon source only. Leave the image's node_modules and package dist.
+      - ./apps/daemon/src:/app/apps/daemon/src
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7420/health"]
@@ -50,6 +68,11 @@ services:
       - .env
     environment:
       VITE_DAEMON_URL: "http://127.0.0.1:7420"
+      # Bind-mounted sources do not emit inotify events from the Windows host.
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      # Browser uses the published port; Vite itself listens on 5173.
+      SIGHTLOOP_HMR_CLIENT_PORT: "5176"
     command:
       [
         "pnpm",
@@ -65,6 +88,18 @@ services:
     ports:
       # Host 5176 — 5173/5174 often taken by other local stacks (e.g. pomelo).
       - "127.0.0.1:5176:5173"
+    volumes:
+      # Live source only. Leave the image's node_modules in place.
+      - ./apps/admin/src:/app/apps/admin/src
+      - ./apps/admin/public:/app/apps/admin/public
+      - ./apps/admin/index.html:/app/apps/admin/index.html
+      - ./apps/admin/vite.config.ts:/app/apps/admin/vite.config.ts
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5173/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
     restart: unless-stopped
 
   fixture:
