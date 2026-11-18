@@ -50,10 +50,6 @@ services:
       - .env
     environment:
       VITE_DAEMON_URL: "http://127.0.0.1:7420"
-      # Bind-mounted sources do not emit inotify events from the Windows host.
-      CHOKIDAR_USEPOLLING: "true"
-      # Browser uses the published port; Vite itself listens on 5173.
-      SIGHTLOOP_HMR_CLIENT_PORT: "5176"
     command:
       [
         "pnpm",
@@ -69,18 +65,6 @@ services:
     ports:
       # Host 5176 — 5173/5174 often taken by other local stacks (e.g. pomelo).
       - "127.0.0.1:5176:5173"
-    volumes:
-      # Live source only. Leave the image's node_modules in place.
-      - ./apps/admin/src:/app/apps/admin/src
-      - ./apps/admin/public:/app/apps/admin/public
-      - ./apps/admin/index.html:/app/apps/admin/index.html
-      - ./apps/admin/vite.config.ts:/app/apps/admin/vite.config.ts
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5173/"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 15s
     restart: unless-stopped
 
   fixture:
