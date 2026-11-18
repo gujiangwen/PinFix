@@ -13,25 +13,25 @@ export type Locale = "en" | "zh-CN";
 const STORAGE_KEY = "sightloop.admin.locale";
 
 const en = {
-  "brand.tag": "Admin · Observability",
   "nav.aria": "Admin sections",
-  "nav.projects": "Projects",
-  "nav.sessions": "Sessions",
   "nav.knowledge": "Knowledge",
-  "nav.audit": "Audit",
-  "nav.metrics": "Metrics",
+  "daemon.retry": "Retry",
+  "notice.dismiss": "Dismiss",
+  "settings.title": "Settings",
+  "settings.close": "Close settings",
+  "settings.section.pi": "Pi / models",
+  "settings.section.projects": "Projects",
+  "settings.section.extension": "Extension",
+  "settings.section.appearance": "Appearance",
+  "settings.section.audit": "Audit",
+  "settings.section.metrics": "Metrics",
   "chrome.lang": "Language",
   "chrome.theme": "Theme",
   "chrome.theme.light": "Light",
   "chrome.theme.dark": "Dark",
-  "chrome.lang.en": "EN",
-  "chrome.lang.zh": "中文",
-  "lede":
-    "Full M4 observability: session timelines, knowledge dual-loop, HMR/PR mode, audit, and metrics. Daemon",
   "status.connected": "Connected to {url} (v{version})",
   "status.unreachable": "Cannot reach daemon at {url}: {message}",
 
-  "projects.modeDoc.title": "HMR vs PR mode",
   "projects.modeDoc.hmr":
     "HMR — Accept keeps the local temp commit for hot reload preview; no remote push.",
   "projects.modeDoc.pr":
@@ -145,8 +145,6 @@ const en = {
   "metrics.byStatus": "Sessions by status",
   "metrics.byDecision": "Reviews by decision",
 
-  "nav.extension": "Extension",
-  "nav.models": "Models",
 
   "ext.title": "Chrome extension (MV3)",
   "ext.lede":
@@ -199,25 +197,25 @@ const en = {
 type MessageKey = keyof typeof en;
 
 const zhCN: Record<MessageKey, string> = {
-  "brand.tag": "管理台 · 可观测性",
   "nav.aria": "管理分区",
-  "nav.projects": "项目",
-  "nav.sessions": "会话",
   "nav.knowledge": "知识库",
-  "nav.audit": "审计",
-  "nav.metrics": "指标",
+  "daemon.retry": "重试",
+  "notice.dismiss": "关闭提示",
+  "settings.title": "设置",
+  "settings.close": "关闭设置",
+  "settings.section.pi": "Pi / 模型",
+  "settings.section.projects": "项目",
+  "settings.section.extension": "扩展",
+  "settings.section.appearance": "界面",
+  "settings.section.audit": "审计",
+  "settings.section.metrics": "指标",
   "chrome.lang": "语言",
   "chrome.theme": "主题",
   "chrome.theme.light": "浅色",
   "chrome.theme.dark": "深色",
-  "chrome.lang.en": "EN",
-  "chrome.lang.zh": "中文",
-  "lede":
-    "完整 M4 可观测性：会话时间线、知识双环、HMR/PR 模式、审计与指标。Daemon",
   "status.connected": "已连接 {url}（v{version}）",
   "status.unreachable": "无法连接 Daemon {url}：{message}",
 
-  "projects.modeDoc.title": "HMR 与 PR 模式",
   "projects.modeDoc.hmr":
     "HMR — Accept 保留本地临时提交以便热更新预览；不推远程。",
   "projects.modeDoc.pr":
@@ -330,8 +328,6 @@ const zhCN: Record<MessageKey, string> = {
   "metrics.byStatus": "按状态的会话",
   "metrics.byDecision": "按决策的评审",
 
-  "nav.extension": "扩展",
-  "nav.models": "模型",
 
   "ext.title": "Chrome 扩展（MV3）",
   "ext.lede":
