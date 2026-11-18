@@ -66,45 +66,47 @@ export function App() {
 
   return (
     <div className="shell wide">
-      <header className="topbar">
-        <a className="brand" href={HOME_HASH}>
-          <h1>SightLoop</h1>
-        </a>
-        {daemon.state !== "checking" ? (
-          <span
-            className={`dot ${daemon.state === "ok" ? "ok" : "bad"}`}
-            role="img"
-            aria-label={daemonTitle}
-            title={daemonTitle}
-          />
-        ) : null}
-        <div className="topnav">
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={t("settings.title")}
-            title={t("settings.title")}
-            onClick={() => route.openSettings("pi")}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden="true"
+      {route.page.name === "loop" ? null : (
+        <header className="topbar">
+          <a className="brand" href={HOME_HASH}>
+            <h1>SightLoop</h1>
+          </a>
+          {daemon.state !== "checking" ? (
+            <span
+              className={`dot ${daemon.state === "ok" ? "ok" : "bad"}`}
+              role="img"
+              aria-label={daemonTitle}
+              title={daemonTitle}
+            />
+          ) : null}
+          <div className="topnav">
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={t("settings.title")}
+              title={t("settings.title")}
+              onClick={() => route.openSettings("pi")}
             >
-              <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-              <circle cx="16" cy="7" r="2" />
-              <circle cx="8" cy="17" r="2" />
-            </svg>
-          </button>
-        </div>
-      </header>
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+                <circle cx="16" cy="7" r="2" />
+                <circle cx="8" cy="17" r="2" />
+              </svg>
+            </button>
+          </div>
+        </header>
+      )}
 
-      {daemon.state === "down" ? (
+      {route.page.name === "loop" || daemon.state !== "down" ? null : (
         <div className="banner" role="alert">
           <span>{daemonTitle}</span>
           <button
@@ -115,9 +117,11 @@ export function App() {
             {t("daemon.retry")}
           </button>
         </div>
-      ) : null}
+      )}
 
-      <NoticeBar notice={pageNotice.notice} onDismiss={pageNotice.clear} />
+      {route.page.name === "loop" ? null : (
+        <NoticeBar notice={pageNotice.notice} onDismiss={pageNotice.clear} />
+      )}
 
       <main>
         {route.page.name === "loop" ? (
@@ -128,6 +132,13 @@ export function App() {
             onRefreshProjects={refreshProjects}
             onError={pageNotice.onError}
             onStatus={pageNotice.onStatus}
+            onOpenSettings={() => route.openSettings("pi")}
+            onRetryDaemon={() => void checkDaemon()}
+            daemonState={daemon.state}
+            daemonTitle={daemonTitle}
+            notice={
+              <NoticeBar notice={pageNotice.notice} onDismiss={pageNotice.clear} />
+            }
           />
         ) : (
           <KnowledgePage

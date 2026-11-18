@@ -78,8 +78,15 @@ textarea {
 }
 
 .shell.wide {
-  /* Centered stage. A gutter stays on wide screens; this is not a full-bleed page. */
+  /* Centered stage for pages other than the home. The home fills the window. */
   max-width: min(90rem, calc(100% - clamp(1.5rem, 4vw, 4rem)));
+}
+
+.shell.wide:has(.home-stage) {
+  max-width: none;
+  inline-size: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .topbar {
@@ -1149,40 +1156,103 @@ a.btn {
   text-decoration: none;
 }
 
-/* ---- Home: three role queues and the selected task, one screen ---- */
+/* ---- Home: full-height rail and a lighter canvas, about 3:7 ---- */
 
-.workbench {
+.home-stage {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
-  gap: clamp(1rem, 2vw, 1.75rem);
-  align-items: start;
+  block-size: 100dvh;
+  overflow: clip;
+  background: var(--bg-elev);
+}
+
+.home-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 1.15rem 0.9rem 0.85rem;
+  background: color-mix(in oklab, var(--bg) 78%, var(--bg-elev));
+}
+
+.rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-inline: 0.35rem;
+}
+
+.home-rail .brand h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+}
+
+.rail-scroll {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.rail-settings {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-start: auto;
+  padding: 0.45rem 0.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+}
+
+.rail-settings:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.rail-settings:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.home-canvas {
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1.35rem clamp(1.25rem, 2.5vw, 2.25rem) 2rem;
+  background: var(--bg-elev);
 }
 
 .queue-board {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.35rem;
   min-inline-size: 0;
 }
 
 .queue {
-  background: color-mix(in srgb, var(--bg-elev) 72%, var(--bg));
-  padding: 0.9rem 1rem 1rem;
-}
-
-.queue:nth-child(2) {
-  background: var(--bg-elev);
+  background: transparent;
+  padding: 0.55rem 0.15rem 0.35rem;
 }
 
 .queue-head h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 .queue-run {
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
   color: var(--muted);
 }
 
@@ -1191,27 +1261,28 @@ a.btn {
 }
 
 .queue-count {
-  margin: 0.15rem 0 0;
-  font-size: 0.82rem;
+  margin: 0.1rem 0 0;
+  font-size: 0.78rem;
   color: var(--text);
 }
 
 .queue-empty {
-  margin: 0.75rem 0 0;
+  margin: 0.45rem 0 0.2rem;
+  font-size: 0.82rem;
 }
 
 .queue-list {
   list-style: none;
-  margin: 0.75rem 0 0;
+  margin: 0.45rem 0 0;
   padding: 0;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.15rem;
 }
 
 .queue-item {
   display: grid;
-  gap: 0.15rem;
-  padding: 0.55rem 0.65rem;
+  gap: 0.1rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 8px;
   color: inherit;
   text-decoration: none;
@@ -1222,7 +1293,7 @@ a.btn {
 }
 
 .queue-item.is-selected {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev));
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .queue-item:focus-visible,
@@ -1232,11 +1303,12 @@ a.btn {
 }
 
 .queue-item-title {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   overflow-wrap: anywhere;
 }
 
-.queue-item.is-head .queue-item-title {
+.queue-item.is-head .queue-item-title,
+.queue-item.is-selected .queue-item-title {
   font-weight: 600;
 }
 
@@ -1255,14 +1327,15 @@ a.btn {
 }
 
 .task-flow {
-  background: var(--bg-elev);
-  padding: 1rem 1.15rem 1.35rem;
+  background: transparent;
+  padding: 0;
 }
 
 .task-flow-empty {
   display: grid;
   gap: 0.85rem;
   align-content: start;
+  padding-block-start: 0.5rem;
 }
 
 .task-flow-head h2 {
@@ -1314,13 +1387,19 @@ a.btn {
 }
 
 @media (forced-colors: active) {
-  .queue,
-  .task-flow {
-    border: 1px solid CanvasText;
+  .home-rail {
+    border-inline-end: 1px solid CanvasText;
   }
 
   .queue-item.is-selected {
     outline: 2px solid Highlight;
+  }
+}
+
+@media (forced-colors: active) and (max-width: 900px) {
+  .home-rail {
+    border-inline-end: 0;
+    border-block-end: 1px solid CanvasText;
   }
 }
 
@@ -1329,9 +1408,27 @@ a.btn {
   .meta-grid,
   .metrics-grid,
   .loop-layout,
-  .workbench {
+  .home-stage {
     /* minmax(0, …): a bare 1fr would grow to the widest child (the track). */
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-stage {
+    display: flex;
+    flex-direction: column;
+    block-size: auto;
+    min-block-size: 100dvh;
+    overflow: visible;
+  }
+
+  .home-rail {
+    flex: 0 1 auto;
+    max-block-size: 22rem;
+  }
+
+  .home-canvas {
+    flex: 1 1 auto;
+    overflow: visible;
   }
 
   .rail {

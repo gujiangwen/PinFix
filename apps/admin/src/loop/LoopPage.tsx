@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Project, Session } from "@sightloop/shared";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import { settingsHash } from "../routes";
+import { HOME_HASH, settingsHash } from "../routes";
 import { QueueBoard } from "./QueueBoard";
 import { RoleFlow } from "./RoleFlow";
 import { buildLoopModel } from "./loop-model";
@@ -19,6 +19,11 @@ export function LoopPage(props: {
   onRefreshProjects: () => Promise<void>;
   onError: (s: string) => void;
   onStatus: (s: string) => void;
+  onOpenSettings: () => void;
+  onRetryDaemon: () => void;
+  daemonState: "checking" | "ok" | "down";
+  daemonTitle: string;
+  notice: ReactNode;
 }) {
   const { t } = useI18n();
   const { onError } = props;
@@ -105,18 +110,69 @@ export function LoopPage(props: {
     ? props.projects.find((item) => item.id === detail.session.project_id)
     : undefined;
 
-  if (!props.daemonUp && sessions === null) return null;
-  if (sessions === null) return <p className="muted">{t("loop.loading")}</p>;
-
   return (
-    <div className="workbench">
-      <QueueBoard
-        queues={queues}
-        projects={props.projects}
-        selectedId={props.sessionId}
-      />
-      <div className="task-flow-slot">
-        {!props.sessionId ? (
+    <div className="home-stage">
+      <div className="home-rail">
+        <div className="rail-brand">
+          <a className="brand" href={HOME_HASH}>
+            <h1>SightLoop</h1>
+          </a>
+          {props.daemonState === "checking" ? null : (
+            <span
+              className={`dot ${props.daemonState === "ok" ? "ok" : "bad"}`}
+              role="img"
+              aria-label={props.daemonTitle}
+              title={props.daemonTitle}
+            />
+          )}
+        </div>
+        <div className="rail-scroll">
+          <QueueBoard
+            queues={queues}
+            projects={props.projects}
+            selectedId={props.sessionId}
+          />
+        </div>
+        <button
+          type="button"
+          className="rail-settings"
+          aria-label={t("settings.title")}
+          onClick={props.onOpenSettings}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+            <circle cx="16" cy="7" r="2" />
+            <circle cx="8" cy="17" r="2" />
+          </svg>
+          <span>{t("settings.title")}</span>
+        </button>
+      </div>
+      <div className="home-canvas">
+        {props.notice}
+        {props.daemonState === "down" ? (
+          <div className="banner" role="alert">
+            <span>{props.daemonTitle}</span>
+            <button
+              type="button"
+              className="btn secondary tiny"
+              onClick={props.onRetryDaemon}
+            >
+              {t("daemon.retry")}
+            </button>
+          </div>
+        ) : null}
+        {sessions === null ? (
+          props.daemonUp ? <p className="muted">{t("loop.loading")}</p> : null
+        ) : !props.sessionId ? (
           <FlowEmpty hasProjects={props.projects.length > 0} />
         ) : live.error && !detail ? (
           <p className="status error">{live.error}</p>
