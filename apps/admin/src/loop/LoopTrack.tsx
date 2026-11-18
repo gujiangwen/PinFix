@@ -75,7 +75,13 @@ export function LoopTrack(props: {
           ))}
         </div>
       ) : null}
-      <div className="track-scroll" ref={scroller}>
+      <div
+        className="track-scroll"
+        ref={scroller}
+        role="region"
+        aria-label={t("loop.track")}
+        tabIndex={0}
+      >
         <ol className="track">
           {NODE_IDS.map((id) => {
             const node = round.nodes[id];

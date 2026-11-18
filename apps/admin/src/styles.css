@@ -59,6 +59,8 @@ body {
   margin: 0;
   font-family: var(--font);
   color: var(--text);
+  /* Long words wrap; URLs and code may break anywhere so they can't widen the page. */
+  overflow-wrap: break-word;
   background:
     radial-gradient(ellipse 80% 50% at 10% -10%, var(--wash-a) 0%, transparent 55%),
     radial-gradient(ellipse 60% 40% at 100% 0%, var(--wash-b) 0%, transparent 50%),
@@ -73,14 +75,35 @@ textarea {
   font: inherit;
 }
 
-.shell {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 2.5rem 1.25rem 4rem;
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
+p,
+li {
+  text-wrap: pretty;
+}
+
+:where(a, code, .mono) {
+  overflow-wrap: anywhere;
+}
+
+/* Touch pointers need a larger target than a mouse. */
+@media (pointer: coarse) {
+  :where(.btn, .node, .round-chip, .icon-btn, .rail-item, .settings-nav a) {
+    min-block-size: 2.75rem;
+  }
+}
+
+.shell,
 .shell.wide {
-  max-width: 1180px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: clamp(1rem, 2vw, 2.25rem);
+  container: shell / inline-size;
 }
 
 .topbar {
@@ -553,10 +576,12 @@ td.mono,
 }
 
 dialog.settings {
-  width: min(980px, calc(100vw - 2rem));
-  height: min(760px, calc(100dvh - 2rem));
-  max-width: none;
+  width: calc(100vw - 2rem);
+  height: calc(100vh - 2rem);
+  height: calc(100dvh - 2rem);
+  max-width: 76rem;
   max-height: none;
+  container: settings / inline-size;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -686,9 +711,27 @@ dialog::backdrop {
   margin-top: 0.6rem;
 }
 
+@container settings (inline-size < 40rem) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+  }
+
+  .settings-nav a {
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 640px) {
   .settings-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
   }
 
@@ -837,6 +880,7 @@ dialog::backdrop {
 .track-scroll {
   position: relative;
   overflow-x: auto;
+  container: track / inline-size;
 }
 
 .rounds {
@@ -934,6 +978,30 @@ dialog::backdrop {
   font-size: 0.72rem;
   color: var(--muted);
   text-align: center;
+}
+
+/* Narrow track: a vertical list instead of a 37rem-wide row that only scrolls. */
+@container track (inline-size < 38rem) {
+  .track {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .track-step + .track-step::before {
+    display: none;
+  }
+
+  .node {
+    grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+    column-gap: 0.75rem;
+    text-align: start;
+  }
+
+  .node-meta {
+    text-align: end;
+  }
 }
 
 .state-done .node-mark {
@@ -1146,6 +1214,28 @@ a.btn {
   text-decoration: none;
 }
 
+/* The shell is the container, so a narrow window stacks the same way a narrow
+   placement would. The media query below is the fallback where container
+   queries are missing. */
+@container shell (inline-size < 56rem) {
+  .split,
+  .meta-grid,
+  .metrics-grid,
+  .loop-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    position: static;
+    max-height: 14rem;
+  }
+
+  .fact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.15rem;
+  }
+}
+
 @media (max-width: 900px) {
   .split,
   .meta-grid,
@@ -1161,7 +1251,7 @@ a.btn {
   }
 
   .fact {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.15rem;
   }
 }
