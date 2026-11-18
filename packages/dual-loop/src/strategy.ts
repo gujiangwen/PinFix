@@ -146,6 +146,23 @@ export function strategyTitle(card: StrategyCard): string {
   return `Strategy · ${card.pattern_id}: ${card.summary.slice(0, 60)}`;
 }
 
+/** The sentence a person confirmed at Accept. Retrieval still reads the card body. */
+export function applyHumanLesson(
+  card: StrategyCard,
+  lesson: { summary: string; worked?: string; avoid?: string },
+): StrategyCard {
+  const summary = lesson.summary.trim().slice(0, 200);
+  const worked = lesson.worked?.trim().slice(0, 500);
+  const avoid = lesson.avoid?.trim().slice(0, 500);
+  return {
+    ...card,
+    summary: summary || card.summary,
+    symptoms: summary ? [summary] : card.symptoms,
+    successful_resolutions: worked ? [worked] : card.successful_resolutions,
+    failed_approaches: avoid ? [avoid] : card.failed_approaches,
+  };
+}
+
 /**
  * Rank strategy cards by text overlap.
  * R1: Top-K (default 3) + min score threshold — below threshold not injected.

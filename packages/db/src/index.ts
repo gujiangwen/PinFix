@@ -26,6 +26,7 @@ export {
   queryKnowledge,
   matchKnowledgeForRetrieve,
   updateKnowledge,
+  markKnowledgeUsed,
   deleteKnowledge,
   listKnowledgeByIds,
 } from "./knowledge.js";

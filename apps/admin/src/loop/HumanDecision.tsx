@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Project, ReviewDecision, Session } from "@sightloop/shared";
+import type { PlanIR, Project, ReviewDecision, Session } from "@sightloop/shared";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -41,6 +41,7 @@ function gateProblem(details: unknown): Problem {
 export function HumanDecision(props: {
   session: Session;
   project: Project | undefined;
+  plan: PlanIR | null;
   onDone: (message: string) => void;
   refresh: () => Promise<void>;
 }) {
@@ -49,7 +50,12 @@ export function HumanDecision(props: {
   const [busy, setBusy] = useState<Busy>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [refining, setRefining] = useState(false);
+  const [accepting, setAccepting] = useState(false);
   const [note, setNote] = useState("");
+  const [summary, setSummary] = useState("");
+  const [worked, setWorked] = useState("");
+  const [avoid, setAvoid] = useState("");
+  const [remember, setRemember] = useState(true);
   const [confirming, setConfirming] = useState<"revert" | "force" | null>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,6 +73,20 @@ export function HumanDecision(props: {
       await api.reviewSession(session.id, {
         decision,
         ...(decision === "refine" ? { note: note.trim() } : {}),
+        ...(decision === "accept"
+          ? {
+              remember,
+              ...(remember && summary.trim()
+                ? {
+                    lesson: {
+                      summary: summary.trim(),
+                      ...(worked.trim() ? { worked: worked.trim() } : {}),
+                      ...(avoid.trim() ? { avoid: avoid.trim() } : {}),
+                    },
+                  }
+                : {}),
+            }
+          : {}),
         ...(force ? { force_accept: true } : {}),
       });
       props.onDone(t(DONE_TEXT[decision]));
@@ -113,6 +133,29 @@ export function HumanDecision(props: {
       await props.refresh();
       setBusy(null);
     }
+  }
+
+  function openAccept() {
+    const noteLine = session.annotation?.note?.trim().split(/\r?\n/)[0] ?? "";
+    const root = props.plan?.root_cause?.trim() ?? "";
+    const selector = session.annotation?.selector?.trim() ?? "";
+    const line = (noteLine || root || selector || session.page_url).slice(0, 200);
+    const done = (props.plan?.issue_resolutions ?? [])
+      .map((item) => item.rationale?.trim())
+      .filter((item): item is string => Boolean(item))
+      .slice(0, 2)
+      .join(" ")
+      .slice(0, 500);
+    setSummary(line);
+    setWorked(done);
+    setAvoid("");
+    setRemember(true);
+    setRefining(false);
+    setAccepting(true);
+  }
+
+  function composing(e: { nativeEvent: KeyboardEvent }) {
+    return e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229;
   }
 
   return (
@@ -198,13 +241,81 @@ export function HumanDecision(props: {
             </button>
           </div>
         </form>
+      ) : accepting ? (
+        <form
+          className="form-grid"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!remember || summary.trim()) void decide("accept");
+          }}
+        >
+          <label>
+            {t("loop.decide.summary")}
+            <input
+              value={summary}
+              maxLength={200}
+              required={remember}
+              onChange={(e) => setSummary(e.target.value)}
+              onKeyDown={(e) => {
+                if (composing(e)) e.preventDefault();
+              }}
+            />
+          </label>
+          <label>
+            {t("loop.decide.worked")}
+            <input
+              value={worked}
+              maxLength={500}
+              onChange={(e) => setWorked(e.target.value)}
+              onKeyDown={(e) => {
+                if (composing(e)) e.preventDefault();
+              }}
+            />
+          </label>
+          <label>
+            {t("loop.decide.avoid")}
+            <input
+              value={avoid}
+              maxLength={500}
+              onChange={(e) => setAvoid(e.target.value)}
+              onKeyDown={(e) => {
+                if (composing(e)) e.preventDefault();
+              }}
+            />
+          </label>
+          <label className="remember">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            {t("loop.decide.remember")}
+          </label>
+          <div className="row">
+            <button
+              type="submit"
+              className="btn"
+              disabled={busy !== null || (remember && !summary.trim())}
+            >
+              {t("loop.decision.accept")}
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={busy !== null}
+              onClick={() => setAccepting(false)}
+            >
+              {t("loop.decide.back")}
+            </button>
+          </div>
+        </form>
       ) : (
         <div className="row decide-actions">
           <button
             type="button"
             className="btn"
             disabled={busy !== null}
-            onClick={() => void decide("accept")}
+            onClick={openAccept}
           >
             {t("loop.decision.accept")}
           </button>

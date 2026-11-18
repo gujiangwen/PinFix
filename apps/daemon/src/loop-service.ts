@@ -9,7 +9,7 @@ import {
   insertKnowledge,
   insertAudit,
   matchKnowledgeForRetrieve,
-  listAgentSteps,
+  markKnowledgeUsed,
   countActiveSessionsForProject,
   setSessionPlan,
   setSessionAgentReview,
@@ -21,7 +21,6 @@ import {
 } from "@sightloop/markup-bridge";
 import {
   runAgentLoop,
-  buildAcceptDistill,
   acceptSessionGit,
   revertSessionGit,
   selectAgentRunner,
@@ -311,6 +310,17 @@ export async function startSessionLoop(
         },
         { topK: 3, project_whitelist: project.file_whitelist },
       );
+      markKnowledgeUsed(
+        db,
+        strategy_hits
+          .map((hit) =>
+            hit.path.startsWith("knowledge:")
+              ? hit.path.slice("knowledge:".length)
+              : "",
+          )
+          .filter(Boolean),
+        fresh.id,
+      );
       const dual = await runDualLoop({
         session_id: fresh.id,
         project_id: project.id,
@@ -542,6 +552,10 @@ export async function reviewSession(
   decision: ReviewDecision,
   note?: string,
   forceAccept?: boolean,
+  lessonInput?: {
+    remember?: boolean;
+    lesson?: { summary: string; worked?: string; avoid?: string };
+  },
 ): Promise<{
   session: Session;
   knowledge_id?: string;
@@ -650,131 +664,109 @@ export async function reviewSession(
   updateSession(db, sessionId, { status: "distilling" });
   hub.broadcastStatus(sessionId, "distilling", session.step_count);
 
-  const patch = diffPatch(
-    project.repo_path,
-    session.git_base_sha,
-    session.temp_commit_sha,
-  );
-  const steps = listAgentSteps(db, sessionId);
-  const actStep = [...steps].reverse().find((s) => s.phase === "act");
-  const distill = buildAcceptDistill({
-    sessionId,
-    pageUrl: session.page_url,
-    annotationNote: session.annotation?.note,
-    selector: session.annotation?.selector,
-    sniff: session.sniff,
-    patch,
-    actSummary:
-      typeof actStep?.output === "object" && actStep?.output
-        ? JSON.stringify(actStep.output).slice(0, 500)
-        : session.annotation?.note ?? "accepted",
-  });
-
-  const distillTags = [
-    ...(session.annotation?.selector
-      ? [`selector:${session.annotation.selector.slice(0, 80)}`]
-      : []),
-    ...extractComponentNames(session.sniff).slice(0, 5),
-  ];
-  const knowledge = insertKnowledge(db, {
-    project_id: project.id,
-    session_id: sessionId,
-    kind: distill.kind,
-    title: distill.title,
-    body_md: distill.body_md,
-    tags: distillTags,
-    stack: inferStack(session.sniff),
-    pinned: false,
-  });
-
-  // M12a/R1: strategy distill only on Human Accept (never on agent_judge_pass alone).
+  const remember = lessonInput?.remember !== false;
+  let knowledge: ReturnType<typeof insertKnowledge> | null = null;
   let strategy_card: { id: string; title: string; pattern_id: string } | null =
     null;
-  try {
-    const {
-      distillStrategyCard,
-      strategyCardToMarkdown,
-      strategyTitle,
-      intersectStrategyHintsWithWhitelist,
-    } = await import("@sightloop/dual-loop");
-    const plan = getSessionPlan(db, sessionId) as {
-      root_cause?: string;
-      issue_resolutions?: Array<{
-        issue_id: string;
-        status: string;
-        rationale?: string;
-      }>;
-      allowed_files?: string[];
-    } | null;
-    const card = distillStrategyCard({
-      session_id: sessionId,
-      annotation_note: session.annotation?.note,
-      selector: session.annotation?.selector,
-      root_cause: plan?.root_cause,
-      resolutions: plan?.issue_resolutions,
-      files_touched: plan?.allowed_files,
-      project_whitelist: project.file_whitelist,
-    });
-    // R7 audit dropped hints
-    const rawHints = plan?.allowed_files ?? [];
-    const { dropped } = intersectStrategyHintsWithWhitelist(
-      rawHints,
-      project.file_whitelist,
-    );
-    if (dropped.length) {
+
+  if (remember) {
+    // One lesson per accept. Sniff and diff stay on the session.
+    try {
+      const {
+        distillStrategyCard,
+        strategyCardToMarkdown,
+        strategyTitle,
+        applyHumanLesson,
+        intersectStrategyHintsWithWhitelist,
+      } = await import("@sightloop/dual-loop");
+      const plan = getSessionPlan(db, sessionId) as {
+        root_cause?: string;
+        issue_resolutions?: Array<{
+          issue_id: string;
+          status: string;
+          rationale?: string;
+        }>;
+        allowed_files?: string[];
+      } | null;
+      const drafted = distillStrategyCard({
+        session_id: sessionId,
+        annotation_note: session.annotation?.note,
+        selector: session.annotation?.selector,
+        root_cause: plan?.root_cause,
+        resolutions: plan?.issue_resolutions,
+        files_touched: plan?.allowed_files,
+        project_whitelist: project.file_whitelist,
+      });
+      const card = lessonInput?.lesson
+        ? applyHumanLesson(drafted, lessonInput.lesson)
+        : drafted;
+      const rawHints = plan?.allowed_files ?? [];
+      const { dropped } = intersectStrategyHintsWithWhitelist(
+        rawHints,
+        project.file_whitelist,
+      );
+      if (dropped.length) {
+        insertAudit(
+          db,
+          "strategy_hint_whitelist_drop",
+          { dropped },
+          project.id,
+          sessionId,
+        );
+      }
+      const title = lessonInput?.lesson
+        ? card.summary.slice(0, 180)
+        : strategyTitle(card);
+      knowledge = insertKnowledge(db, {
+        project_id: project.id,
+        session_id: sessionId,
+        kind: "pattern",
+        title,
+        body_md: strategyCardToMarkdown(card),
+        tags: ["strategy", "m12a", card.pattern_id],
+        stack: inferStack(session.sniff),
+        pinned: false,
+      });
+      strategy_card = {
+        id: knowledge.id,
+        title: knowledge.title,
+        pattern_id: card.pattern_id,
+      };
       insertAudit(
         db,
-        "strategy_hint_whitelist_drop",
-        { dropped },
+        "strategy_distilled",
+        strategy_card,
+        project.id,
+        sessionId,
+      );
+    } catch (err) {
+      insertAudit(
+        db,
+        "strategy_distill_failed",
+        { message: (err as Error).message },
         project.id,
         sessionId,
       );
     }
-    const stratKnowledge = insertKnowledge(db, {
-      project_id: project.id,
-      session_id: sessionId,
-      kind: "pattern",
-      title: strategyTitle(card),
-      body_md: strategyCardToMarkdown(card),
-      tags: ["strategy", "m12a", card.pattern_id],
-      stack: inferStack(session.sniff),
-      pinned: false,
-    });
-    strategy_card = {
-      id: stratKnowledge.id,
-      title: stratKnowledge.title,
-      pattern_id: card.pattern_id,
-    };
-    insertAudit(
-      db,
-      "strategy_distilled",
-      strategy_card,
-      project.id,
-      sessionId,
-    );
-  } catch (err) {
-    insertAudit(
-      db,
-      "strategy_distill_failed",
-      { message: (err as Error).message },
-      project.id,
-      sessionId,
-    );
   }
 
-  const distilled_knowledge = {
-    id: knowledge.id,
-    title: knowledge.title,
-    kind: knowledge.kind,
-    body_preview: knowledge.body_md.replace(/\s+/g, " ").trim().slice(0, 220),
-  };
-  hub.broadcastKnowledgeDistilled(sessionId, distilled_knowledge);
-  hub.broadcastTimeline(sessionId, {
-    at: Date.now(),
-    kind: "distill",
-    label: `distill · ${knowledge.title}`,
-    detail: distilled_knowledge.body_preview,
-  });
+  const distilled_knowledge = knowledge
+    ? {
+        id: knowledge.id,
+        title: knowledge.title,
+        kind: knowledge.kind,
+        body_preview: knowledge.body_md.replace(/\s+/g, " ").trim().slice(0, 220),
+      }
+    : undefined;
+  if (distilled_knowledge) {
+    hub.broadcastKnowledgeDistilled(sessionId, distilled_knowledge);
+    hub.broadcastTimeline(sessionId, {
+      at: Date.now(),
+      kind: "distill",
+      label: `distill · ${knowledge!.title}`,
+      detail: distilled_knowledge.body_preview,
+    });
+  }
 
   const gitAccept = acceptSessionGit({
     project: {
@@ -895,7 +887,7 @@ export async function reviewSession(
   const model = buildSessionReadModel(db, sessionId);
   return {
     session: updated,
-    knowledge_id: knowledge.id,
+    knowledge_id: knowledge?.id,
     /** M12a: strategy distilled on Accept only (≠ agent_judge_pass). */
     strategy_card,
     pr: gitAccept.pr,

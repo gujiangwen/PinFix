@@ -33,6 +33,7 @@ export const RecallHitSchema = z.object({
   retrieve: z.string().nullable().optional(),
   kind: z.string().nullable().optional(),
   body_preview: z.string().optional(),
+  source_session_id: z.string().nullable().optional(),
 });
 export type RecallHit = z.infer<typeof RecallHitSchema>;
 

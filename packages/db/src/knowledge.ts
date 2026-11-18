@@ -25,6 +25,8 @@ type KnowledgeRow = {
   stack: string | null;
   pinned: number | null;
   archived: number | null;
+  last_used_at: number | null;
+  last_used_session_id: string | null;
   created_at: number;
   updated_at: number | null;
 };
@@ -57,6 +59,8 @@ function rowToKnowledge(row: KnowledgeRow): Knowledge {
     archived: Boolean(row.archived),
     created_at: row.created_at,
     updated_at: row.updated_at ?? null,
+    last_used_at: row.last_used_at ?? null,
+    last_used_session_id: row.last_used_session_id ?? null,
   };
 }
 
@@ -90,6 +94,8 @@ export function insertKnowledge(
     archived: input.archived ?? false,
     created_at: now,
     updated_at: now,
+    last_used_at: null,
+    last_used_session_id: null,
   };
 
   db.prepare(
@@ -293,6 +299,8 @@ export function updateKnowledge(
     stack: patch.stack !== undefined ? patch.stack : existing.stack ?? null,
     pinned: patch.pinned ?? existing.pinned,
     archived: patch.archived ?? existing.archived,
+    last_used_at: existing.last_used_at ?? null,
+    last_used_session_id: existing.last_used_session_id ?? null,
     updated_at: Date.now(),
   };
 
@@ -321,6 +329,25 @@ export function updateKnowledge(
 
   upsertKnowledgeEmbedding(db, id);
   return getKnowledge(db, id);
+}
+
+export function markKnowledgeUsed(
+  db: Database.Database,
+  ids: string[],
+  sessionId: string,
+  at = Date.now(),
+): void {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return;
+  const stmt = db.prepare(
+    `UPDATE knowledge
+      SET last_used_at = @at, last_used_session_id = @sessionId
+      WHERE id = @id`,
+  );
+  const write = db.transaction((rows: string[]) => {
+    for (const id of rows) stmt.run({ id, at, sessionId });
+  });
+  write(unique);
 }
 
 export function deleteKnowledge(db: Database.Database, id: string): boolean {

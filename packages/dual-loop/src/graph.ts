@@ -229,12 +229,25 @@ export async function runDualLoop(input: DualLoopInput): Promise<DualLoopResult>
       hooks.onDualLoop?.({ node: "retrieve", status: "enter" });
       hooks.onStatus?.("retrieving", stepCount);
       const started = Date.now();
+      const strategyHits = (input.strategy_hits ?? []).map((hit) => ({
+        id: hit.path.startsWith("knowledge:")
+          ? hit.path.slice("knowledge:".length)
+          : null,
+        title: hit.title,
+        score: typeof hit.score === "number" ? hit.score : null,
+        retrieve: "strategy",
+        kind: "pattern",
+      }));
       hooks.onStep?.({
         idx: stepCount,
         phase: "retrieve",
         tool_name: "list_knowledge",
-        summary: `dual-loop knowledge hits: ${state.knowledge_hits.length}`,
-        output: { count: state.knowledge_hits.length },
+        summary: `strategy hits: ${strategyHits.length}`,
+        output: {
+          count: strategyHits.length,
+          hits: strategyHits,
+          engine: "strategy",
+        },
         duration_ms: Date.now() - started,
       });
       stepCount += 1;

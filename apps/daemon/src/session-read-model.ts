@@ -201,6 +201,7 @@ export function buildSessionReadModel(
       ...h,
       body_preview: k ? previewMd(k.body_md) : undefined,
       kind: h.kind ?? k?.kind ?? null,
+      source_session_id: k?.session_id ?? null,
     };
   });
 

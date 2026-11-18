@@ -201,11 +201,16 @@ export function LoopPage(props: {
               isLastRound={roundIndex === lastIndex}
               detail={detail}
               patch={live.patch}
+              onArchiveKnowledge={async (id) => {
+                await api.updateKnowledge(id, { archived: true });
+                await live.refresh();
+              }}
               decisionControls={
                 <HumanDecision
                   key={detail.session.id}
                   session={detail.session}
                   project={project}
+                  plan={detail.plan}
                   onDone={props.onStatus}
                   refresh={live.refresh}
                 />

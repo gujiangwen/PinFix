@@ -7,42 +7,40 @@
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0f1419;
-  --bg-elev: #171e26;
-  --bg-input: #0c1015;
-  --line: #2a3542;
-  --text: #e8eef4;
-  --muted: #8b9aab;
-  --accent: #3d9cfd;
-  --accent-dim: #1e4f85;
-  --accent-btn-top: #2a6fbf;
-  --accent-btn-bot: #1f5a9e;
-  --danger: #e35d6a;
-  --ok: #3ecf8e;
-  --warn: #e6b84d;
-  --code-bg: #0a0e13;
-  --wash-a: #1a3a5c;
-  --wash-b: #163028;
+  --bg: #141311;
+  --bg-elev: #1c1b19;
+  --bg-input: #10100e;
+  --line: #34322c;
+  --text: #f3f0e8;
+  --muted: #b7b1a6;
+  --accent: #d4b483;
+  --accent-dim: #6b5a3e;
+  --btn-bg: #f3f0e8;
+  --btn-fg: #141311;
+  --danger: #e7a3a8;
+  --ok: #8fceb0;
+  --warn: #e2c27a;
+  --code-bg: #10100e;
+  accent-color: #d4b483;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #eef2f6;
-  --bg-elev: #ffffff;
-  --bg-input: #f7f9fc;
-  --line: #c9d4e0;
-  --text: #152033;
-  --muted: #5b6b7c;
-  --accent: #1f6fd1;
-  --accent-dim: #9ec3ef;
-  --accent-btn-top: #2a78d4;
-  --accent-btn-bot: #1c5fad;
-  --danger: #c23b4a;
-  --ok: #1f9a62;
-  --warn: #b58114;
-  --code-bg: #e8eef5;
-  --wash-a: #c9daf0;
-  --wash-b: #c5ddd2;
+  --bg: #f3f0e8;
+  --bg-elev: #faf8f4;
+  --bg-input: #faf8f4;
+  --line: #ddd6c8;
+  --text: #1c1b19;
+  --muted: #5e584e;
+  --accent: #6b4e24;
+  --accent-dim: #c4b59a;
+  --btn-bg: #1c1b19;
+  --btn-fg: #f6f3ec;
+  --danger: #8f2d36;
+  --ok: #1f6b45;
+  --warn: #8a5a12;
+  --code-bg: #eae4d8;
+  accent-color: #6b4e24;
 }
 
 * {
@@ -53,6 +51,8 @@ html,
 body,
 #root {
   min-height: 100%;
+  width: 100%;
+  min-width: 0;
 }
 
 body {
@@ -61,10 +61,7 @@ body {
   color: var(--text);
   /* Long words wrap; URLs and code may break anywhere so they can't widen the page. */
   overflow-wrap: break-word;
-  background:
-    radial-gradient(ellipse 80% 50% at 10% -10%, var(--wash-a) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 0%, var(--wash-b) 0%, transparent 50%),
-    var(--bg);
+  background: var(--bg);
   transition: background-color 160ms ease, color 160ms ease;
 }
 
@@ -101,10 +98,11 @@ li {
 .shell,
 .shell.wide {
   width: 100%;
-  max-width: none;
+  max-width: 100%;
+  min-width: 0;
   min-height: 100dvh;
   margin: 0;
-  padding: clamp(1rem, 2vw, 2.25rem);
+  padding: clamp(1rem, 2dvw, 2.25rem);
   display: flex;
   flex-direction: column;
   container: shell / inline-size;
@@ -114,13 +112,18 @@ li {
   flex: 1;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
   margin-bottom: 1.25rem;
 }
 
@@ -132,9 +135,10 @@ li {
 
 .brand h1 {
   margin: 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .topnav {
@@ -256,12 +260,17 @@ li {
 }
 
 .panel {
-  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  background: var(--bg-elev);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 2px;
   padding: 1.25rem;
   margin-bottom: 1.25rem;
-  backdrop-filter: blur(8px);
+}
+
+.loop-main .panel {
+  background: transparent;
+  border: 0;
+  padding-inline: 0;
 }
 
 .panel h2 {
@@ -330,17 +339,17 @@ li {
 
 .btn {
   appearance: none;
-  border: 1px solid var(--accent-dim);
-  background: linear-gradient(180deg, var(--accent-btn-top), var(--accent-btn-bot));
-  color: white;
-  border-radius: 8px;
+  border: 1px solid var(--btn-bg);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  border-radius: 2px;
   padding: 0.5rem 0.95rem;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .btn:hover {
-  filter: brightness(1.08);
+  background: color-mix(in oklab, var(--btn-bg) 88%, var(--bg));
 }
 
 .btn.secondary {
@@ -350,10 +359,19 @@ li {
   font-weight: 500;
 }
 
+.btn.secondary:hover {
+  background: color-mix(in oklab, var(--text) 6%, transparent);
+}
+
 .btn.danger {
   background: transparent;
-  border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+  border-color: transparent;
   color: var(--danger);
+  font-weight: 500;
+}
+
+.btn.danger:hover {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
 }
 
 .btn.tiny {
@@ -587,11 +605,10 @@ td.mono,
 }
 
 dialog.settings {
-  width: calc(100vw - 2rem);
-  height: calc(100vh - 2rem);
+  width: min(76rem, calc(100% - 2rem));
+  max-width: calc(100% - 2rem);
   height: calc(100dvh - 2rem);
-  max-width: 76rem;
-  max-height: none;
+  max-height: calc(100dvh - 2rem);
   container: settings / inline-size;
   padding: 0;
   border: 1px solid var(--line);
@@ -762,15 +779,25 @@ dialog::backdrop {
 
 .loop-layout {
   flex: 1;
+  width: 100%;
+  min-width: 0;
   display: grid;
-  grid-template-columns: clamp(17rem, 22vw, 22rem) minmax(0, 1fr);
-  gap: 1.25rem;
+  grid-template-columns: minmax(0, clamp(14rem, 22dvw, 24rem)) minmax(0, 1fr);
+  gap: clamp(0.75rem, 2dvw, 1.25rem);
   align-items: stretch;
+}
+
+@supports (width: 1cqi) {
+  .loop-layout {
+    grid-template-columns: minmax(0, clamp(14rem, 28cqi, 24rem)) minmax(0, 1fr);
+    gap: clamp(0.75rem, 2cqi, 1.25rem);
+  }
 }
 
 .loop-main {
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-width: 0;
   min-height: 100%;
 }
@@ -778,6 +805,7 @@ dialog::backdrop {
 .rail {
   position: sticky;
   top: 1rem;
+  min-width: 0;
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
   display: grid;
@@ -797,19 +825,20 @@ dialog::backdrop {
   display: grid;
   gap: 0.2rem;
   padding: 0.55rem 0.7rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
+  border-radius: 0;
+  border: 0;
+  border-inline-start: 2px solid transparent;
   color: var(--text);
   text-decoration: none;
 }
 
 .rail-item:hover {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  background: color-mix(in oklab, var(--text) 5%, transparent);
 }
 
 .rail-item.active {
-  border-color: var(--accent-dim);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-inline-start-color: var(--text);
+  background: color-mix(in oklab, var(--text) 4%, transparent);
 }
 
 .rail-item:focus-visible,
@@ -867,10 +896,18 @@ dialog::backdrop {
 }
 
 .session-head h2 {
-  margin: 0 0 0.4rem;
-  font-size: 1.2rem;
-  font-weight: 600;
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.35rem, 2.4dvw, 1.85rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+@supports (font-size: 1cqi) {
+  .session-head h2 {
+    font-size: clamp(1.35rem, 3.2cqi, 1.85rem);
+  }
 }
 
 .session-meta {
@@ -907,6 +944,8 @@ dialog::backdrop {
 
 .track-scroll {
   position: relative;
+  width: 100%;
+  min-width: 0;
   overflow-x: auto;
   container: track / inline-size;
 }
@@ -940,12 +979,9 @@ dialog::backdrop {
   margin: 0;
   padding: 0.25rem 0;
   display: grid;
-  /* Cap the columns so a wide window does not pull the seven nodes apart. */
-  grid-template-columns: repeat(7, minmax(5.25rem, 8.5rem));
-  justify-content: start;
-  width: fit-content;
-  max-width: 100%;
-  min-width: 37rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
 }
 
 .track-step {
@@ -983,8 +1019,13 @@ dialog::backdrop {
 }
 
 .node.selected {
-  border-color: var(--accent-dim);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-color: transparent;
+  background: transparent;
+}
+
+.node.selected .node-mark {
+  border-color: var(--text);
+  color: var(--text);
 }
 
 .node-mark {
@@ -1004,16 +1045,20 @@ dialog::backdrop {
 .node-name {
   font-size: 0.88rem;
   font-weight: 600;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .node-meta {
   font-size: 0.72rem;
   color: var(--muted);
   text-align: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
-/* Narrow track: a vertical list instead of a 37rem-wide row that only scrolls. */
-@container track (inline-size < 38rem) {
+/* The row follows the track's own width. Stack once seven labels no longer fit. */
+@container track (inline-size < 42rem) {
   .track {
     width: 100%;
     min-width: 0;
@@ -1054,7 +1099,7 @@ dialog::backdrop {
 
 .state-active .node-mark {
   border-color: var(--accent);
-  animation: node-pulse 1.6s ease-out infinite;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
 .state-active .node-meta {
@@ -1070,19 +1115,44 @@ dialog::backdrop {
   opacity: 0.55;
 }
 
-@keyframes node-pulse {
-  from {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
-  }
-  to {
-    box-shadow: 0 0 0 0.6rem transparent;
+@media (prefers-reduced-motion: reduce) {
+  .state-active .node-mark {
+    box-shadow: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .state-active .node-mark {
-    animation: none;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme="dark"] {
+    --line: #8a8478;
+    --muted: #ddd6c8;
+  }
+
+  :root[data-theme="light"] {
+    --line: #3d3a34;
+    --muted: #2a2824;
+  }
+}
+
+@media (forced-colors: active) {
+  .btn {
+    background: ButtonFace;
+    color: ButtonText;
+    border: 1px solid ButtonText;
+  }
+
+  .btn.danger {
+    color: ButtonText;
+  }
+
+  .state-active .node-mark,
+  .node.selected .node-mark,
+  .rail-item.active {
+    border-color: Highlight;
+    box-shadow: none;
+    outline: 2px solid Highlight;
   }
 }
 
@@ -1106,7 +1176,7 @@ dialog::backdrop {
 
 .fact {
   display: grid;
-  grid-template-columns: 9rem minmax(0, 1fr);
+  grid-template-columns: minmax(5rem, 9rem) minmax(0, 1fr);
   gap: 0.75rem;
 }
 
@@ -1210,7 +1280,7 @@ dialog::backdrop {
 }
 
 dialog.confirm {
-  width: min(30rem, calc(100vw - 2rem));
+  width: min(30rem, calc(100% - 2rem));
   padding: 1.25rem;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -1271,6 +1341,10 @@ a.btn {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.15rem;
   }
+
+  .ledger-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 900px) {
@@ -1291,6 +1365,10 @@ a.btn {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.15rem;
   }
+
+  .ledger-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -1299,6 +1377,68 @@ a.btn {
   }
 
   .brand h1 {
-    font-size: 1.4rem;
+    font-size: 0.78rem;
+  }
+}
+
+.ledger {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ledger-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(7rem, 0.7fr) minmax(8rem, 0.8fr) auto auto;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ledger-row.highlight {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+.lesson-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font: inherit;
+  padding: 0.35rem 0.2rem;
+}
+
+.lesson-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.agents-preview {
+  margin: 1rem 0 0;
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.hit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  align-items: baseline;
+}
+
+@container shell (inline-size < 56rem) {
+  .ledger-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
   }
 }

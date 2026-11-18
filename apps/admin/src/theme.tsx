@@ -13,8 +13,8 @@ export type Theme = "light" | "dark";
 const STORAGE_KEY = "sightloop.admin.theme";
 const META_NAME = "color-scheme";
 const THEME_COLOR: Record<Theme, string> = {
-  dark: "#0f1419",
-  light: "#eef2f6",
+  dark: "#141311",
+  light: "#f3f0e8",
 };
 
 function systemTheme(): Theme {
