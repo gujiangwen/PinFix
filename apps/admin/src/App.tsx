@@ -10,11 +10,25 @@ import type {
   AuditEvent,
   KnowledgeKind,
 } from "@sightloop/shared";
-import { api, baseUrl } from "./api";
+import {
+  api,
+  baseUrl,
+  type ExtensionInstallInfo,
+  type LlmRoleId,
+  type LlmSettingsPatch,
+  type LlmSettingsPublic,
+} from "./api";
 import { useI18n } from "./i18n";
 import { useTheme } from "./theme";
 
-type Tab = "projects" | "sessions" | "knowledge" | "audit" | "metrics";
+type Tab =
+  | "projects"
+  | "sessions"
+  | "knowledge"
+  | "audit"
+  | "metrics"
+  | "extension"
+  | "models";
 
 type FormState = {
   name: string;
@@ -58,7 +72,9 @@ function tabFromHash(): Tab {
     h === "sessions" ||
     h === "knowledge" ||
     h === "audit" ||
-    h === "metrics"
+    h === "metrics" ||
+    h === "extension" ||
+    h === "models"
   ) {
     return h;
   }
@@ -120,6 +136,8 @@ export function App() {
     ["knowledge", t("nav.knowledge")],
     ["audit", t("nav.audit")],
     ["metrics", t("nav.metrics")],
+    ["extension", t("nav.extension")],
+    ["models", t("nav.models")],
   ] as const;
 
   return (
@@ -232,6 +250,12 @@ export function App() {
         <AuditPanel projects={projects} onError={setError} />
       ) : null}
       {tab === "metrics" ? <MetricsPanel onError={setError} /> : null}
+      {tab === "extension" ? (
+        <ExtensionPanel onError={setError} onStatus={setStatus} />
+      ) : null}
+      {tab === "models" ? (
+        <ModelsPanel onError={setError} onStatus={setStatus} />
+      ) : null}
 
       {!error && status ? (
         <p className="status ok footer-status">{status}</p>
@@ -1257,6 +1281,470 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="metric">
       <div className="muted">{label}</div>
       <div className="metric-value">{value}</div>
+    </div>
+  );
+}
+
+function ExtensionPanel(props: {
+  onError: (s: string) => void;
+  onStatus: (s: string) => void;
+}) {
+  const { t, locale } = useI18n();
+  const [info, setInfo] = useState<ExtensionInstallInfo | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    setBusy(true);
+    props.onError("");
+    try {
+      setInfo(await api.getExtension());
+    } catch (err) {
+      props.onError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function onBuild() {
+    setBusy(true);
+    props.onError("");
+    try {
+      const res = await api.buildExtension();
+      setInfo(res.extension);
+      props.onStatus(t("ext.builtOk"));
+    } catch (err) {
+      props.onError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onDownload() {
+    setBusy(true);
+    props.onError("");
+    try {
+      const { blob, filename } = await api.downloadExtensionZip();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      props.onStatus(t("ext.downloaded"));
+    } catch (err) {
+      props.onError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onCopyPath() {
+    const path = info?.host_dist || info?.container_dist;
+    if (!path) return;
+    try {
+      await navigator.clipboard.writeText(path);
+      props.onStatus(t("ext.copied"));
+    } catch {
+      props.onError(t("ext.copyFail"));
+    }
+  }
+
+  const steps =
+    info == null
+      ? []
+      : locale === "zh-CN"
+        ? info.steps.zh
+        : info.steps.en;
+
+  return (
+    <>
+      <div className="panel">
+        <div className="row between">
+          <h2>{t("ext.title")}</h2>
+          <div className="row">
+            <button
+              type="button"
+              className="btn secondary tiny"
+              disabled={busy}
+              onClick={() => void refresh()}
+            >
+              {t("ext.refresh")}
+            </button>
+            <button
+              type="button"
+              className="btn secondary tiny"
+              disabled={busy}
+              onClick={() => void onBuild()}
+            >
+              {t("ext.build")}
+            </button>
+            <button
+              type="button"
+              className="btn tiny"
+              disabled={busy || !info?.zip_available}
+              onClick={() => void onDownload()}
+            >
+              {t("ext.download")}
+            </button>
+            <button
+              type="button"
+              className="btn secondary tiny"
+              disabled={busy || !(info?.host_dist || info?.container_dist)}
+              onClick={() => void onCopyPath()}
+            >
+              {t("ext.copyPath")}
+            </button>
+          </div>
+        </div>
+        <p className="lede" style={{ marginBottom: "1rem" }}>
+          {t("ext.lede")}
+        </p>
+        {!info ? (
+          <p className="empty">{t("metrics.loading")}</p>
+        ) : (
+          <>
+            <div className="meta-grid">
+              <div>
+                <span className="muted">{t("ext.built")}</span>
+                <div>
+                  <span className={`badge ${info.built ? "hmr" : "pr"}`}>
+                    {info.built ? t("ext.built") : t("ext.notBuilt")}
+                  </span>
+                  {info.version ? (
+                    <span className="muted"> · v{info.version}</span>
+                  ) : null}
+                </div>
+              </div>
+              <div>
+                <span className="muted">{t("ext.hostPath")}</span>
+                <div className="mono wrap">
+                  {info.host_dist ?? "—"}
+                </div>
+              </div>
+              <div>
+                <span className="muted">{t("ext.containerPath")}</span>
+                <div className="mono wrap">{info.container_dist}</div>
+              </div>
+            </div>
+            <h3 className="subhead">{t("ext.limits")}</h3>
+            <ul className="doc-list">
+              <li>{t("ext.limit.silent")}</li>
+              <li>{t("ext.limit.load")}</li>
+              <li>{t("ext.limit.chromeUrl")}</li>
+              <li>{t("ext.limit.crx")}</li>
+            </ul>
+            <h3 className="subhead">{t("ext.steps")}</h3>
+            <ol className="doc-list">
+              {steps.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ol>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+function ModelsPanel(props: {
+  onError: (s: string) => void;
+  onStatus: (s: string) => void;
+}) {
+  const { t } = useI18n();
+  const [settings, setSettings] = useState<LlmSettingsPublic | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dualLoop, setDualLoop] = useState(false);
+  const [dualMock, setDualMock] = useState(true);
+  const [crossJudge, setCrossJudge] = useState(false);
+  const [draft, setDraft] = useState<
+    Record<
+      LlmRoleId,
+      {
+        provider: string;
+        model: string;
+        base_url: string;
+        api_key: string;
+        clear_api_key: boolean;
+      }
+    >
+  >({
+    planner: {
+      provider: "",
+      model: "",
+      base_url: "",
+      api_key: "",
+      clear_api_key: false,
+    },
+    implementer: {
+      provider: "",
+      model: "",
+      base_url: "",
+      api_key: "",
+      clear_api_key: false,
+    },
+    reviewer: {
+      provider: "",
+      model: "",
+      base_url: "",
+      api_key: "",
+      clear_api_key: false,
+    },
+    judge: {
+      provider: "",
+      model: "",
+      base_url: "",
+      api_key: "",
+      clear_api_key: false,
+    },
+  });
+
+  function hydrate(s: LlmSettingsPublic) {
+    setSettings(s);
+    setDualLoop(s.dual_loop_enabled);
+    setDualMock(s.dual_loop_mock);
+    setCrossJudge(s.cross_judge);
+    setDraft({
+      planner: {
+        provider: s.roles.planner.provider ?? "",
+        model: s.roles.planner.model ?? "",
+        base_url: s.roles.planner.base_url ?? "",
+        api_key: "",
+        clear_api_key: false,
+      },
+      implementer: {
+        provider: s.roles.implementer.provider ?? "",
+        model: s.roles.implementer.model ?? "",
+        base_url: s.roles.implementer.base_url ?? "",
+        api_key: "",
+        clear_api_key: false,
+      },
+      reviewer: {
+        provider: s.roles.reviewer.provider ?? "",
+        model: s.roles.reviewer.model ?? "",
+        base_url: s.roles.reviewer.base_url ?? "",
+        api_key: "",
+        clear_api_key: false,
+      },
+      judge: {
+        provider: s.roles.judge.provider ?? "",
+        model: s.roles.judge.model ?? "",
+        base_url: s.roles.judge.base_url ?? "",
+        api_key: "",
+        clear_api_key: false,
+      },
+    });
+  }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        hydrate(await api.getLlmSettings());
+      } catch (err) {
+        props.onError((err as Error).message);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function onSave(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    props.onError("");
+    try {
+      const patch: LlmSettingsPatch = {
+        dual_loop_enabled: dualLoop,
+        dual_loop_mock: dualMock,
+        cross_judge: crossJudge,
+      };
+      for (const role of [
+        "planner",
+        "implementer",
+        "reviewer",
+        "judge",
+      ] as const) {
+        const d = draft[role];
+        patch[role] = {
+          provider: role === "implementer" || role === "judge" ? undefined : d.provider,
+          model: d.model,
+          base_url:
+            role === "implementer" || role === "judge" ? undefined : d.base_url,
+          api_key: d.clear_api_key ? undefined : d.api_key || undefined,
+          clear_api_key: d.clear_api_key || undefined,
+        };
+      }
+      const res = await api.putLlmSettings(patch);
+      hydrate(res.settings);
+      props.onStatus(t("models.saved"));
+    } catch (err) {
+      props.onError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const roles: LlmRoleId[] = [
+    "planner",
+    "implementer",
+    "reviewer",
+    "judge",
+  ];
+
+  if (!settings) return <p className="empty">{t("metrics.loading")}</p>;
+
+  return (
+    <div className="panel">
+      <h2>{t("models.title")}</h2>
+      <p className="lede" style={{ marginBottom: "1rem" }}>
+        {t("models.lede")}
+      </p>
+      <form className="form-grid" onSubmit={onSave}>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={dualLoop}
+            onChange={(e) => setDualLoop(e.target.checked)}
+          />
+          {t("models.dualLoop")}
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={dualMock}
+            onChange={(e) => setDualMock(e.target.checked)}
+          />
+          {t("models.dualMock")}
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={crossJudge}
+            onChange={(e) => setCrossJudge(e.target.checked)}
+          />
+          {t("models.crossJudge")}
+        </label>
+
+        {roles.map((role) => {
+          const r = settings.roles[role];
+          const d = draft[role];
+          const showProvider = role === "planner" || role === "reviewer";
+          const roleTitle =
+            role === "planner"
+              ? t("models.role.planner")
+              : role === "implementer"
+                ? t("models.role.implementer")
+                : role === "reviewer"
+                  ? t("models.role.reviewer")
+                  : t("models.role.judge");
+          return (
+            <div key={role} className="panel" style={{ marginBottom: 0 }}>
+              <h3 className="subhead" style={{ marginTop: 0 }}>
+                {roleTitle}
+                <span className="muted">
+                  {" "}
+                  ·{" "}
+                  {r.api_key_set
+                    ? t("models.keySet", { hint: r.api_key_hint ?? "••••" })
+                    : t("models.keyMissing")}
+                </span>
+              </h3>
+              <div className="form-grid">
+                {showProvider ? (
+                  <label>
+                    {t("models.provider")}
+                    <input
+                      value={d.provider}
+                      placeholder="openai | anthropic | compatible"
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          [role]: { ...d, provider: e.target.value },
+                        })
+                      }
+                    />
+                  </label>
+                ) : null}
+                <label>
+                  {t("models.model")}
+                  <input
+                    value={d.model}
+                    placeholder="gpt-4o-mini"
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        [role]: { ...d, model: e.target.value },
+                      })
+                    }
+                  />
+                </label>
+                {showProvider ? (
+                  <label>
+                    {t("models.baseUrl")}
+                    <input
+                      value={d.base_url}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          [role]: { ...d, base_url: e.target.value },
+                        })
+                      }
+                    />
+                  </label>
+                ) : null}
+                <label>
+                  {t("models.apiKey")}
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={d.api_key}
+                    placeholder={t("models.apiKeyPlaceholder")}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        [role]: {
+                          ...d,
+                          api_key: e.target.value,
+                          clear_api_key: false,
+                        },
+                      })
+                    }
+                  />
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={d.clear_api_key}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        [role]: {
+                          ...d,
+                          clear_api_key: e.target.checked,
+                          api_key: e.target.checked ? "" : d.api_key,
+                        },
+                      })
+                    }
+                  />
+                  {t("models.clearKey")}
+                </label>
+              </div>
+            </div>
+          );
+        })}
+
+        <p className="muted mono wrap">
+          {t("models.path")}: {settings.settings_path}
+        </p>
+        <div className="row">
+          <button className="btn" type="submit" disabled={busy}>
+            {t("models.save")}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

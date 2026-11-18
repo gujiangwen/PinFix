@@ -2,8 +2,11 @@ import { config as loadEnv } from "dotenv";
 import { resolve } from "node:path";
 import { findMonorepoRoot, resolveFromRoot } from "./paths.js";
 import type { MarkupAdapterKind } from "@sightloop/markup-bridge";
+import { loadLlmSettingsFileIntoEnv } from "./llm-settings.js";
 
 loadEnv({ path: resolve(findMonorepoRoot(), ".env") });
+// Admin-managed LLM overrides (data volume) win over base .env
+loadLlmSettingsFileIntoEnv();
 
 function required(name: string, fallback?: string): string {
   const v = process.env[name] ?? fallback;

@@ -8,6 +8,8 @@ data/markup-workspace/
 data/sandboxes/
 data/locks/
 data/acceptance-gates/
+data/llm-settings.env
+data/extension-artifacts/
 .env
 .env.local
 *.log

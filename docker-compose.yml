@@ -22,6 +22,9 @@ services:
       MARKUP_WORKSPACE: "./data/markup-workspace"
       SIGHTLOOP_LOCK_DIR: "./data/locks"
       SIGHTLOOP_DX_LABEL: "docker-local"
+      # Host paths for Chrome Load unpacked (Windows Marx-G)
+      SIGHTLOOP_HOST_REPO: "D:\\AIStudio\\PinFix"
+      SIGHTLOOP_HOST_EXTENSION_DIST: "D:\\AIStudio\\PinFix\\apps\\extension\\dist"
     ports:
       - "127.0.0.1:7420:7420"
     volumes:

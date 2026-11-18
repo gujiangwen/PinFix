@@ -544,7 +544,8 @@ td.mono,
   align-items: end;
 }
 
-.filters .check {
+.filters .check,
+.form-grid .check {
   display: flex;
   align-items: center;
   gap: 0.4rem;

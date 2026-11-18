@@ -138,6 +138,106 @@ export const api = {
     request<{ audit: AuditEvent[] }>(`/v1/admin/audit${qs(opts)}`).then(
       (r) => r.audit,
     ),
+
+  getLlmSettings: () =>
+    request<{ settings: LlmSettingsPublic }>("/v1/admin/llm-settings").then(
+      (r) => r.settings,
+    ),
+  putLlmSettings: (body: LlmSettingsPatch) =>
+    request<{
+      settings: LlmSettingsPublic;
+      applied_live: boolean;
+      restart_hint: string;
+    }>("/v1/admin/llm-settings", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  getExtension: () =>
+    request<{ extension: ExtensionInstallInfo }>("/v1/admin/extension").then(
+      (r) => r.extension,
+    ),
+  buildExtension: () =>
+    request<{
+      ok: boolean;
+      extension: ExtensionInstallInfo;
+      log_tail: string;
+    }>("/v1/admin/extension/build", { method: "POST" }),
+  downloadExtensionZip: async () => {
+    const res = await fetch(`${baseUrl}/v1/admin/extension/zip`, {
+      headers: { "X-SightLoop-Token": token },
+    });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        const body = (await res.json()) as {
+          error?: { message?: string };
+        };
+        if (body.error?.message) msg = body.error.message;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") ?? "";
+    const m = /filename="?([^"]+)"?/.exec(cd);
+    return { blob, filename: m?.[1] ?? "sightloop-extension.zip" };
+  },
+};
+
+export type LlmRoleId = "planner" | "implementer" | "reviewer" | "judge";
+
+export type LlmRolePublic = {
+  provider: string | null;
+  model: string | null;
+  base_url: string | null;
+  api_key_set: boolean;
+  api_key_hint: string | null;
+};
+
+export type LlmSettingsPublic = {
+  dual_loop_enabled: boolean;
+  dual_loop_mock: boolean;
+  cross_judge: boolean;
+  roles: Record<LlmRoleId, LlmRolePublic>;
+  settings_path: string;
+  host_env_note: string;
+};
+
+export type LlmRolePatch = {
+  provider?: string | null;
+  model?: string | null;
+  base_url?: string | null;
+  api_key?: string | null;
+  clear_api_key?: boolean;
+};
+
+export type LlmSettingsPatch = {
+  dual_loop_enabled?: boolean;
+  dual_loop_mock?: boolean;
+  cross_judge?: boolean;
+  planner?: LlmRolePatch;
+  implementer?: LlmRolePatch;
+  reviewer?: LlmRolePatch;
+  judge?: LlmRolePatch;
+};
+
+export type ExtensionInstallInfo = {
+  built: boolean;
+  container_dist: string;
+  host_dist: string | null;
+  manifest_version: number | null;
+  name: string | null;
+  version: string | null;
+  zip_available: boolean;
+  chrome_allows: {
+    silent_force_install: false;
+    load_unpacked: true;
+    web_pages_open_chrome_extensions: false;
+    crx_from_http: false;
+  };
+  steps: { en: string[]; zh: string[] };
 };
 
 export { baseUrl, token };

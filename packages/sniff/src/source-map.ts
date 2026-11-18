@@ -17,8 +17,15 @@ export function extractSourceMappingUrl(scriptText: string): string | null {
 }
 
 function decodeBase64Utf8(payload: string): string {
-  if (typeof Buffer !== "undefined") {
-    return Buffer.from(payload, "base64").toString("utf8");
+  const NodeBuffer = (
+    globalThis as unknown as {
+      Buffer?: {
+        from(data: string, encoding: string): { toString(encoding: string): string };
+      };
+    }
+  ).Buffer;
+  if (NodeBuffer) {
+    return NodeBuffer.from(payload, "base64").toString("utf8");
   }
   const binary = atob(payload);
   const bytes = new Uint8Array(binary.length);

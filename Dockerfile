@@ -22,11 +22,11 @@ COPY apps ./apps
 COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
-# Skip extension (+ sniff) — not needed for the local Docker stack.
 RUN pnpm exec turbo run build \
       --filter=@sightloop/daemon... \
       --filter=@sightloop/admin... \
-      --filter=@sightloop/fixture-react...
+      --filter=@sightloop/fixture-react... \
+      --filter=@sightloop/extension...
 
 RUN mkdir -p /app/data /workspace
 

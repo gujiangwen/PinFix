@@ -69,7 +69,7 @@ export async function buildApp(cfg: DaemonConfig): Promise<BuiltApp> {
 
   await app.register(sessionsRoutes, { db, hub, cfg });
   await app.register(knowledgeRoutes, { db, cfg });
-  await app.register(adminRoutes, { db });
+  await app.register(adminRoutes, { db, cfg });
   await app.register(dxRoutes, { db, cfg });
   await app.register(locationRoutes, { db });
   await app.register(acceptanceGateRoutes, { db, hub, cfg });
