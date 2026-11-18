@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Smoke M9b: dual-loop LLM mode (MOCK=0). Without SIGHTLOOP_PLANNER_API_KEY,
+# Smoke M9b: dual-loop Pi mode (MOCK=0). Without a shared Pi API key,
 # asserts mock fallback + DX lights, still reaches awaiting_review.
-# With a real planner key, asserts planner_backend=llm.
+# With a shared Pi key (env or Admin-managed data/llm-settings.env),
+# asserts planner_backend=pi.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -33,7 +34,7 @@ echo
 VERSION="$(python3 -c 'import json; print(json.load(open("/tmp/sightloop-m9b-health.json")).get("version",""))')"
 echo "VERSION=$VERSION"
 
-echo "== dx dual_loop (expect mode=llm) =="
+echo "== dx dual_loop (expect mode=pi) =="
 curl -sf "${BASE}/v1/dx/status" | tee /tmp/sightloop-m9b-dx.json
 echo
 python3 - <<'PY'
@@ -43,17 +44,19 @@ dl = d.get("dual_loop") or {}
 assert os.environ.get("SIGHTLOOP_DUAL_LOOP") in ("1", "true"), "daemon must have DUAL_LOOP=1"
 assert os.environ.get("SIGHTLOOP_DUAL_LOOP_MOCK") in ("0", "false"), "smoke-m9b expects MOCK=0"
 assert dl.get("enabled") is True, dl
-assert dl.get("mode") == "llm", dl
-has_key = bool(os.environ.get("SIGHTLOOP_PLANNER_API_KEY", "").strip())
+assert dl.get("mode") == "pi", dl
+# The key may live in the Admin-managed settings file, so trust the daemon's
+# own report rather than this shell's env.
+has_key = dl.get("planner_key_configured") is True
 if has_key:
-    assert dl.get("planner_backend") == "llm", dl
-    assert dl.get("planner_key_configured") is True, dl
+    assert dl.get("planner_backend") == "pi", dl
+    assert dl.get("reviewer_backend") == "pi", dl
     assert not dl.get("fallback_reason"), dl
-    print("OK dx llm path with planner key")
+    print("OK dx pi path with shared Pi key")
 else:
     assert dl.get("planner_backend") == "mock", dl
-    assert dl.get("fallback_reason") == "no_planner_api_key", dl
-    print("OK dx llm requested → mock fallback (no SIGHTLOOP_PLANNER_API_KEY)")
+    assert dl.get("fallback_reason") == "no_pi_api_key", dl
+    print("OK dx pi requested → mock fallback (no shared Pi key)")
 print("dx", {k: dl.get(k) for k in (
   "mode","planner_backend","reviewer_backend","fallback_reason",
   "planner_model","implementer_model","reviewer_model")})
@@ -168,4 +171,4 @@ echo "SMOKE M9b OK"
 echo "DEMO_PATH=$DEMO_PATH"
 echo "SESSION_ID=$SESSION_ID"
 echo "VERSION=$VERSION"
-echo "NOTE: set SIGHTLOOP_PLANNER_API_KEY (+ optional REVIEWER_*) for live LLM; without key, mock fallback is expected."
+echo "NOTE: set one shared Pi key (Admin → Models, or PI_API_KEY / SIGHTLOOP_LLM_API_KEY) for live Pi chat; without key, mock fallback is expected."
