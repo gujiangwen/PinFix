@@ -70,10 +70,12 @@
   <body>
     <main>
       <img src="/icons/icon.svg" alt="" />
-      <h1 id="title">SightLoop Admin is not running</h1>
+      <h1 id="title">SightLoop Admin did not respond</h1>
       <p id="body">
-        The Admin server on this machine did not respond. Start the SightLoop
-        services (Docker) and this page will reload by itself.
+        No Admin server answered at this address. If SightLoop is running,
+        check that the address and port are the ones it is served on;
+        otherwise start the SightLoop services. This page reloads by itself
+        once the server answers.
       </p>
       <button id="retry" type="button">Retry now</button>
     </main>
@@ -96,13 +98,18 @@
           locale === "zh-CN" ||
           (locale !== "en" &&
             (navigator.language || "").toLowerCase().indexOf("zh") === 0);
+        // Name the address: the usual cause is a port nothing listens on any
+        // more while SightLoop itself is up on another one.
+        var host = location.host;
         if (zh) {
           document.documentElement.lang = "zh-CN";
-          document.getElementById("title").textContent =
-            "SightLoop Admin 没有在运行";
+          document.getElementById("title").textContent = host + " 没有响应";
           document.getElementById("body").textContent =
-            "本机的 Admin 服务没有响应。请启动 SightLoop 服务（Docker），页面会自动重新加载。";
+            "这个地址上没有 Admin 服务应答。如果 SightLoop 正在运行，请确认地址和端口是否正确；否则请启动 SightLoop 服务。服务恢复后页面会自动重新加载。";
           document.getElementById("retry").textContent = "立即重试";
+        } else {
+          document.getElementById("title").textContent =
+            host + " did not respond";
         }
 
         document.getElementById("retry").addEventListener("click", function () {

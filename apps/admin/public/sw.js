@@ -9,7 +9,9 @@
 // served by a Vite dev server whose module URLs are not versioned, so caching
 // them would serve stale code, and every screen needs the live Daemon anyway.
 
-const CACHE = "sightloop-admin-offline-v1";
+// Bump the version whenever offline.html or the icon changes: the name is what
+// makes an installed worker precache them again.
+const CACHE = "sightloop-admin-offline-v2";
 const OFFLINE_URL = "/offline.html";
 const ICON_URL = "/icons/icon.svg";
 
