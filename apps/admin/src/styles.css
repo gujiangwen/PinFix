@@ -80,29 +80,7 @@ textarea {
 }
 
 .shell.wide {
-  /* Full-bleed stage: gutters grow with the window, then stop. */
-  max-width: none;
-  inline-size: 100%;
-  min-block-size: 100dvh;
-  padding-inline: clamp(1rem, 2vw, 2.5rem);
-  padding-block: 1.25rem 2rem;
-  display: flex;
-  flex-direction: column;
-}
-
-.shell.wide > main {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-inline-size: 0;
-  min-block-size: 0;
-}
-
-/* Knowledge keeps the previous reading measure instead of stretching with the stage. */
-.shell.wide > main:not(:has(.loop-layout)) {
-  max-inline-size: 73.75rem;
-  inline-size: 100%;
-  margin-inline: auto;
+  max-width: 1180px;
 }
 
 .topbar {
@@ -731,33 +709,17 @@ dialog::backdrop {
 .loop-layout {
   display: grid;
   grid-template-columns: 16rem minmax(0, 1fr);
-  gap: 0;
-  align-items: stretch;
-  flex: 1 1 auto;
-  min-block-size: 0;
+  gap: 1.25rem;
+  align-items: start;
 }
 
 .rail {
   position: sticky;
-  inset-block-start: 1rem;
-  align-self: start;
-  /* Fill the leftover viewport; a longer list scrolls inside the column. */
-  min-block-size: calc(100dvh - 6.5rem);
-  max-block-size: calc(100dvh - 6.5rem);
+  top: 1rem;
+  max-height: calc(100dvh - 2rem);
   overflow-y: auto;
   display: grid;
-  align-content: start;
   gap: 0.75rem;
-  padding-block: 0.35rem 0.75rem;
-  padding-inline: 0.2rem 0.9rem;
-  background: color-mix(in srgb, var(--bg-elev) 78%, var(--bg));
-  border-inline-end: 1px solid var(--line);
-  border-radius: 0;
-}
-
-.loop-main {
-  min-inline-size: 0;
-  padding-inline-start: clamp(1rem, 2vw, 1.75rem);
 }
 
 .rail-list {
@@ -833,10 +795,6 @@ dialog::backdrop {
   color: var(--accent);
 }
 
-.session-head {
-  max-inline-size: 54rem;
-}
-
 .session-head h2 {
   margin: 0 0 0.4rem;
   font-size: 1.2rem;
@@ -874,11 +832,6 @@ dialog::backdrop {
 
 .track-wrap {
   margin-bottom: 1.25rem;
-  max-inline-size: 54rem;
-}
-
-.node-detail {
-  max-inline-size: 75ch;
 }
 
 .track-scroll {
@@ -1204,16 +1157,7 @@ a.btn {
 
   .rail {
     position: static;
-    min-block-size: 0;
-    block-size: auto;
-    max-block-size: 14rem;
-    border-inline-end: 0;
-    border-block-end: 1px solid var(--line);
-  }
-
-  .loop-main {
-    padding-inline-start: 0;
-    padding-block-start: 1.15rem;
+    max-height: 14rem;
   }
 
   .fact {
@@ -1222,34 +1166,9 @@ a.btn {
   }
 }
 
-@media (prefers-contrast: more) {
-  .rail {
-    border-inline-end-width: 2px;
-  }
-}
-
-@media (prefers-contrast: more) and (max-width: 900px) {
-  .rail {
-    border-inline-end-width: 0;
-    border-block-end-width: 2px;
-  }
-}
-
-@media (forced-colors: active) {
-  .rail {
-    background: Canvas;
-    border-inline-end-color: CanvasText;
-  }
-}
-
 @media (max-width: 640px) {
   .shell {
     padding: 1.5rem 1rem 3rem;
-  }
-
-  .shell.wide {
-    padding-inline: 1rem;
-    padding-block: 1.25rem 2rem;
   }
 
   .brand h1 {
