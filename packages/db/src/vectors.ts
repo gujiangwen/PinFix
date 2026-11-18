@@ -28,8 +28,6 @@ type KnowledgeRow = {
   stack: string | null;
   pinned: number | null;
   archived: number | null;
-  last_used_at: number | null;
-  last_used_session_id: string | null;
   created_at: number;
   updated_at: number | null;
 };
@@ -66,8 +64,6 @@ function loadCard(db: Database.Database, id: string): Knowledge | undefined {
     archived: Boolean(row.archived),
     created_at: row.created_at,
     updated_at: row.updated_at ?? null,
-    last_used_at: row.last_used_at ?? null,
-    last_used_session_id: row.last_used_session_id ?? null,
   };
 }
 

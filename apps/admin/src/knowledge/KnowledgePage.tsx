@@ -1,35 +1,31 @@
-import { useEffect, useRef, useState, type Ref } from "react";
-import type { Project, Knowledge } from "@sightloop/shared";
+import { useEffect, useState, type FormEvent } from "react";
+import type { Project, Knowledge, KnowledgeKind } from "@sightloop/shared";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import { pageHash } from "../routes";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { fmtTime } from "../ui/format";
-
-function isStrategy(card: Knowledge): boolean {
-  return (
-    (card.tags ?? []).includes("strategy") ||
-    card.body_md.includes("sightloop:strategy") ||
-    card.title.toLowerCase().includes("strategy")
-  );
-}
 
 export function KnowledgePage(props: {
   projects: Project[];
-  /** Card named in the URL (`#/knowledge/<id>`); highlighted when set. */
+  /** Card named in the URL (`#/knowledge/<id>`); opened in the editor when set. */
   cardId: string | null;
   onError: (s: string) => void;
   onStatus: (s: string) => void;
 }) {
   const { t } = useI18n();
   const [projectId, setProjectId] = useState("");
+  const [stack, setStack] = useState("");
+  const [tag, setTag] = useState("");
   const [q, setQ] = useState("");
-  const [showStopped, setShowStopped] = useState(false);
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [items, setItems] = useState<Knowledge[]>([]);
+  const [editing, setEditing] = useState<Knowledge | null>(null);
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [archiveId, setArchiveId] = useState<string | null>(null);
-  const highlightRef = useRef<HTMLLIElement>(null);
+  const [draft, setDraft] = useState({
+    title: "",
+    body_md: "",
+    kind: "pattern" as KnowledgeKind,
+    tags: "",
+    stack: "",
+  });
 
   async function load() {
     setBusy(true);
@@ -37,12 +33,13 @@ export function KnowledgePage(props: {
     try {
       const list = await api.listKnowledge({
         project_id: projectId || undefined,
-        tag: "strategy",
+        stack: stack || undefined,
+        tag: tag || undefined,
         q: q || undefined,
-        include_archived: showStopped,
+        include_archived: includeArchived,
         limit: 100,
       });
-      setItems(list.filter(isStrategy));
+      setItems(list);
     } catch (err) {
       props.onError((err as Error).message);
     } finally {
@@ -53,34 +50,81 @@ export function KnowledgePage(props: {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, showStopped]);
+  }, [projectId, includeArchived]);
 
+  function startEdit(k: Knowledge) {
+    setEditing(k);
+    setDraft({
+      title: k.title,
+      body_md: k.body_md,
+      kind: k.kind,
+      tags: (k.tags ?? []).join(", "),
+      stack: k.stack ?? "",
+    });
+  }
+
+  const { cardId, onError } = props;
   useEffect(() => {
-    highlightRef.current?.scrollIntoView({ block: "nearest" });
-  }, [props.cardId, items]);
+    if (!cardId) return;
+    let stale = false;
+    api
+      .getKnowledge(cardId)
+      .then((card) => {
+        if (!stale) startEdit(card);
+      })
+      .catch((err: unknown) => {
+        if (!stale) onError((err as Error).message);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [cardId, onError]);
 
-  async function saveTitle(card: Knowledge, title: string) {
-    const next = title.trim();
-    if (!next || next === card.title) return;
+  async function saveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setBusy(true);
     props.onError("");
     try {
-      await api.updateKnowledge(card.id, { title: next });
-      props.onStatus(t("knowledge.status.updated", { id: card.id }));
+      await api.updateKnowledge(editing.id, {
+        title: draft.title,
+        body_md: draft.body_md,
+        kind: draft.kind,
+        tags: draft.tags
+          .split(/[,]/)
+          .map((x) => x.trim())
+          .filter(Boolean),
+        stack: draft.stack.trim() || null,
+      });
+      props.onStatus(t("knowledge.status.updated", { id: editing.id }));
+      setEditing(null);
       await load();
     } catch (err) {
       props.onError((err as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
-  async function togglePin(card: Knowledge) {
-    await api.updateKnowledge(card.id, { pinned: !card.pinned });
+  async function togglePin(k: Knowledge) {
+    await api.updateKnowledge(k.id, { pinned: !k.pinned });
     await load();
   }
 
-  async function archive(id: string) {
-    await api.updateKnowledge(id, { archived: true });
-    setArchiveId(null);
+  async function toggleArchive(k: Knowledge) {
+    await api.updateKnowledge(k.id, { archived: !k.archived });
     await load();
+  }
+
+  async function exportCard(k: Knowledge) {
+    const res = await api.exportKnowledge(k.id);
+    const blob = new Blob([res.markdown], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sightloop-${k.id}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function syncAgents(dryRun: boolean) {
@@ -91,17 +135,27 @@ export function KnowledgePage(props: {
     setBusy(true);
     props.onError("");
     try {
-      const pinned = items.filter((i) => i.pinned && !i.archived).map((i) => i.id);
+      const pinned = items
+        .filter((i) => i.pinned && !i.archived)
+        .map((i) => i.id);
       const sync = await api.syncAgentsMd(projectId, {
         knowledge_ids: pinned.length ? pinned : undefined,
         dry_run: dryRun,
       });
-      if (dryRun) setPreview(sync.markdown);
       props.onStatus(
         dryRun
-          ? t("knowledge.status.preview", { bytes: sync.bytes, path: sync.path })
-          : t("knowledge.status.wrote", { bytes: sync.bytes, path: sync.path }),
+          ? t("knowledge.status.preview", {
+              bytes: sync.bytes,
+              path: sync.path,
+            })
+          : t("knowledge.status.wrote", {
+              bytes: sync.bytes,
+              path: sync.path,
+            }),
       );
+      if (dryRun) {
+        console.info(sync.markdown);
+      }
     } catch (err) {
       props.onError((err as Error).message);
     } finally {
@@ -109,193 +163,226 @@ export function KnowledgePage(props: {
     }
   }
 
-  const active = items.filter((k) => !k.archived);
-  const stopped = items.filter((k) => k.archived);
-
   return (
-    <section className="panel">
-      <header className="row between">
-        <div>
+    <>
+      <div className="panel">
+        <div className="row between">
           <h2>{t("knowledge.title")}</h2>
-          <p className="hint">{t("knowledge.lede")}</p>
+          <div className="row">
+            <button
+              type="button"
+              className="btn secondary tiny"
+              disabled={busy}
+              onClick={() => void syncAgents(true)}
+            >
+              {t("knowledge.previewAgents")}
+            </button>
+            <button
+              type="button"
+              className="btn tiny"
+              disabled={busy}
+              onClick={() => void syncAgents(false)}
+            >
+              {t("knowledge.syncAgents")}
+            </button>
+          </div>
         </div>
-        <div className="row">
+        <div className="filters">
+          <label>
+            {t("knowledge.project")}
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+            >
+              <option value="">{t("knowledge.all")}</option>
+              {props.projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("knowledge.stack")}
+            <input
+              value={stack}
+              onChange={(e) => setStack(e.target.value)}
+              placeholder="react"
+            />
+          </label>
+          <label>
+            {t("knowledge.tag")}
+            <input
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              placeholder="ProductCard"
+            />
+          </label>
+          <label>
+            {t("knowledge.search")}
+            <input value={q} onChange={(e) => setQ(e.target.value)} />
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+            />
+            {t("knowledge.includeArchived")}
+          </label>
           <button
             type="button"
             className="btn secondary"
             disabled={busy}
-            onClick={() => void syncAgents(true)}
+            onClick={() => void load()}
           >
-            {t("knowledge.previewAgents")}
-          </button>
-          <button
-            type="button"
-            className="btn"
-            disabled={busy}
-            onClick={() => void syncAgents(false)}
-          >
-            {t("knowledge.syncAgents")}
+            {t("knowledge.filter")}
           </button>
         </div>
-      </header>
+      </div>
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void load();
-        }}
-      >
-        <label>
-          {t("knowledge.project")}
-          <select
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-          >
-            <option value="">{t("knowledge.all")}</option>
-            {props.projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t("knowledge.search")}
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.nativeEvent.isComposing || e.keyCode === 229) e.preventDefault();
-            }}
-          />
-        </label>
-        <button type="submit" className="btn secondary" disabled={busy}>
-          {t("knowledge.filter")}
-        </button>
-      </form>
+      <div className="split">
+        <div className="panel">
+          <h2>{t("knowledge.cards", { count: items.length })}</h2>
+          {items.length === 0 ? (
+            <p className="empty">{t("knowledge.empty")}</p>
+          ) : (
+            <ul className="knowledge-list">
+              {items.map((k) => (
+                <li key={k.id} className={k.archived ? "archived" : ""}>
+                  <div className="row between">
+                    <div>
+                      {k.pinned ? (
+                        <span className="pin">{t("knowledge.pinned")}</span>
+                      ) : null}
+                      <strong>{k.title}</strong>
+                      <div className="muted">
+                        {k.kind}
+                        {k.stack ? ` · ${k.stack}` : ""}
+                        {(k.tags ?? []).length
+                          ? ` · ${(k.tags ?? []).join(", ")}`
+                          : ""}
+                      </div>
+                    </div>
+                    <div className="row tight">
+                      <button
+                        type="button"
+                        className="btn secondary tiny"
+                        onClick={() => startEdit(k)}
+                      >
+                        {t("knowledge.edit")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary tiny"
+                        onClick={() => void togglePin(k)}
+                      >
+                        {k.pinned ? t("knowledge.unpin") : t("knowledge.pin")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary tiny"
+                        onClick={() => void toggleArchive(k)}
+                      >
+                        {k.archived
+                          ? t("knowledge.unarchive")
+                          : t("knowledge.archive")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary tiny"
+                        onClick={() => void exportCard(k)}
+                      >
+                        {t("knowledge.export")}
+                      </button>
+                    </div>
+                  </div>
+                  <pre className="code-block compact">
+                    {k.body_md.slice(0, 400)}
+                  </pre>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-      {preview ? <pre className="code-block agents-preview">{preview}</pre> : null}
-
-      {active.length === 0 ? (
-        <p className="empty">{t("knowledge.empty")}</p>
-      ) : (
-        <ul className="ledger">
-          {active.map((card) => (
-            <LessonRow
-              key={card.id}
-              card={card}
-              highlighted={card.id === props.cardId}
-              rowRef={card.id === props.cardId ? highlightRef : undefined}
-              onSave={saveTitle}
-              onPin={togglePin}
-              onArchive={setArchiveId}
-            />
-          ))}
-        </ul>
-      )}
-
-      <details
-        className="fold"
-        onToggle={(e) => setShowStopped((e.target as HTMLDetailsElement).open)}
-      >
-        <summary>{t("knowledge.showStopped")}</summary>
-        {stopped.length === 0 ? null : (
-          <ul className="ledger">
-            {stopped.map((card) => (
-              <LessonRow
-                key={card.id}
-                card={card}
-                highlighted={card.id === props.cardId}
-                onSave={saveTitle}
-                onPin={togglePin}
-                onArchive={setArchiveId}
-              />
-            ))}
-          </ul>
-        )}
-      </details>
-
-      <ConfirmDialog
-        open={archiveId !== null}
-        title={t("knowledge.archiveTitle")}
-        confirmLabel={t("knowledge.archive")}
-        cancelLabel={t("knowledge.cancel")}
-        onCancel={() => setArchiveId(null)}
-        onConfirm={() => {
-          if (archiveId) void archive(archiveId);
-        }}
-      >
-        <p>{t("knowledge.archiveBody")}</p>
-      </ConfirmDialog>
-    </section>
-  );
-}
-
-function LessonRow(props: {
-  card: Knowledge;
-  highlighted: boolean;
-  rowRef?: Ref<HTMLLIElement>;
-  onSave: (card: Knowledge, title: string) => Promise<void>;
-  onPin: (card: Knowledge) => Promise<void>;
-  onArchive: (id: string) => void;
-}) {
-  const { t } = useI18n();
-  const { card } = props;
-  const [title, setTitle] = useState(card.title);
-  useEffect(() => setTitle(card.title), [card.title]);
-
-  return (
-    <li
-      ref={props.rowRef}
-      className={props.highlighted ? "ledger-row highlight" : "ledger-row"}
-    >
-      <input
-        className="lesson-input"
-        aria-label={t("knowledge.lesson")}
-        value={title}
-        disabled={card.archived}
-        onChange={(e) => setTitle(e.target.value)}
-        onBlur={() => void props.onSave(card, title)}
-        onKeyDown={(e) => {
-          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
-      />
-      {card.session_id ? (
-        <a href={pageHash({ name: "loop", sessionId: card.session_id })}>
-          {t("knowledge.source")}
-        </a>
-      ) : (
-        <span className="muted">{t("knowledge.source")}</span>
-      )}
-      {card.last_used_at && card.last_used_session_id ? (
-        <a href={pageHash({ name: "loop", sessionId: card.last_used_session_id })}>
-          {fmtTime(card.last_used_at)}
-        </a>
-      ) : (
-        <span className="muted">{t("knowledge.unused")}</span>
-      )}
-      <label className="remember">
-        <input
-          type="checkbox"
-          checked={card.pinned}
-          disabled={card.archived}
-          onChange={() => void props.onPin(card)}
-        />
-        {t("knowledge.writeRepo")}
-      </label>
-      {card.archived ? (
-        <span className="muted">{t("knowledge.archive")}</span>
-      ) : (
-        <button
-          type="button"
-          className="btn danger"
-          onClick={() => props.onArchive(card.id)}
-        >
-          {t("knowledge.archive")}
-        </button>
-      )}
-    </li>
+        <div className="panel">
+          <h2>
+            {editing ? t("knowledge.editCard") : t("knowledge.editor")}
+          </h2>
+          {!editing ? (
+            <p className="empty">{t("knowledge.selectEdit")}</p>
+          ) : (
+            <form className="form-grid" onSubmit={saveEdit}>
+              <label>
+                {t("knowledge.titleField")}
+                <input
+                  required
+                  value={draft.title}
+                  onChange={(e) =>
+                    setDraft({ ...draft, title: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                {t("knowledge.kind")}
+                <select
+                  value={draft.kind}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      kind: e.target.value as KnowledgeKind,
+                    })
+                  }
+                >
+                  <option value="pattern">pattern</option>
+                  <option value="anti_pattern">anti_pattern</option>
+                  <option value="selector_map">selector_map</option>
+                  <option value="fix_snippet">fix_snippet</option>
+                </select>
+              </label>
+              <label>
+                {t("knowledge.stack")}
+                <input
+                  value={draft.stack}
+                  onChange={(e) =>
+                    setDraft({ ...draft, stack: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                {t("knowledge.tags")}
+                <input
+                  value={draft.tags}
+                  onChange={(e) => setDraft({ ...draft, tags: e.target.value })}
+                />
+              </label>
+              <label>
+                {t("knowledge.body")}
+                <textarea
+                  className="tall"
+                  value={draft.body_md}
+                  onChange={(e) =>
+                    setDraft({ ...draft, body_md: e.target.value })
+                  }
+                />
+              </label>
+              <div className="row">
+                <button className="btn" type="submit" disabled={busy}>
+                  {t("knowledge.save")}
+                </button>
+                <button
+                  className="btn secondary"
+                  type="button"
+                  onClick={() => setEditing(null)}
+                >
+                  {t("knowledge.cancel")}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

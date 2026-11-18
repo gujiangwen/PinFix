@@ -167,10 +167,6 @@ export const sessionsRoutes: FastifyPluginAsync<SessionsRouteOpts> = async (
           parsed.data.decision,
           parsed.data.note,
           parsed.data.force_accept,
-          {
-            remember: parsed.data.remember,
-            lesson: parsed.data.lesson,
-          },
         );
         return result;
       } catch (err) {

@@ -3,22 +3,11 @@ import { z } from "zod";
 export const ReviewDecisionSchema = z.enum(["accept", "refine", "revert"]);
 export type ReviewDecision = z.infer<typeof ReviewDecisionSchema>;
 
-export const LessonInputSchema = z.object({
-  summary: z.string().trim().min(1).max(200),
-  worked: z.string().trim().max(500).optional(),
-  avoid: z.string().trim().max(500).optional(),
-});
-export type LessonInput = z.infer<typeof LessonInputSchema>;
-
 export const ReviewInputSchema = z.object({
   decision: ReviewDecisionSchema,
   note: z.string().max(8000).optional(),
   /** Skip browser acceptance gate (only when project.allow_force_accept). */
   force_accept: z.boolean().optional(),
-  /** When false, Accept keeps the change and writes no knowledge card. Defaults to true. */
-  remember: z.boolean().optional(),
-  /** Sentence the next retrieve should reuse. Applied to the strategy card. */
-  lesson: LessonInputSchema.optional(),
 });
 export type ReviewInput = z.infer<typeof ReviewInputSchema>;
 
@@ -79,9 +68,6 @@ export const KnowledgeSchema = z.object({
   archived: z.boolean().default(false),
   created_at: z.number().int(),
   updated_at: z.number().int().nullable().optional(),
-  /** Session that last retrieved this card, when one has. */
-  last_used_at: z.number().int().nullable().default(null),
-  last_used_session_id: z.string().nullable().default(null),
 });
 export type Knowledge = z.infer<typeof KnowledgeSchema>;
 

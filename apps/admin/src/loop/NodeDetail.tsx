@@ -1,10 +1,9 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { AcceptanceReport, AgentStep } from "@sightloop/shared";
 import type { SessionDetail } from "../api";
 import { useI18n } from "../i18n";
 import { pageHash, settingsHash } from "../routes";
 import { fmtDuration, fmtTime } from "../ui/format";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Changes } from "./Changes";
 import { DECISION_LABEL, NODE_LABEL } from "./labels";
 import { nodeStateText } from "./LoopTrack";
@@ -47,7 +46,6 @@ type BodyProps = {
   isLastRound: boolean;
   detail: SessionDetail;
   patch: string | null;
-  onArchiveKnowledge?: (id: string) => Promise<void>;
 };
 
 export function NodeDetail(props: BodyProps & { decisionControls: ReactNode }) {
@@ -150,10 +148,8 @@ function ModelFacts({ output }: { output: Record<string, unknown> }) {
   );
 }
 
-function RetrieveBody({ node, isLastRound, detail, onArchiveKnowledge }: BodyProps) {
+function RetrieveBody({ node, isLastRound, detail }: BodyProps) {
   const { t } = useI18n();
-  const [stopId, setStopId] = useState<string | null>(null);
-  const [stopped, setStopped] = useState<string | null>(null);
   const output = lastOutput(node.steps, (s) => s.tool_name === "list_knowledge");
   const fromStep = list(output?.hits).map((h) => {
     const hit = rec(h) ?? {};
@@ -162,7 +158,7 @@ function RetrieveBody({ node, isLastRound, detail, onArchiveKnowledge }: BodyPro
       title: str(hit.title) ?? t("sessions.untitled"),
       score: typeof hit.score === "number" ? hit.score : null,
       retrieve: str(hit.retrieve),
-      source: null as string | null,
+      preview: null as string | null,
     };
   });
   const fromReadModel = isLastRound
@@ -171,68 +167,40 @@ function RetrieveBody({ node, isLastRound, detail, onArchiveKnowledge }: BodyPro
         title: h.title,
         score: h.score ?? null,
         retrieve: h.retrieve ?? null,
-        source: h.source_session_id ?? null,
+        preview: h.body_preview ?? null,
       }))
     : [];
   const hits = fromReadModel.length > 0 ? fromReadModel : fromStep;
+  const count = typeof output?.count === "number" ? output.count : hits.length;
 
   if (hits.length === 0) {
-    return <p className="muted">{t("loop.retrieve.none")}</p>;
+    return (
+      <p className="muted">
+        {count > 0
+          ? t("loop.retrieve.count", { count })
+          : t("sessions.recallNone")}
+      </p>
+    );
   }
   return (
-    <>
-      <ul className="hit-list">
-        {hits.map((hit, i) => (
-          <li key={hit.id ?? i}>
-            <div className="hit-actions">
-              {hit.id ? (
-                <a href={pageHash({ name: "knowledge", cardId: hit.id })}>
-                  {hit.title}
-                </a>
-              ) : (
-                <strong>{hit.title}</strong>
-              )}
-              {hit.source ? (
-                <a href={pageHash({ name: "loop", sessionId: hit.source })}>
-                  {t("loop.retrieve.source")}
-                </a>
-              ) : null}
-              {hit.score != null ? (
-                <span className="muted tiny mono">{hit.score.toFixed(2)}</span>
-              ) : null}
-              {hit.id && onArchiveKnowledge ? (
-                stopped === hit.id ? (
-                  <span className="muted tiny">{t("loop.retrieve.stopped")}</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn danger tiny"
-                    onClick={() => setStopId(hit.id)}
-                  >
-                    {t("loop.retrieve.stop")}
-                  </button>
-                )
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ul>
-      <ConfirmDialog
-        open={stopId !== null}
-        title={t("loop.retrieve.stopTitle")}
-        confirmLabel={t("loop.retrieve.stop")}
-        cancelLabel={t("knowledge.cancel")}
-        onCancel={() => setStopId(null)}
-        onConfirm={() => {
-          const id = stopId;
-          setStopId(null);
-          if (!id || !onArchiveKnowledge) return;
-          void onArchiveKnowledge(id).then(() => setStopped(id));
-        }}
-      >
-        <p>{t("loop.retrieve.stopBody")}</p>
-      </ConfirmDialog>
-    </>
+    <ul className="hit-list">
+      {hits.map((hit, i) => (
+        <li key={hit.id ?? i}>
+          {hit.id ? (
+            <a href={pageHash({ name: "knowledge", cardId: hit.id })}>
+              {hit.title}
+            </a>
+          ) : (
+            <strong>{hit.title}</strong>
+          )}
+          <span className="muted tiny">
+            {hit.score != null ? ` score ${hit.score.toFixed(2)}` : ""}
+            {hit.retrieve ? ` · ${hit.retrieve}` : ""}
+          </span>
+          {hit.preview ? <p className="hint">{hit.preview}</p> : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 

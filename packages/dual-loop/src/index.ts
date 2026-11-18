@@ -20,7 +20,6 @@ export {
   distillStrategyCard,
   strategyCardToMarkdown,
   strategyTitle,
-  applyHumanLesson,
   retrieveStrategyHits,
   intersectStrategyHintsWithWhitelist,
   strategyMinScore,

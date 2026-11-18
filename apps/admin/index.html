@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#141311" />
+    <meta name="theme-color" content="#0f1419" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -22,7 +22,7 @@
           if (meta) meta.setAttribute("content", theme);
           var bar = document.querySelector('meta[name="theme-color"]');
           if (bar) {
-            bar.setAttribute("content", theme === "dark" ? "#141311" : "#f3f0e8");
+            bar.setAttribute("content", theme === "dark" ? "#0f1419" : "#eef2f6");
           }
           var locale = localStorage.getItem("sightloop.admin.locale");
           if (locale === "zh-CN" || locale === "en") {

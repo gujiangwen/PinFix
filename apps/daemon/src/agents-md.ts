@@ -34,11 +34,17 @@ export function buildAgentsMdSuggestion(cards: Knowledge[]): string {
     "",
     "## SightLoop distilled knowledge",
     "",
-    "_Synced from SightLoop. These lines are what the next loop retrieves. Re-sync to refresh this block._",
+    "_Synced from SightLoop Knowledge Hub. Edit cards in Admin; re-sync to refresh this block._",
     "",
   ];
   for (const k of cards) {
-    lines.push(`- ${k.title.trim()}`);
+    lines.push(`### ${k.title}`);
+    lines.push("");
+    lines.push(`- kind: \`${k.kind}\``);
+    if (k.stack) lines.push(`- stack: \`${k.stack}\``);
+    if (k.tags.length) lines.push(`- tags: ${k.tags.map((t) => `\`${t}\``).join(", ")}`);
+    lines.push("");
+    lines.push(k.body_md.trim());
     lines.push("");
   }
   lines.push(MARKER_END);

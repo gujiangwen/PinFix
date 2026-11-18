@@ -4,7 +4,6 @@ import {
   retrieveStrategyHits,
   intersectStrategyHintsWithWhitelist,
   strategyCardToMarkdown,
-  applyHumanLesson,
 } from "./strategy.js";
 import {
   autoBindEditEvidence,
@@ -82,23 +81,6 @@ describe("R1 strategy Top-K + min score", () => {
     });
     expect(card.allowed_files_hints).toEqual(["src/app.ts"]);
     expect(strategyCardToMarkdown(card)).toContain("sightloop:strategy");
-  });
-
-  it("a confirmed lesson replaces the sentence the next loop reads", () => {
-    const card = distillStrategyCard({
-      session_id: "01TESTSESSION",
-      annotation_note: "fix button",
-    });
-    const taught = applyHumanLesson(card, {
-      summary: "按钮点击没有反馈",
-      worked: "补上可见状态",
-      avoid: "只改文案",
-    });
-    expect(taught.summary).toBe("按钮点击没有反馈");
-    expect(taught.symptoms).toEqual(["按钮点击没有反馈"]);
-    expect(taught.successful_resolutions).toEqual(["补上可见状态"]);
-    expect(taught.failed_approaches).toEqual(["只改文案"]);
-    expect(strategyCardToMarkdown(taught)).toContain("按钮点击没有反馈");
   });
 });
 
