@@ -68,6 +68,8 @@ services:
       - .env
     environment:
       VITE_DAEMON_URL: "http://127.0.0.1:7420"
+      # The image sets NODE_ENV=production, which makes Vite skip React Fast Refresh.
+      NODE_ENV: "development"
       # Bind-mounted sources do not emit inotify events from the Windows host.
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "300"
