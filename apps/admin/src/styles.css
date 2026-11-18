@@ -1149,7 +1149,7 @@ a.btn {
 
 .workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
   gap: clamp(1rem, 2vw, 1.75rem);
   align-items: start;
 }
