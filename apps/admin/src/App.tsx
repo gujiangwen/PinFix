@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Project } from "@sightloop/shared";
 import { api, baseUrl } from "./api";
 import { useI18n } from "./i18n";
-import { HOME_HASH, pageHash, type SettingsSection } from "./routes";
+import { HOME_HASH, type SettingsSection } from "./routes";
 import { useRoute } from "./useRoute";
 import { NoticeBar, useNotice } from "./ui/Notice";
 import { LoopPage } from "./loop/LoopPage";
@@ -78,14 +78,7 @@ export function App() {
             title={daemonTitle}
           />
         ) : null}
-        <nav className="topnav" aria-label={t("nav.aria")}>
-          <a
-            href={pageHash({ name: "knowledge", cardId: null })}
-            className={`top-link ${route.page.name === "knowledge" ? "active" : ""}`}
-            aria-current={route.page.name === "knowledge" ? "page" : undefined}
-          >
-            {t("nav.knowledge")}
-          </a>
+        <div className="topnav">
           <button
             type="button"
             className="icon-btn"
@@ -108,7 +101,7 @@ export function App() {
               <circle cx="8" cy="17" r="2" />
             </svg>
           </button>
-        </nav>
+        </div>
       </header>
 
       {daemon.state === "down" ? (

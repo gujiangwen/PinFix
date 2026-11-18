@@ -13,8 +13,6 @@ export type Locale = "en" | "zh-CN";
 const STORAGE_KEY = "sightloop.admin.locale";
 
 const en = {
-  "nav.aria": "Admin sections",
-  "nav.knowledge": "Knowledge",
   "daemon.retry": "Retry",
   "notice.dismiss": "Dismiss",
   "settings.title": "Settings",
@@ -295,8 +293,6 @@ const en = {
 type MessageKey = keyof typeof en;
 
 const zhCN: Record<MessageKey, string> = {
-  "nav.aria": "管理分区",
-  "nav.knowledge": "知识库",
   "daemon.retry": "重试",
   "notice.dismiss": "关闭提示",
   "settings.title": "设置",
