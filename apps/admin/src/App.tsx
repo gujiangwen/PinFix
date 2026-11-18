@@ -128,10 +128,18 @@ export function App() {
 
       <main>
         {route.page.name === "loop" ? (
-          <LoopPage projects={projects} onError={pageNotice.onError} />
+          <LoopPage
+            projects={projects}
+            sessionId={route.page.sessionId}
+            daemonUp={daemon.state === "ok"}
+            onRefreshProjects={refreshProjects}
+            onError={pageNotice.onError}
+            onStatus={pageNotice.onStatus}
+          />
         ) : (
           <KnowledgePage
             projects={projects}
+            cardId={route.page.cardId}
             onError={pageNotice.onError}
             onStatus={pageNotice.onStatus}
           />

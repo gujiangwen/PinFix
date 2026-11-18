@@ -1,5 +1,6 @@
-import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "../i18n";
+import { lightDismiss } from "../ui/dialog";
 import {
   SETTINGS_SECTIONS,
   settingsHash,
@@ -14,10 +15,6 @@ const SECTION_LABEL = {
   audit: "settings.section.audit",
   metrics: "settings.section.metrics",
 } as const satisfies Record<SettingsSection, string>;
-
-const supportsClosedBy =
-  typeof HTMLDialogElement !== "undefined" &&
-  "closedBy" in HTMLDialogElement.prototype;
 
 export function SettingsPanel(props: {
   section: SettingsSection | null;
@@ -36,28 +33,13 @@ export function SettingsPanel(props: {
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
-  // Fallback for browsers without closedby="any": a click on the dialog element
-  // itself that lands outside its box is a click on the backdrop.
-  function onBackdropClick(event: MouseEvent<HTMLDialogElement>) {
-    if (supportsClosedBy || event.target !== event.currentTarget) return;
-    const box = event.currentTarget.getBoundingClientRect();
-    const inside =
-      event.clientX >= box.left &&
-      event.clientX <= box.right &&
-      event.clientY >= box.top &&
-      event.clientY <= box.bottom;
-    if (!inside) event.currentTarget.close();
-  }
-
   return (
     <dialog
       ref={ref}
       className="settings"
       aria-labelledby="settings-title"
-      // Spread because older @types/react do not know the closedby attribute.
-      {...{ closedby: "any" }}
+      {...lightDismiss}
       onClose={props.onClose}
-      onClick={onBackdropClick}
     >
       <header className="settings-head">
         <h2 id="settings-title">{t("settings.title")}</h2>

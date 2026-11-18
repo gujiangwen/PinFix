@@ -5,6 +5,8 @@ import { useI18n } from "../i18n";
 
 export function KnowledgePage(props: {
   projects: Project[];
+  /** Card named in the URL (`#/knowledge/<id>`); opened in the editor when set. */
+  cardId: string | null;
   onError: (s: string) => void;
   onStatus: (s: string) => void;
 }) {
@@ -60,6 +62,23 @@ export function KnowledgePage(props: {
       stack: k.stack ?? "",
     });
   }
+
+  const { cardId, onError } = props;
+  useEffect(() => {
+    if (!cardId) return;
+    let stale = false;
+    api
+      .getKnowledge(cardId)
+      .then((card) => {
+        if (!stale) startEdit(card);
+      })
+      .catch((err: unknown) => {
+        if (!stale) onError((err as Error).message);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [cardId, onError]);
 
   async function saveEdit(e: FormEvent) {
     e.preventDefault();

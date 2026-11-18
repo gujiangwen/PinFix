@@ -21,7 +21,6 @@
   --ok: #3ecf8e;
   --warn: #e6b84d;
   --code-bg: #0a0e13;
-  --diff-fg: #b8d4c8;
   --wash-a: #1a3a5c;
   --wash-b: #163028;
 }
@@ -42,7 +41,6 @@
   --ok: #1f9a62;
   --warn: #b58114;
   --code-bg: #e8eef5;
-  --diff-fg: #1f5a45;
   --wash-a: #c9daf0;
   --wash-b: #c5ddd2;
 }
@@ -446,38 +444,12 @@ td.mono,
   gap: 1rem;
 }
 
-.session-list,
 .knowledge-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 0.5rem;
-}
-
-.session-item {
-  width: 100%;
-  text-align: left;
-  appearance: none;
-  background: var(--bg-input);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--text);
-  padding: 0.65rem 0.75rem;
-  cursor: pointer;
-  display: grid;
-  gap: 0.2rem;
-}
-
-.session-item.active {
-  border-color: var(--accent-dim);
-}
-
-.timeline {
-  margin: 0;
-  padding-left: 1.1rem;
-  display: grid;
-  gap: 0.85rem;
 }
 
 .tl-head {
@@ -511,7 +483,6 @@ td.mono,
 
 .code-block.diff {
   max-height: 420px;
-  color: var(--diff-fg);
 }
 
 .meta-grid {
@@ -547,17 +518,6 @@ td.mono,
 
 .knowledge-list li.archived {
   opacity: 0.55;
-}
-
-.recall {
-  border-left: 2px solid var(--accent-dim);
-  padding-left: 0.75rem;
-  margin: 0.4rem 0;
-}
-
-.recall ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1rem;
 }
 
 .metrics-grid {
@@ -744,11 +704,465 @@ dialog::backdrop {
   }
 }
 
+/* ---- Agent Loop page ---- */
+
+.loop-layout {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.rail {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.rail-item {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.rail-item:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.rail-item.active {
+  border-color: var(--accent-dim);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.rail-item:focus-visible,
+.node:focus-visible,
+.round-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.rail-title {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.rail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.state-text {
+  color: var(--muted);
+}
+
+.state-text:is(.state-done, .status-accepted) {
+  color: var(--ok);
+}
+
+.state-text:is(.state-failed, .status-failed, .status-reverted) {
+  color: var(--danger);
+}
+
+.state-text:is(.state-warn, .status-refined) {
+  color: var(--warn);
+}
+
+.state-text:is(
+    .state-active,
+    .status-retrieving,
+    .status-acting,
+    .status-distilling,
+    .status-awaiting_review
+  ) {
+  color: var(--accent);
+}
+
+.session-head h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.session-meta {
+  margin: 0 0 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.session-meta a {
+  color: var(--muted);
+}
+
+.live::before {
+  content: "";
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.live.on::before {
+  background: var(--ok);
+}
+
+.track-wrap {
+  margin-bottom: 1.25rem;
+}
+
+.track-scroll {
+  position: relative;
+  overflow-x: auto;
+}
+
+.rounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+}
+
+.round-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.round-chip.active {
+  color: var(--text);
+  border-color: var(--accent-dim);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.track {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(5.25rem, 1fr));
+  min-width: 37rem;
+}
+
+.track-step {
+  position: relative;
+}
+
+/* Connector from the previous node's mark to this one's, drawn behind both. */
+.track-step + .track-step::before {
+  content: "";
+  position: absolute;
+  top: 1.6rem;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--line);
+}
+
+.node {
+  position: relative;
+  appearance: none;
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  border-radius: 12px;
+  padding: 0.5rem 0.25rem 0.55rem;
+  cursor: pointer;
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+}
+
+.node:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.node.selected {
+  border-color: var(--accent-dim);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.node-mark {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  /* Opaque so the connector does not show through the mark. */
+  background: var(--bg-elev);
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.node-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.node-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.state-done .node-mark {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.state-failed .node-mark {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.state-warn .node-mark {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.state-active .node-mark {
+  border-color: var(--accent);
+  animation: node-pulse 1.6s ease-out infinite;
+}
+
+.state-active .node-meta {
+  color: var(--accent);
+}
+
+.state-off .node-mark {
+  border-style: dashed;
+}
+
+.state-off .node-name,
+.state-off .node-meta {
+  opacity: 0.55;
+}
+
+@keyframes node-pulse {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0.6rem transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-active .node-mark {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+}
+
+.node-detail > header {
+  margin-bottom: 0.9rem;
+}
+
+.node-detail > header h2 {
+  margin: 0;
+}
+
+.facts {
+  margin: 0 0 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.fact dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.fact dd {
+  margin: 0;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.plain-list,
+.hit-list,
+.file-list,
+.step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.hit-list,
+.step-list {
+  gap: 0.75rem;
+}
+
+.hit-list a,
+.fact a {
+  color: var(--accent);
+}
+
+.pre-wrap {
+  white-space: pre-wrap;
+}
+
+.fold {
+  margin-top: 1rem;
+}
+
+.fold > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+
+.changes-total {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.file-list li {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.diff-add {
+  color: var(--ok);
+}
+
+.diff-del {
+  color: var(--danger);
+}
+
+.diff-hunk {
+  color: var(--accent);
+}
+
+.diff-file {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.decide {
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.push-end {
+  margin-left: auto;
+}
+
+.callout {
+  border: 1px solid color-mix(in srgb, var(--warn) 50%, var(--line));
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.callout p {
+  margin: 0 0 0.6rem;
+}
+
+dialog.confirm {
+  width: min(30rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-elev);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.35);
+}
+
+dialog.confirm h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.confirm-body {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.confirm-actions {
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.empty-loop {
+  text-align: center;
+  padding: 3rem 1.5rem;
+}
+
+.empty-loop p {
+  max-width: 30rem;
+  margin: 0 auto 1.25rem;
+  line-height: 1.55;
+}
+
+a.btn {
+  display: inline-block;
+  text-decoration: none;
+}
+
 @media (max-width: 900px) {
   .split,
   .meta-grid,
-  .metrics-grid {
+  .metrics-grid,
+  .loop-layout {
+    /* minmax(0, …): a bare 1fr would grow to the widest child (the track). */
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    position: static;
+    max-height: 14rem;
+  }
+
+  .fact {
     grid-template-columns: 1fr;
+    gap: 0.15rem;
   }
 }
 

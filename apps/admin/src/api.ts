@@ -12,12 +12,34 @@ import type {
   AuditEvent,
   SyncAgentsMdResult,
   SessionDiffResponse,
+  TimelineEvent,
+  VerifyResult,
+  RecallHit,
+  DiffSummary,
+  DistilledKnowledgePreview,
+  AcceptanceRunSummary,
+  PlanIR,
+  ReviewIR,
+  ReviewInput,
 } from "@sightloop/shared";
 
 const baseUrl = (import.meta.env.VITE_DAEMON_URL as string | undefined) ??
   "http://127.0.0.1:7420";
 const token = (import.meta.env.VITE_DAEMON_TOKEN as string | undefined) ??
   "dev-token-change-me";
+
+/** A non-2xx Daemon response; `code` is the Daemon's `error.code` when it sent one. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | null,
+    readonly details: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 async function request<T>(
   path: string,
@@ -26,7 +48,8 @@ async function request<T>(
   const res = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      // Fastify rejects a JSON content type with an empty body.
+      ...(init.body != null ? { "Content-Type": "application/json" } : {}),
       "X-SightLoop-Token": token,
       ...(init.headers ?? {}),
     },
@@ -38,17 +61,42 @@ async function request<T>(
 
   const body = (await res.json()) as unknown;
   if (!res.ok) {
-    const msg =
-      typeof body === "object" &&
-      body &&
-      "error" in body &&
-      typeof (body as { error?: { message?: string } }).error?.message ===
-        "string"
-        ? (body as { error: { message: string } }).error.message
-        : `HTTP ${res.status}`;
-    throw new Error(msg);
+    const error =
+      typeof body === "object" && body && "error" in body
+        ? (body as { error?: { code?: unknown; message?: unknown; details?: unknown } })
+            .error
+        : undefined;
+    throw new ApiError(
+      typeof error?.message === "string" ? error.message : `HTTP ${res.status}`,
+      res.status,
+      typeof error?.code === "string" ? error.code : null,
+      error?.details,
+    );
   }
   return body as T;
+}
+
+/** `GET /v1/sessions/:id` — the Daemon's session read model. */
+export type SessionDetail = {
+  session: Session;
+  steps: AgentStep[];
+  reviews: Review[];
+  timeline: TimelineEvent[];
+  verify: VerifyResult | null;
+  recall_hits: RecallHit[];
+  diff_summary: DiffSummary | null;
+  latest_knowledge: DistilledKnowledgePreview | null;
+  acceptance_gate: AcceptanceRunSummary | null;
+  plan: PlanIR | null;
+  agent_review: ReviewIR | null;
+};
+
+/** The Daemon WebSocket takes its token in the query string (browsers cannot set WS headers). */
+export function wsUrl(): string {
+  const url = new URL("/v1/ws", baseUrl);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.searchParams.set("token", token);
+  return url.toString();
 }
 
 export type KnowledgeQuery = {
@@ -94,17 +142,26 @@ export const api = {
     request<{ sessions: Session[] }>(
       `/v1/sessions${qs({ project_id: projectId })}`,
     ).then((r) => r.sessions),
-  getSession: (id: string) =>
-    request<{
-      session: Session;
-      steps: AgentStep[];
-      reviews: Review[];
-    }>(`/v1/sessions/${id}`),
+  getSession: (id: string) => request<SessionDetail>(`/v1/sessions/${id}`),
   getDiff: (id: string) =>
     request<SessionDiffResponse>(`/v1/sessions/${id}/diff`),
+  reviewSession: (id: string, input: ReviewInput) =>
+    request<{ session: Session }>(`/v1/sessions/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  runAcceptanceGate: (id: string) =>
+    request<{ run: AcceptanceRunSummary }>(
+      `/v1/sessions/${id}/acceptance-gate/run`,
+      { method: "POST", body: JSON.stringify({ reason: "manual" }) },
+    ).then((r) => r.run),
 
   listKnowledge: (query: KnowledgeQuery = {}) =>
     request<{ knowledge: Knowledge[] }>(`/v1/knowledge${qs(query)}`).then(
+      (r) => r.knowledge,
+    ),
+  getKnowledge: (id: string) =>
+    request<{ knowledge: Knowledge }>(`/v1/knowledge/${id}`).then(
       (r) => r.knowledge,
     ),
   createKnowledge: (input: CreateKnowledgeInput) =>
