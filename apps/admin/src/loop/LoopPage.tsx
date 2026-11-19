@@ -3,10 +3,18 @@ import type { Project, Session } from "@sightloop/shared";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { settingsHash } from "../routes";
-import { QueueBoard } from "./QueueBoard";
+import { AgentCards } from "./AgentCards";
 import { RoleFlow } from "./RoleFlow";
+import { TaskQueue, type TaskRow } from "./TaskQueue";
 import { buildLoopModel } from "./loop-model";
-import { buildQueues, placeSession, roleFromModel, type TaskPlacement } from "./queues";
+import { placeSession, roleFromModel, type RoleId, type TaskPlacement } from "./queues";
+import {
+  byCreated,
+  matchesKeyword,
+  sessionMatchesFilter,
+  taskHaystack,
+  type StatusFilter,
+} from "./task-list";
 import { useSessionLive } from "./useSessionLive";
 
 const LIST_POLL_MS = 5000;
@@ -29,6 +37,9 @@ export function LoopPage(props: {
   const { onError } = props;
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [placements, setPlacements] = useState<TaskPlacement[]>([]);
+  const [filter, setFilter] = useState<StatusFilter>("open");
+  const [query, setQuery] = useState("");
+  const [idleRole, setIdleRole] = useState<RoleId | null>(null);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -92,7 +103,28 @@ export function LoopPage(props: {
     if (watchedStatus) void loadSessions();
   }, [watchedStatus, loadSessions]);
 
-  const queues = useMemo(() => buildQueues(placements), [placements]);
+  const rows = useMemo(() => {
+    const placed = new Map(placements.map((task) => [task.session.id, task]));
+    const names = new Map(props.projects.map((project) => [project.id, project.name]));
+    const next: TaskRow[] = [];
+    for (const session of sessions ?? []) {
+      if (!sessionMatchesFilter(session.status, filter)) continue;
+      const projectName = names.get(session.project_id) ?? null;
+      if (!matchesKeyword(taskHaystack(session, projectName), query)) continue;
+      const task = placed.get(session.id);
+      next.push({
+        session,
+        projectName,
+        role: task?.role ?? null,
+        executing: task?.executing ?? false,
+      });
+    }
+    return byCreated(next);
+  }, [sessions, placements, props.projects, filter, query]);
+  const selectedRole =
+    idleRole === null
+      ? (placements.find((task) => task.session.id === props.sessionId)?.role ?? null)
+      : null;
   const model = useMemo(
     () =>
       detail
@@ -113,13 +145,20 @@ export function LoopPage(props: {
   return (
     <div className="home-stage">
       <div className="home-rail">
-        <div className="rail-scroll">
-          <QueueBoard
-            queues={queues}
-            projects={props.projects}
+        {sessions === null ? (
+          props.daemonUp ? <p className="muted">{t("loop.loading")}</p> : null
+        ) : (
+          <TaskQueue
+            filter={filter}
+            onFilter={setFilter}
+            query={query}
+            onQuery={setQuery}
+            rows={rows}
+            empty={rows.length === 0 ? (query.trim() ? "match" : "status") : null}
             selectedId={props.sessionId}
+            onPick={() => setIdleRole(null)}
           />
-        </div>
+        )}
         <button
           type="button"
           className="rail-settings"
@@ -157,7 +196,18 @@ export function LoopPage(props: {
             </button>
           </div>
         ) : null}
-        {sessions === null ? (
+        <AgentCards
+          tasks={placements}
+          selectedRole={selectedRole}
+          idleRole={idleRole}
+          selectedId={props.sessionId}
+          ready={sessions !== null}
+          onPick={() => setIdleRole(null)}
+          onIdle={setIdleRole}
+        />
+        {idleRole ? (
+          <p className="muted stage-copy">{t("queues.roleIdle", { role: t(ROLE_NAME[idleRole]) })}</p>
+        ) : sessions === null ? (
           props.daemonUp ? <p className="muted">{t("loop.loading")}</p> : null
         ) : !props.sessionId ? (
           <FlowEmpty hasProjects={props.projects.length > 0} />
@@ -178,6 +228,12 @@ export function LoopPage(props: {
     </div>
   );
 }
+
+const ROLE_NAME = {
+  planner: "queues.planner",
+  implementer: "queues.implementer",
+  reviewer: "queues.reviewer",
+} as const;
 
 function FlowEmpty({ hasProjects }: { hasProjects: boolean }) {
   const { t } = useI18n();
