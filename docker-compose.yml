@@ -73,7 +73,9 @@ services:
       # Bind-mounted sources do not emit inotify events from the Windows host.
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "300"
-      # Browser uses the published port; Vite itself listens on 5173.
+      # Browser websocket uses the published IPv4 port. Vite listens on 5173.
+      # localhost is often ::1, and nothing is published there.
+      SIGHTLOOP_HMR_CLIENT_HOST: "127.0.0.1"
       SIGHTLOOP_HMR_CLIENT_PORT: "5176"
     command:
       [
