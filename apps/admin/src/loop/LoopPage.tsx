@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { Project, Session } from "@sightloop/shared";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import { HOME_HASH, settingsHash } from "../routes";
+import { settingsHash } from "../routes";
 import { QueueBoard } from "./QueueBoard";
 import { RoleFlow } from "./RoleFlow";
 import { buildLoopModel } from "./loop-model";
@@ -113,19 +113,6 @@ export function LoopPage(props: {
   return (
     <div className="home-stage">
       <div className="home-rail">
-        <div className="rail-brand">
-          <a className="brand" href={HOME_HASH}>
-            <h1>SightLoop</h1>
-          </a>
-          {props.daemonState === "checking" ? null : (
-            <span
-              className={`dot ${props.daemonState === "ok" ? "ok" : "bad"}`}
-              role="img"
-              aria-label={props.daemonTitle}
-              title={props.daemonTitle}
-            />
-          )}
-        </div>
         <div className="rail-scroll">
           <QueueBoard
             queues={queues}

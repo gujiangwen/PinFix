@@ -5,6 +5,7 @@ import { useI18n } from "./i18n";
 import { HOME_HASH, type SettingsSection } from "./routes";
 import { useRoute } from "./useRoute";
 import { NoticeBar, useNotice } from "./ui/Notice";
+import { TitleTools } from "./ui/TitleTools";
 import { LoopPage } from "./loop/LoopPage";
 import { KnowledgePage } from "./knowledge/KnowledgePage";
 import { SettingsPanel } from "./settings/SettingsPanel";
@@ -66,7 +67,22 @@ export function App() {
 
   return (
     <div className="shell wide">
-      {route.page.name === "loop" ? null : (
+      {route.page.name === "loop" ? (
+        <header className="home-title">
+          <a className="brand" href={HOME_HASH}>
+            <h1>SightLoop</h1>
+          </a>
+          {daemon.state !== "checking" ? (
+            <span
+              className={`dot ${daemon.state === "ok" ? "ok" : "bad"}`}
+              role="img"
+              aria-label={daemonTitle}
+              title={daemonTitle}
+            />
+          ) : null}
+          <TitleTools />
+        </header>
+      ) : (
         <header className="topbar">
           <a className="brand" href={HOME_HASH}>
             <h1>SightLoop</h1>
@@ -80,6 +96,7 @@ export function App() {
             />
           ) : null}
           <div className="topnav">
+            <TitleTools />
             <button
               type="button"
               className="icon-btn"
