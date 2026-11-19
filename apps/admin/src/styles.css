@@ -92,9 +92,12 @@ textarea {
   margin: 0;
   padding: 0;
   overflow: clip;
-  /* The same 12px field step the other pages use under their bar. No rule. */
-  row-gap: 0.75rem;
-  background: var(--bg);
+  row-gap: 0;
+  background: var(--bg-elev);
+}
+
+body:has(.home-stage) {
+  background: var(--bg-elev);
 }
 
 .shell.wide:has(.home-stage) > main {
@@ -1518,8 +1521,12 @@ a.btn {
   .shell.wide:has(.home-stage) {
     display: flex;
     flex-direction: column;
+    gap: 0;
     block-size: auto;
     min-block-size: 100dvh;
+    max-width: none;
+    margin: 0;
+    padding: 0;
     overflow: visible;
   }
 
@@ -1564,6 +1571,12 @@ a.btn {
 @media (max-width: 640px) {
   .shell {
     padding: 1.5rem 1rem 3rem;
+  }
+
+  .shell.wide:has(.home-stage) {
+    max-width: none;
+    margin: 0;
+    padding: 0;
   }
 
   .home-title .brand h1,
