@@ -2,18 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { Project, Session } from "@sightloop/shared";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import { settingsHash } from "../routes";
-import { AgentCards } from "./AgentCards";
+import { HOME_HASH, settingsHash } from "../routes";
 import { RoleFlow } from "./RoleFlow";
 import { TaskQueue, type TaskRow } from "./TaskQueue";
 import { buildLoopModel } from "./loop-model";
-import { placeSession, roleFromModel, type RoleId, type TaskPlacement } from "./queues";
+import { placeSession, roleFromModel, type TaskPlacement } from "./queues";
 import {
   byCreated,
+  defaultRunningId,
   matchesKeyword,
-  sessionMatchesFilter,
+  queueOf,
   taskHaystack,
-  type StatusFilter,
+  type QueueSwitch,
 } from "./task-list";
 import { useSessionLive } from "./useSessionLive";
 
@@ -37,9 +37,10 @@ export function LoopPage(props: {
   const { onError } = props;
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [placements, setPlacements] = useState<TaskPlacement[]>([]);
-  const [filter, setFilter] = useState<StatusFilter>("open");
+  const [queue, setQueue] = useState<QueueSwitch>("planner");
   const [query, setQuery] = useState("");
-  const [idleRole, setIdleRole] = useState<RoleId | null>(null);
+  /** Honor the URL session until the user picks a different switch. */
+  const [stick, setStick] = useState(true);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -96,35 +97,48 @@ export function LoopPage(props: {
     onRefreshProjects().catch((err: Error) => onError(err.message));
   }, [sessions, projects, onRefreshProjects, onError]);
 
-  const live = useSessionLive(props.sessionId);
-  const { detail } = live;
-  const watchedStatus = detail?.session.status;
   useEffect(() => {
-    if (watchedStatus) void loadSessions();
-  }, [watchedStatus, loadSessions]);
+    if (!stick || !props.sessionId || sessions === null) return;
+    const session = sessions.find((item) => item.id === props.sessionId);
+    if (!session) return;
+    const task = placements.find((item) => item.session.id === session.id) ?? null;
+    if (session.status === "acting" && !task) return;
+    const next = queueOf(session, task);
+    if (next) setQueue((current) => (current === next ? current : next));
+  }, [stick, props.sessionId, sessions, placements]);
 
   const rows = useMemo(() => {
     const placed = new Map(placements.map((task) => [task.session.id, task]));
     const names = new Map(props.projects.map((project) => [project.id, project.name]));
     const next: TaskRow[] = [];
     for (const session of sessions ?? []) {
-      if (!sessionMatchesFilter(session.status, filter)) continue;
+      const task = placed.get(session.id) ?? null;
+      if (queueOf(session, task) !== queue) continue;
       const projectName = names.get(session.project_id) ?? null;
       if (!matchesKeyword(taskHaystack(session, projectName), query)) continue;
-      const task = placed.get(session.id);
       next.push({
         session,
         projectName,
-        role: task?.role ?? null,
+        queue,
         executing: task?.executing ?? false,
       });
     }
     return byCreated(next);
-  }, [sessions, placements, props.projects, filter, query]);
-  const selectedRole =
-    idleRole === null
-      ? (placements.find((task) => task.session.id === props.sessionId)?.role ?? null)
+  }, [sessions, placements, props.projects, queue, query]);
+
+  const explicitId =
+    stick && props.sessionId && rows.some((row) => row.session.id === props.sessionId)
+      ? props.sessionId
       : null;
+  const shownId = explicitId ?? defaultRunningId(rows);
+
+  const live = useSessionLive(shownId);
+  const { detail } = live;
+  const watchedStatus = detail?.session.status;
+  useEffect(() => {
+    if (watchedStatus) void loadSessions();
+  }, [watchedStatus, loadSessions]);
+
   const model = useMemo(
     () =>
       detail
@@ -142,6 +156,16 @@ export function LoopPage(props: {
     ? props.projects.find((item) => item.id === detail.session.project_id)
     : undefined;
 
+  function selectQueue(next: QueueSwitch) {
+    setStick(false);
+    setQueue(next);
+    if (window.location.hash !== HOME_HASH) {
+      const url = new URL(window.location.href);
+      url.hash = HOME_HASH;
+      history.replaceState(null, "", url);
+    }
+  }
+
   return (
     <div className="home-stage">
       <div className="home-rail">
@@ -149,14 +173,14 @@ export function LoopPage(props: {
           props.daemonUp ? <p className="muted">{t("loop.loading")}</p> : null
         ) : (
           <TaskQueue
-            filter={filter}
-            onFilter={setFilter}
+            queue={queue}
+            onQueue={selectQueue}
             query={query}
             onQuery={setQuery}
             rows={rows}
-            empty={rows.length === 0 ? (query.trim() ? "match" : "status") : null}
-            selectedId={props.sessionId}
-            onPick={() => setIdleRole(null)}
+            empty={rows.length === 0 ? (query.trim() ? "match" : "queue") : null}
+            selectedId={shownId}
+            onPick={() => setStick(true)}
           />
         )}
         <button
@@ -196,20 +220,9 @@ export function LoopPage(props: {
             </button>
           </div>
         ) : null}
-        <AgentCards
-          tasks={placements}
-          selectedRole={selectedRole}
-          idleRole={idleRole}
-          selectedId={props.sessionId}
-          ready={sessions !== null}
-          onPick={() => setIdleRole(null)}
-          onIdle={setIdleRole}
-        />
-        {idleRole ? (
-          <p className="muted stage-copy">{t("queues.roleIdle", { role: t(ROLE_NAME[idleRole]) })}</p>
-        ) : sessions === null ? (
+        {sessions === null ? (
           props.daemonUp ? <p className="muted">{t("loop.loading")}</p> : null
-        ) : !props.sessionId ? (
+        ) : !shownId ? (
           <FlowEmpty hasProjects={props.projects.length > 0} />
         ) : live.error && !detail ? (
           <p className="status error">{live.error}</p>
@@ -228,12 +241,6 @@ export function LoopPage(props: {
     </div>
   );
 }
-
-const ROLE_NAME = {
-  planner: "queues.planner",
-  implementer: "queues.implementer",
-  reviewer: "queues.reviewer",
-} as const;
 
 function FlowEmpty({ hasProjects }: { hasProjects: boolean }) {
   const { t } = useI18n();

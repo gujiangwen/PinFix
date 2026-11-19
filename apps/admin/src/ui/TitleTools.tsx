@@ -1,26 +1,28 @@
 import type { ReactNode } from "react";
 import { useI18n, type Locale } from "../i18n";
+import { pageHash } from "../routes";
 import { useTheme } from "../theme";
 
-/** Language and theme, one icon each, kept on the title bar rather than in Settings. */
-export function TitleTools() {
+/** Language, theme, and the knowledge entry. Kept on the title bar, not in Settings. */
+export function TitleTools(props: { knowledgeOpen?: boolean }) {
   const { t, locale, setLocale } = useI18n();
   const { theme, toggleTheme } = useTheme();
   const nextLocale: Locale = locale === "zh-CN" ? "en" : "zh-CN";
+  const mark = locale === "zh-CN" ? "CN" : "EN";
   const sep = locale === "zh-CN" ? "，" : ", ";
-  const langName = `${t("chrome.lang")}${sep}${locale === "zh-CN" ? "中文" : "English"}`;
+  const langName = `${mark}${sep}${t("chrome.lang")}${sep}${locale === "zh-CN" ? "中文" : "English"}`;
   const themeName = `${t("chrome.theme")}${sep}${t(theme === "light" ? "chrome.theme.light" : "chrome.theme.dark")}`;
 
   return (
     <div className="title-tools">
       <button
         type="button"
-        className="icon-btn"
+        className="icon-btn lang-mark"
         aria-label={langName}
         title={langName}
         onClick={() => setLocale(nextLocale)}
       >
-        {locale === "zh-CN" ? <LangZhIcon /> : <LangEnIcon />}
+        {mark}
       </button>
       <button
         type="button"
@@ -31,6 +33,15 @@ export function TitleTools() {
       >
         {theme === "light" ? <SunIcon /> : <MoonIcon />}
       </button>
+      <a
+        className="icon-btn"
+        href={pageHash({ name: "knowledge", cardId: null })}
+        aria-label={t("knowledge.title")}
+        title={t("knowledge.title")}
+        aria-current={props.knowledgeOpen ? "page" : undefined}
+      >
+        <KnowledgeIcon />
+      </a>
     </div>
   );
 }
@@ -53,22 +64,11 @@ function Icon(props: { children: ReactNode }) {
   );
 }
 
-function LangZhIcon() {
+function KnowledgeIcon() {
   return (
     <Icon>
-      <path d="M4 6h16" />
-      <path d="M12 6v13" />
-      <path d="M7.5 11c1.6 1.5 3 2.3 4.5 5" />
-      <path d="M16.5 11c-1.6 1.5-3 2.3-4.5 5" />
-    </Icon>
-  );
-}
-
-function LangEnIcon() {
-  return (
-    <Icon>
-      <path d="M6.5 18 12 5l5.5 13" />
-      <path d="M8.8 13.5h6.4" />
+      <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v16H7.5A2.5 2.5 0 0 0 5 21.5z" />
+      <path d="M5 5.5A2.5 2.5 0 0 1 7.5 8H19" />
     </Icon>
   );
 }

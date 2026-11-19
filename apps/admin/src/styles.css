@@ -23,8 +23,6 @@
   --code-bg: #0a0e13;
   --wash-a: #1a3a5c;
   --wash-b: #163028;
-  /* The field color, a full step under the elevated page. No rule. */
-  --title-bar: var(--bg);
 }
 
 :root[data-theme="light"] {
@@ -45,7 +43,6 @@
   --code-bg: #e8eef5;
   --wash-a: #c9daf0;
   --wash-b: #c5ddd2;
-  --title-bar: color-mix(in oklab, var(--bg) 86%, var(--text));
 }
 
 * {
@@ -119,7 +116,7 @@ body:has(.home-stage) {
   padding-block-start: max(0.72rem, env(safe-area-inset-top, 0px));
   padding-inline-start: max(1.15rem, env(safe-area-inset-left, 0px));
   padding-inline-end: max(1.15rem, env(safe-area-inset-right, 0px));
-  background: var(--title-bar);
+  background: transparent;
   border: 0;
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -141,10 +138,10 @@ body:has(.home-stage) {
   gap: 0.5rem 0.75rem;
   min-inline-size: 0;
   max-inline-size: 100%;
-  /* Same bar as the home. No rule. */
+  /* Same surface as the page. No separate bar, no rule. */
   margin-bottom: 0.75rem;
   padding-block: 0.72rem;
-  background: var(--title-bar);
+  background: transparent;
   border: 0;
 }
 
@@ -197,6 +194,20 @@ body:has(.home-stage) {
   align-items: center;
   justify-content: center;
   line-height: 0;
+  text-decoration: none;
+}
+
+.icon-btn.lang-mark {
+  line-height: 1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  min-inline-size: 1.75rem;
+  min-block-size: 1.75rem;
+}
+
+.icon-btn[aria-current="page"] {
+  color: var(--text);
 }
 
 .icon-btn:hover {
@@ -1284,10 +1295,15 @@ a.btn {
   min-inline-size: 0;
 }
 
-.status-filter {
+.queue-find {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.queue-switch {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 0.75rem;
+  gap: 0.35rem 0.85rem;
   margin: 0;
   border: 0;
   padding: 0;
@@ -1295,40 +1311,47 @@ a.btn {
   accent-color: var(--accent);
 }
 
-.status-filter legend {
+.queue-switch legend {
   flex-basis: 100%;
   padding: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 
-.status-filter label {
+.queue-switch label {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   min-block-size: 24px;
+  min-inline-size: 24px;
   font-size: 0.82rem;
 }
 
 .task-search {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 
 .task-search label {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 
 .task-search input {
   font: inherit;
-  color: var(--text);
-  background: var(--bg-elev);
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: transparent;
   border: 0;
   border-radius: 8px;
-  padding: 0.45rem 0.6rem;
+  padding: 0.28rem 0.45rem;
   min-inline-size: 0;
   min-block-size: 24px;
+}
+
+.task-search input:focus,
+.task-search input:focus-visible {
+  color: var(--text);
 }
 
 .task-search input:focus-visible {
@@ -1381,78 +1404,54 @@ a.btn {
   font-weight: 600;
 }
 
-.agent-slot {
-  container: agents / inline-size;
-  margin-block-end: 1.25rem;
-}
+@supports not (accent-color: var(--accent)) {
+  .queue-switch input[type="radio"] {
+    position: absolute !important;
+    clip-path: inset(50%) !important;
+    overflow: hidden !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    white-space: nowrap !important;
+  }
 
-.agent-row {
-  display: grid;
-  gap: 0.75rem;
-}
+  .queue-switch label {
+    position: relative;
+    padding-inline-start: 1.4rem;
+    cursor: pointer;
+  }
 
-@container agents (inline-size > 36rem) {
-  .agent-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .queue-switch input[type="radio"] + span::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    inline-size: 1rem;
+    block-size: 1rem;
+    box-sizing: border-box;
+    border: 2px solid var(--muted);
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .queue-switch input[type="radio"]:checked + span::before {
+    border-color: var(--accent);
+    background: radial-gradient(circle, var(--accent) 0 42%, transparent 46%);
+  }
+
+  .queue-switch input[type="radio"]:focus-visible + span::before {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 }
 
-.agent-card {
-  display: grid;
-  align-content: start;
-  gap: 0.35rem;
-  min-inline-size: 0;
-  padding: 0.7rem 0.75rem;
-  border-radius: 12px;
-  background: color-mix(in oklab, var(--bg) 70%, var(--bg-elev));
-}
-
-.agent-card h2 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.agent-card.is-current {
-  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev));
-}
-
-.agent-idle,
-.agent-run {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  text-decoration: none;
-  display: grid;
-  gap: 0.1rem;
-  padding: 0.2rem 0;
-  min-block-size: 24px;
-  cursor: pointer;
-}
-
-.agent-running {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.agent-idle[aria-pressed="true"],
-.agent-run.is-selected {
-  font-weight: 600;
-}
-
 @media (pointer: coarse) {
-  .status-filter label,
+  .queue-switch label,
   .task-search input,
-  .queue-item,
-  .agent-idle,
-  .agent-run {
+  .queue-item {
     min-block-size: 44px;
   }
 }
@@ -1532,10 +1531,6 @@ a.btn {
 }
 
 @media (forced-colors: active) {
-  .home-title {
-    border-block-end: 1px solid CanvasText;
-  }
-
   .title-tools .icon-btn:focus-visible {
     outline: 2px solid Highlight;
   }
@@ -1544,8 +1539,7 @@ a.btn {
     border-inline-end: 1px solid CanvasText;
   }
 
-  .queue-item.is-selected,
-  .agent-card.is-current {
+  .queue-item.is-selected {
     outline: 2px solid Highlight;
   }
 }

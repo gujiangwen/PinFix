@@ -3,75 +3,72 @@ import { pageHash } from "../routes";
 import { useI18n, type TranslateFn } from "../i18n";
 import { fmtTime, sessionTitle } from "../ui/format";
 import { STATUS_LABEL } from "./labels";
-import type { RoleId } from "./queues";
-import { STATUS_FILTERS, type StatusFilter } from "./task-list";
+import { QUEUE_SWITCHES, type QueueSwitch } from "./task-list";
 
-const ROLE_LABEL = {
+const SWITCH_LABEL = {
   planner: "queues.planner",
   implementer: "queues.implementer",
   reviewer: "queues.reviewer",
-} as const;
-
-const FILTER_LABEL = {
-  open: "queues.filter.open",
-  queued: "queues.filter.queued",
-  running: "queues.filter.running",
-  review: "queues.filter.review",
-  done: "queues.filter.done",
+  human: "queues.human",
 } as const;
 
 export type TaskRow = {
   session: Session;
   projectName: string | null;
-  role: RoleId | null;
+  queue: QueueSwitch;
   executing: boolean;
 };
 
 export function TaskQueue(props: {
-  filter: StatusFilter;
-  onFilter: (filter: StatusFilter) => void;
+  queue: QueueSwitch;
+  onQueue: (queue: QueueSwitch) => void;
   query: string;
   onQuery: (query: string) => void;
   rows: TaskRow[];
-  /** Why the list is empty: a keyword miss, or the status chip itself. */
-  empty: "match" | "status" | null;
+  /** Why the list is empty: a keyword miss, or the switch itself. */
+  empty: "match" | "queue" | null;
   selectedId: string | null;
   onPick: () => void;
 }) {
   const { t } = useI18n();
   return (
     <div className="task-queue">
-      <fieldset className="status-filter">
-        <legend>{t("queues.filter")}</legend>
-        {STATUS_FILTERS.map((id) => (
-          <label key={id}>
-            <input
-              type="radio"
-              name="task-status"
-              value={id}
-              checked={props.filter === id}
-              onChange={() => props.onFilter(id)}
-            />
-            <span>{t(FILTER_LABEL[id])}</span>
-          </label>
-        ))}
-      </fieldset>
-      <div className="task-search">
-        <label htmlFor="task-search">{t("queues.search")}</label>
-        <input
-          id="task-search"
-          type="search"
-          name="q"
-          enterKeyHint="search"
-          autoComplete="off"
-          value={props.query}
-          onChange={(event) => props.onQuery(event.target.value)}
-        />
-      </div>
+      <search className="queue-find">
+        <fieldset className="queue-switch">
+          <legend>{t("queues.switch")}</legend>
+          {QUEUE_SWITCHES.map((id) => (
+            <label key={id}>
+              <input
+                type="radio"
+                name="task-queue"
+                value={id}
+                checked={props.queue === id}
+                onChange={() => props.onQueue(id)}
+              />
+              <span>{t(SWITCH_LABEL[id])}</span>
+            </label>
+          ))}
+        </fieldset>
+        <div className="task-search">
+          <label htmlFor="task-search">{t("queues.search")}</label>
+          <input
+            id="task-search"
+            type="search"
+            name="q"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={props.query}
+            onChange={(event) => props.onQuery(event.target.value)}
+          />
+        </div>
+      </search>
       <div className="rail-scroll">
         {props.empty ? (
           <p className="muted queue-empty">
-            {props.empty === "match" ? t("queues.noMatch") : t("queues.emptyFilter")}
+            {props.empty === "match" ? t("queues.noMatch") : t("queues.empty")}
           </p>
         ) : (
           <ul className="queue-list">
@@ -101,8 +98,6 @@ export function TaskQueue(props: {
 }
 
 function rowMark(t: TranslateFn, row: TaskRow): string {
-  if (!row.role) return t(STATUS_LABEL[row.session.status]);
-  const role = t(ROLE_LABEL[row.role]);
-  const mark = row.executing ? t("queues.taskRunning") : t("queues.taskWaiting");
-  return `${role} · ${mark}`;
+  if (row.queue === "human") return t(STATUS_LABEL[row.session.status]);
+  return row.executing ? t("queues.taskRunning") : t("queues.taskWaiting");
 }

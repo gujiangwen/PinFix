@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "@sightloop/shared";
 import { placeSession, type TaskPlacement } from "./queues";
-import {
-  matchesKeyword,
-  runningInRole,
-  sessionMatchesFilter,
-  taskHaystack,
-} from "./task-list";
+import { defaultRunningId, matchesKeyword, queueOf, taskHaystack } from "./task-list";
 
 function session(partial: Partial<Session> & Pick<Session, "id" | "status" | "created_at">): Session {
   return {
@@ -24,19 +19,35 @@ function session(partial: Partial<Session> & Pick<Session, "id" | "status" | "cr
   };
 }
 
-function placed(partial: Partial<Session> & Pick<Session, "id" | "status" | "created_at">, role: TaskPlacement["role"] | null): TaskPlacement | null {
+function placed(
+  partial: Partial<Session> & Pick<Session, "id" | "status" | "created_at">,
+  role: TaskPlacement["role"] | null,
+): TaskPlacement | null {
   return placeSession(session(partial), role);
 }
 
-describe("sessionMatchesFilter", () => {
-  it("maps each chip onto daemon statuses", () => {
-    expect(sessionMatchesFilter("idle", "open")).toBe(true);
-    expect(sessionMatchesFilter("refined", "queued")).toBe(true);
-    expect(sessionMatchesFilter("acting", "running")).toBe(true);
-    expect(sessionMatchesFilter("awaiting_review", "review")).toBe(true);
-    expect(sessionMatchesFilter("awaiting_review", "running")).toBe(false);
-    expect(sessionMatchesFilter("distilling", "done")).toBe(true);
-    expect(sessionMatchesFilter("accepted", "open")).toBe(false);
+describe("queueOf", () => {
+  it("keeps finished sessions off every switch", () => {
+    expect(queueOf(session({ id: "a", status: "accepted", created_at: 1 }), null)).toBeNull();
+    expect(queueOf(session({ id: "b", status: "failed", created_at: 1 }), null)).toBeNull();
+    expect(queueOf(session({ id: "c", status: "distilling", created_at: 1 }), null)).toBeNull();
+  });
+
+  it("sends awaiting_review to human review", () => {
+    const task = placed({ id: "rev", status: "awaiting_review", created_at: 3 }, null);
+    expect(task).toMatchObject({ role: "reviewer", executing: false });
+    expect(queueOf(task!.session, task)).toBe("human");
+  });
+
+  it("follows the role the loop is actually in", () => {
+    const planner = placed({ id: "p", status: "retrieving", created_at: 1 }, null)!;
+    const waiting = placed({ id: "w", status: "idle", created_at: 2 }, null)!;
+    const implementer = placed({ id: "i", status: "acting", created_at: 3 }, "implementer")!;
+    const reviewer = placed({ id: "r", status: "acting", created_at: 4 }, "reviewer")!;
+    expect(queueOf(planner.session, planner)).toBe("planner");
+    expect(queueOf(waiting.session, waiting)).toBe("planner");
+    expect(queueOf(implementer.session, implementer)).toBe("implementer");
+    expect(queueOf(reviewer.session, reviewer)).toBe("reviewer");
   });
 });
 
@@ -56,22 +67,25 @@ describe("matchesKeyword", () => {
   });
 });
 
-describe("runningInRole", () => {
-  it("does not treat the oldest waiting task as running", () => {
+describe("defaultRunningId", () => {
+  function row(task: TaskPlacement) {
+    return { session: task.session, executing: task.executing };
+  }
+
+  it("does not treat the oldest waiting task as the one to show", () => {
     const waiting = placed({ id: "old", status: "idle", created_at: 1 }, null)!;
     const executing = placed({ id: "new", status: "retrieving", created_at: 2 }, null)!;
-    const running = runningInRole([waiting, executing], "planner");
-    expect(running.map((task) => task.session.id)).toEqual(["new"]);
+    expect(defaultRunningId([row(waiting), row(executing)])).toBe("new");
   });
 
-  it("keeps every task a role is actually executing", () => {
+  it("shows the oldest executing task when several are running", () => {
     const first = placed({ id: "a", status: "acting", created_at: 2 }, "implementer")!;
     const second = placed({ id: "b", status: "acting", created_at: 1 }, "implementer")!;
+    expect(defaultRunningId([row(first), row(second)])).toBe("b");
+  });
+
+  it("shows nothing when the switch has no executing task", () => {
     const waiting = placed({ id: "c", status: "awaiting_review", created_at: 3 }, null)!;
-    expect(runningInRole([first, second, waiting], "implementer").map((task) => task.session.id)).toEqual([
-      "b",
-      "a",
-    ]);
-    expect(runningInRole([waiting], "reviewer")).toEqual([]);
+    expect(defaultRunningId([row(waiting)])).toBeNull();
   });
 });

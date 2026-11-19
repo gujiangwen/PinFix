@@ -7,6 +7,9 @@ import { focusNode, NODE_IDS, type LoopModel, type NodeId } from "./loop-model";
  * session. A task is "running" only when its session status says the loop is
  * inside that stage. The head of a queue is not marked running just because
  * it is first.
+ *
+ * awaiting_review stays on Reviewer here. The home's 人工审核 switch is only
+ * a view over that status; it is not another role the daemon runs.
  */
 
 export const ROLES = ["planner", "implementer", "reviewer"] as const;

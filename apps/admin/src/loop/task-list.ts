@@ -1,20 +1,25 @@
-import type { Session, SessionStatus } from "@sightloop/shared";
-import type { RoleId, TaskPlacement } from "./queues";
+import type { Session } from "@sightloop/shared";
+import type { TaskPlacement } from "./queues";
 
-/** Home status chips. Each chip is a slice of the daemon's session statuses. */
-export const STATUS_FILTERS = ["open", "queued", "running", "review", "done"] as const;
-export type StatusFilter = (typeof STATUS_FILTERS)[number];
+/**
+ * Home switches. Human review is the existing awaiting_review step.
+ * It is not a fourth agent and it does not schedule anything.
+ */
+export const QUEUE_SWITCHES = ["planner", "implementer", "reviewer", "human"] as const;
+export type QueueSwitch = (typeof QUEUE_SWITCHES)[number];
 
-const FILTER_STATUSES: Record<StatusFilter, ReadonlySet<SessionStatus>> = {
-  open: new Set(["idle", "retrieving", "acting", "awaiting_review", "refined"]),
-  queued: new Set(["idle", "refined"]),
-  running: new Set(["retrieving", "acting"]),
-  review: new Set(["awaiting_review"]),
-  done: new Set(["accepted", "reverted", "failed", "distilling"]),
-};
-
-export function sessionMatchesFilter(status: SessionStatus, filter: StatusFilter): boolean {
-  return FILTER_STATUSES[filter].has(status);
+/**
+ * Which switch lists this session. Finished sessions return null.
+ * awaiting_review is the human switch. placeSession still files that
+ * status under Reviewer so the three-step flow stays one stage.
+ */
+export function queueOf(
+  session: Pick<Session, "status">,
+  placement: TaskPlacement | null,
+): QueueSwitch | null {
+  if (session.status === "awaiting_review") return "human";
+  if (!placement) return null;
+  return placement.role;
 }
 
 /** Fields the keyword box searches. Project name is filled in by the caller. */
@@ -43,12 +48,13 @@ export function byCreated<T extends { session: Pick<Session, "created_at" | "id"
 }
 
 /**
- * Tasks this role is actually executing. Waiting tasks, including the FIFO
- * head, are not included. Every executing task is returned.
+ * Session to show before the user clicks. Only an executing row counts.
+ * When several are executing, the oldest is the default view. That does
+ * not mark it as the scheduled head, and a waiting row is never chosen.
  */
-export function runningInRole(
-  tasks: readonly TaskPlacement[],
-  role: RoleId,
-): TaskPlacement[] {
-  return byCreated(tasks.filter((task) => task.role === role && task.executing));
+export function defaultRunningId(
+  rows: readonly { session: Pick<Session, "id" | "created_at">; executing: boolean }[],
+): string | null {
+  const running = byCreated(rows.filter((row) => row.executing));
+  return running[0]?.session.id ?? null;
 }

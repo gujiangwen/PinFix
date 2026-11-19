@@ -96,7 +96,7 @@ export function App() {
             />
           ) : null}
           <div className="topnav">
-            <TitleTools />
+            <TitleTools knowledgeOpen />
             <button
               type="button"
               className="icon-btn"
