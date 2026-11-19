@@ -23,6 +23,8 @@
   --code-bg: #0a0e13;
   --wash-a: #1a3a5c;
   --wash-b: #163028;
+  /* The field color, a full step under the elevated page. No rule. */
+  --title-bar: var(--bg);
 }
 
 :root[data-theme="light"] {
@@ -43,6 +45,7 @@
   --code-bg: #e8eef5;
   --wash-a: #c9daf0;
   --wash-b: #c5ddd2;
+  --title-bar: color-mix(in oklab, var(--bg) 86%, var(--text));
 }
 
 * {
@@ -112,11 +115,11 @@ body:has(.home-stage) {
   align-items: safe center;
   gap: 0.5rem 0.75rem;
   margin: 0;
-  padding-block: 0.4rem;
-  padding-block-start: max(0.4rem, env(safe-area-inset-top, 0px));
+  padding-block: 0.72rem;
+  padding-block-start: max(0.72rem, env(safe-area-inset-top, 0px));
   padding-inline-start: max(1.15rem, env(safe-area-inset-left, 0px));
   padding-inline-end: max(1.15rem, env(safe-area-inset-right, 0px));
-  background: var(--bg-elev);
+  background: var(--title-bar);
   border: 0;
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -130,63 +133,6 @@ body:has(.home-stage) {
   margin-inline-start: auto;
 }
 
-.title-switch {
-  display: flex;
-  align-items: center;
-  gap: 0.15rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-inline-size: 0;
-}
-
-.title-switch legend {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: clip;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.title-switch label {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  min-inline-size: 1.5rem;
-  min-block-size: 1.5rem;
-  padding: 0.15rem;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.title-switch label svg {
-  display: block;
-  pointer-events: none;
-}
-
-.title-switch label:has(input:checked) {
-  color: var(--text);
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-
-.title-switch label:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.title-switch input {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
 .topbar {
   display: flex;
   flex-wrap: wrap;
@@ -195,10 +141,10 @@ body:has(.home-stage) {
   gap: 0.5rem 0.75rem;
   min-inline-size: 0;
   max-inline-size: 100%;
-  /* One quiet step off the page field, then a 12px gap. No rule. */
+  /* Same bar as the home. No rule. */
   margin-bottom: 0.75rem;
-  padding-block: 0.4rem;
-  background: var(--bg-elev);
+  padding-block: 0.72rem;
+  background: var(--title-bar);
   border: 0;
 }
 
@@ -1590,7 +1536,7 @@ a.btn {
     border-block-end: 1px solid CanvasText;
   }
 
-  .title-switch label:has(input:checked) {
+  .title-tools .icon-btn:focus-visible {
     outline: 2px solid Highlight;
   }
 
@@ -1689,7 +1635,7 @@ a.btn {
 }
 
 @media (pointer: coarse) {
-  .title-switch label,
+  .title-tools .icon-btn,
   .rail-settings,
   .topbar .icon-btn {
     min-inline-size: 2.75rem;

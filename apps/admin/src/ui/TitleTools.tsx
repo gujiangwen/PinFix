@@ -1,66 +1,36 @@
-import { useId, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useI18n, type Locale } from "../i18n";
-import { useTheme, type Theme } from "../theme";
+import { useTheme } from "../theme";
 
-// Names stay available to hover and assistive tech. Language names stay in
-// their own language so they are readable from either locale.
-const LOCALES: { id: Locale; label: string; icon: ReactNode }[] = [
-  { id: "zh-CN", label: "中文", icon: <LangZhIcon /> },
-  { id: "en", label: "English", icon: <LangEnIcon /> },
-];
-
-const THEMES: {
-  id: Theme;
-  label: "chrome.theme.light" | "chrome.theme.dark";
-  icon: ReactNode;
-}[] = [
-  { id: "light", label: "chrome.theme.light", icon: <SunIcon /> },
-  { id: "dark", label: "chrome.theme.dark", icon: <MoonIcon /> },
-];
-
-/** Language and theme, kept on the title bar rather than in Settings. */
+/** Language and theme, one icon each, kept on the title bar rather than in Settings. */
 export function TitleTools() {
   const { t, locale, setLocale } = useI18n();
-  const { theme, setTheme } = useTheme();
-  const group = useId();
+  const { theme, toggleTheme } = useTheme();
+  const nextLocale: Locale = locale === "zh-CN" ? "en" : "zh-CN";
+  const sep = locale === "zh-CN" ? "，" : ", ";
+  const langName = `${t("chrome.lang")}${sep}${locale === "zh-CN" ? "中文" : "English"}`;
+  const themeName = `${t("chrome.theme")}${sep}${t(theme === "light" ? "chrome.theme.light" : "chrome.theme.dark")}`;
 
   return (
     <div className="title-tools">
-      <fieldset className="title-switch">
-        <legend>{t("chrome.lang")}</legend>
-        {LOCALES.map((item) => (
-          <label key={item.id} title={item.label}>
-            <input
-              type="radio"
-              name={`${group}-locale`}
-              checked={locale === item.id}
-              aria-label={item.label}
-              title={item.label}
-              onChange={() => setLocale(item.id)}
-            />
-            {item.icon}
-          </label>
-        ))}
-      </fieldset>
-      <fieldset className="title-switch">
-        <legend>{t("chrome.theme")}</legend>
-        {THEMES.map((item) => {
-          const label = t(item.label);
-          return (
-            <label key={item.id} title={label}>
-              <input
-                type="radio"
-                name={`${group}-theme`}
-                checked={theme === item.id}
-                aria-label={label}
-                title={label}
-                onChange={() => setTheme(item.id)}
-              />
-              {item.icon}
-            </label>
-          );
-        })}
-      </fieldset>
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={langName}
+        title={langName}
+        onClick={() => setLocale(nextLocale)}
+      >
+        {locale === "zh-CN" ? <LangZhIcon /> : <LangEnIcon />}
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={themeName}
+        title={themeName}
+        onClick={toggleTheme}
+      >
+        {theme === "light" ? <SunIcon /> : <MoonIcon />}
+      </button>
     </div>
   );
 }
