@@ -1,117 +1,19 @@
-# SightLoop architecture
+# 架构与迁移边界
 
-**M1:** Daemon Project Registry + SQLite + minimal Admin.
+PinFix 是从 SightLoop 迁出的独立扩展，不再由 SightLoop 服务端打包或提供下载。
 
-**M2:** Chrome MV3 extension (Shadow DOM pick UI) + `@sightloop/sniff` (React → Vue3 → DOM) + `POST /v1/sessions` + WebSocket status subscribe + React fixture app.
+## 所有权
 
-**M3:** Markup dual-adapter + Agent Loop (retrieve → act → verify → temp commit) + Accept / Refine / Revert + Distill-on-Accept.
+- PinFix：扩展清单、页面组件、弹窗、连接存储、跨浏览器构建和测试。
+- SightLoop：问题 API、修复流程、控制台，以及开发态 Vite 源码标记/脚本注入。
 
-**M4:** Admin observability + Knowledge Hub + dual-loop retrieve (knowledge before markup) + HMR/PR mode polish + AGENTS.md sync.
+`window.__SIGHTLOOP__`、`data-sightloop*` 和 `sightloop-*` DOM 事件是兼容协议，保留名称以避免破坏现有接入页面；产品名称和扩展 ID 使用 PinFix。
 
-**M5:** One-click local DX — `/v1/dx/status` + ensure-fixture + Popup wizard + mock vs `pi` badge.
+## 构建与分发
 
-**M6:** Acceptance overlay — session read-model (`timeline`, `diff_summary`, `verify`, `recall_hits`, `latest_knowledge`) + WS `session.verify` / `recall` / `timeline` / `knowledge_distilled`.
+三个目标共享同一份源码，仅清单不同。Firefox 128 起原生支持 `content_scripts.world: "MAIN"`，不需要脚本元素注入或 polyfill。Safari 18 是第二阶段基线，需用 Xcode 转换并在 macOS 实机验证。
 
-**M7:** Reliable source location — sniff `location` + confidence waterfall (Fiber/Vue → source map → Vite module-graph → selector memory → human); `source_location_hints`; `GET files` / `POST locate` / `POST source-correct` / `GET source-maps`; extension confidence badge + one-click correct.
+## 验证记录
 
-**M8a:** Playwright acceptance gate (fixture-only) — `@sightloop/acceptance-gate` compiles structured expects → Scenario IR; DOM + screenshot (pixelmatch) + console/network; Accept hard-blocked unless gate passed; WS `session.acceptance_gate`.
-
-**M9a:** LangGraph dual-loop (feature-flagged, default off) — mock Planner/Reviewer; Implementer = existing runner; PlanIR `allowed_files` hard intercept; WS `session.dual_loop` / `session.plan` / `session.review_agent`.
-
-**M9b:** Real Planner/Reviewer LLMs with separate `SIGHTLOOP_PLANNER_*` / `SIGHTLOOP_IMPLEMENTER_*` / optional `SIGHTLOOP_REVIEWER_*` configs; JSON+Zod retries; project-whitelist harden against prompt injection; no planner key → mock fallback + DX `fallback_reason`.
-
-**M10a:** DX `github` credential health + Popup heal UX; PR Accept returns `deploy.heal_hint` when `gh` auth is dead (no token minting).
-
-**M10b:** Extension 验收 drawer shows PlanIR + Agent review; `PATCH /v1/sessions/:id/plan` for human edits under project whitelist.
-
-**M10c:** On Accept, archive Scenario IR + screenshot baselines to `<repo>/acceptance/` for CI/local replay (`SIGHTLOOP_ACCEPTANCE_ARCHIVE=0` to disable).
-
-**M11a:** Structured `RefineIR` from shell/gate/reviewer/whitelist failures; Planner must emit `issue_resolutions` for blockers.
-
-**M11b:** `PlanIR.verify_contract` (shell + scenario refs); Implementer→Reviewer gated on contract; Pass requires `pass_evidence`.
-
-**M11c:** `GET/POST …/acceptance` list+replay; Planner retrieve Top-K archive summaries; `scripts/replay-acceptance.sh`.
-
-**M12a:** Accept-only strategy cards (Top-K=3 + `SIGHTLOOP_STRATEGY_MIN_SCORE`); whitelist ∩ on hints.
-
-**M12b:** Edit hunk↔evidence auto-bind; unmet → refine or `edit_evidence_unmet` awaiting_review (no infinite loop).
-
-**M12c:** `PlanIR.test_first`; `SIGHTLOOP_MUTATION_GATE` default 0; light proxy score only.
-
-**M12d:** Issue checkpoints (`/v1/checkpoints`); per-session N + GC; resume binds `project_id`+`repo_path` (409 on mismatch).
-
-**M12e:** `SIGHTLOOP_CROSS_JUDGE` default 0; agree/disagree/skip; field `agent_judge_pass` ≠ Human Accept.
-
-## Extension worlds
-
-| Script | World | Role |
-|---|---|---|
-| `background` | Extension SW | Daemon REST/WS, settings, session create/start/review |
-| `content` | Isolated | Closed Shadow DOM toolbar, pick highlight, annotation bubble, review buttons |
-| `injected` | Main (`world: MAIN`) | Runs `@sightloop/sniff` against page Fiber/Vue expandos |
-
-Bridge: `window.postMessage` with `source: sightloop-ext|sightloop-page` + nonce.
-
-## Daemon APIs
-
-| Method | Path | Notes |
-|---|---|---|
-| `POST` | `/v1/sessions` | Creates session **and** writes markup workspace files |
-| `POST` | `/v1/sessions/:id/start` | Retrieve-before-act → mock/pi act → verify → temp commit → `awaiting_review` |
-| `POST` | `/v1/sessions/:id/review` | `{ decision: accept\|refine\|revert, note? }` |
-| `GET` | `/v1/sessions/:id/diff` | Patch vs `git_base_sha` |
-| `GET` | `/v1/knowledge` | Distilled knowledge (filters in M4) |
-| `GET` | `/v1/admin/metrics` | Basic metrics |
-| `GET` | `/v1/admin/audit` | Security audit log |
-| `POST` | `/v1/projects/:id/knowledge/sync-agents` | Sync pinned/selected cards into repo `AGENTS.md` |
-| `GET` | `/v1/projects/:id/files?q=` | Whitelist-scoped file search (M7 correct UI) |
-| `POST` | `/v1/projects/:id/locate` | Source location waterfall (hints / maps / Vite / heuristic) |
-| `GET` | `/v1/projects/:id/source-maps` | List `source_location_hints` |
-| `POST` | `/v1/sessions/:id/source-correct` | Human correct → sniff + hints + `selector_map` knowledge |
-| `POST` | `/v1/sessions/:id/acceptance-gate/run` | Run Playwright fixture gate (M8a) |
-| `GET` | `/v1/sessions/:id/acceptance-gate` | Latest gate run |
-| `GET` | `/v1/sessions/:id/acceptance-gate/runs/:runId/artifacts/:name` | Gate artifacts (png/json) |
-
-WS events: `session.status`, `session.step`, `session.awaiting_review`, `session.acceptance_gate`, `session.terminal`, `security.alert`.
-
-## Browser acceptance gate (M8a)
-
-1. Compile `annotation.expects` → Scenario IR (loopback fixture URL only).  
-2. Headless Chromium: goto → wait/assert DOM → screenshot vs baseline → console/network collectors.  
-3. First screenshot pass auto-creates baseline; later diffs use `maxDiffPixelRatio=0.01`.  
-4. `POST review{accept}` → 409 `acceptance_gate_failed` unless latest run `passed` (force_accept off by default).
-
-## Source location waterfall (M7)
-
-1. React `_debugSource` / Vue `__file` → `confidence` high  
-2. Inline / local `.map` sources (repo-only; no remote map fetch)  
-3. Optional Vite `dev_server_origin` module-graph heuristic  
-4. `source_location_hints` (selector / fingerprint memory)  
-5. Human correct → hints + `kind=selector_map` knowledge for Retrieve reuse
-
-## Retrieve dual-loop (M4)
-
-1. `list_knowledge` — **sqlite-vec** similarity over derived embeddings (`local-hash-v1`, dim 256), blended with pin/text overlap. Markdown `knowledge` rows remain source of truth; `knowledge_vec` + `knowledge_vec_map` are the index.
-2. `get_latest_annotations` — markup workspace (hard gate; still required before act).
-3. Act receives knowledge stub + annotation; Admin timeline shows recall hits (`retrieve: sqlite-vec`).
-
-## Markup dual adapter
-
-- **self (default):** `@sightloop/markup-bridge` reads/writes `YYYY-MM-DD_<slug>_annotations.md` (+ optional png).
-- **official:** same workspace contract; optional `npx markup-mcp` probe when `MARKUP_ADAPTER=official` + `MARKUP_MCP_ENABLED=1`.
-
-## Agent runners
-
-- No cloud LLM key → **mock** runner (whitelist-safe edit) so e2e Accept/Refine/Revert still works.
-- With `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `SIGHTLOOP_LLM_API_KEY` / `PI_API_KEY` → **pi** runner (`@mariozechner/pi-coding-agent`), falling back to mock if CLI fails.
-- `max_steps=5` hard cap; overflow forces `awaiting_review`.
-- Per-`repo_path` file lock under `data/locks/`.
-
-## HMR vs PR mode
-
-| Mode | Accept behavior |
-|---|---|
-| `hmr` | Keep local temp commit; no push |
-| `pr` | Keep commit + best-effort `gh pr create` (audited; requires `gh` auth) |
-
-Toggle in Admin → Projects.
+- 2026-11-21：从 SightLoop 工作区迁入完整扩展功能，独立构建与三项 `node:test` 自检通过，SightLoop TypeScript 编译通过。
+- 当前 Chrome 命令行测试环境未实际登记新加载的本地扩展，因此不把页面注入验收记为通过；需在扩展管理页手动加载后再验收。Firefox 和 Safari 同样待实机验收。

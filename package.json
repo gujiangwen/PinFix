@@ -1,28 +1,15 @@
 {
-  "name": "sightloop",
+  "name": "pinfix",
+  "version": "0.3.0",
   "private": true,
-  "version": "0.1.0",
-  "description": "SightLoop — business-decoupled R&D self-healing platform",
-  "packageManager": "pnpm@10.33.4",
+  "description": "独立的跨浏览器页面标注扩展，可复制修复提示词或提交到 SightLoop。",
+  "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
-    "dev:daemon": "pnpm --filter @sightloop/daemon dev",
-    "dev:admin": "pnpm --filter @sightloop/admin dev",
-    "dev:extension": "pnpm --filter @sightloop/extension dev",
-    "dev:fixture": "pnpm --filter @sightloop/fixture-react dev",
-    "test": "pnpm --filter @sightloop/sniff test && pnpm --filter @sightloop/markup-bridge test && pnpm --filter @sightloop/agent-runtime test && pnpm --filter @sightloop/db test && pnpm --filter @sightloop/acceptance-gate test && pnpm --filter @sightloop/dual-loop test && pnpm --filter @sightloop/admin test",
-    "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint"
-  },
-  "devDependencies": {
-    "turbo": "^2.5.4",
-    "typescript": "^5.8.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+    "build": "node scripts/build.js",
+    "check": "node --test test/*.test.js",
+    "clean": "node scripts/clean.js"
   }
 }

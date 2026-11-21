@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "PinFix 页面标注",
+  "version": "0.3.0",
+  "description": "独立页面标注工具：生成包含页面与元素位置的修复提示词，也可接入 SightLoop。",
+  "permissions": ["activeTab", "tabs", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PinFix 页面标注",
+    "default_icon": { "192": "icon-192.png" }
+  },
+  "icons": { "192": "icon-192.png" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["widget.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    }
+  ]
+}
