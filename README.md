@@ -76,6 +76,8 @@ npm run build
 npm run check
 ```
 
+不想克隆仓库时，可直接下载源码包：[v0.3.0.tar.gz](https://github.com/gujiangwen/PinFix/archive/refs/tags/v0.3.0.tar.gz)。
+
 无需先运行 `npm install`。`npm run check` 会构建全部浏览器目标，再运行产物与清单检查。生成目录为 `dist/chromium`、`dist/firefox` 和 `dist/safari`；这些目录不会提交到 Git。
 
 只构建一个目标：
