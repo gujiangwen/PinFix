@@ -1,7 +1,11 @@
 {
   "name": "pinfix",
   "version": "0.3.0",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gujiangwen/PinFix.git"
+  },
   "description": "独立的跨浏览器页面标注扩展，可复制修复提示词或提交到 SightLoop。",
   "type": "module",
   "engines": {

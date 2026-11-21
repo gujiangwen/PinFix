@@ -13,7 +13,9 @@ PinFix 是从 SightLoop 迁出的独立扩展，不再由 SightLoop 服务端打
 
 三个目标共享同一份源码，仅清单不同。Firefox 128 起原生支持 `content_scripts.world: "MAIN"`，不需要脚本元素注入或 polyfill。Safari 18 是第二阶段基线，需用 Xcode 转换并在 macOS 实机验证。
 
+开发、测试和发布步骤见[开发与验证](development.md)，HTTP 与 DOM 集成契约见 [SightLoop 接入指南](sightloop-integration.md)。
+
 ## 验证记录
 
-- 2026-11-21：从 SightLoop 工作区迁入完整扩展功能，独立构建与三项 `node:test` 自检通过，SightLoop TypeScript 编译通过。
+- 2026-11-21：从 SightLoop 工作区迁入完整扩展功能，独立构建与四项 `node:test` 自检通过，SightLoop TypeScript 编译通过。
 - 当前 Chrome 命令行测试环境未实际登记新加载的本地扩展，因此不把页面注入验收记为通过；需在扩展管理页手动加载后再验收。Firefox 和 Safari 同样待实机验收。
