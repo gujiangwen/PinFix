@@ -20,4 +20,4 @@
 - 浏览器商店安装包尚未发布。
 - 不支持移动端及浏览器限制的页面。
 
-[0.3.0]: https://github.com/gujiangwen/PinFix/tree/v0.3.0
+[0.3.0]: https://github.com/gujiangwen/PinFix/releases/tag/v0.3.0
