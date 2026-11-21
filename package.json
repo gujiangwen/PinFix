@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/gujiangwen/PinFix.git"
   },
-  "description": "独立的跨浏览器页面标注扩展，可复制修复提示词或提交到 SightLoop。",
+  "description": "面向智能体的前端页面定位与标注扩展：把页面问题转成精确定位到源码与选择器的修复指令。",
   "type": "module",
   "engines": {
     "node": ">=22.0.0"

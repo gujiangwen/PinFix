@@ -1,6 +1,6 @@
 # SightLoop 接入指南
 
-PinFix 默认使用提示词模式，不需要 SightLoop。接入兼容服务后，可以提交问题、查看处理状态并执行人工操作。PinFix 通过公开 DOM 和 HTTP 协议集成，不引用 SightLoop 源码。
+PinFix 默认使用提示词模式，不需要 SightLoop。接入兼容服务后，结构化锚点会直接进入问题工单，由服务侧的智能体完成定位、修复与验证，同时支持人工确认、批准与回撤。PinFix 通过公开 DOM 和 HTTP 协议集成，不引用 SightLoop 源码。
 
 ## 页面显式配置
 

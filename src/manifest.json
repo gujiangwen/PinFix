@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PinFix 页面标注",
   "version": "0.3.0",
-  "description": "独立页面标注工具：生成包含页面与元素位置的修复提示词，也可接入 SightLoop。",
+  "description": "面向智能体的前端标注工具：生成精确定位的修复指令，可接入 SightLoop 闭环修复。",
   "permissions": ["activeTab", "tabs", "storage"],
   "host_permissions": ["<all_urls>"],
   "action": {
