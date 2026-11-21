@@ -1,0 +1,74 @@
+name: Bug 报告
+description: 报告 PinFix 的缺陷、回归或浏览器兼容问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请勿在此粘贴令牌、Cookie 或私人页面地址；可先替换为占位内容。
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交哈希
+      placeholder: "0.3.0 或 a1b2c3d"
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: 浏览器
+      options:
+        - Chrome
+        - Edge
+        - Firefox
+        - Safari
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: browser-version
+    attributes:
+      label: 浏览器版本与操作系统
+      placeholder: "Chrome 141 / Windows 11"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 使用模式
+      options:
+        - 提示词模式
+        - SightLoop 模式
+        - 未确定
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 在 example.com 打开页面
+        2. 点击扩展图标 → 开始标注
+        3. 单击结账按钮
+        4. 观察……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+  - type: textarea
+    id: logs
+    attributes:
+      label: 错误信息
+      description: 去除敏感信息后的控制台输出或网络面板内容
+  - type: textarea
+    id: markup
+    attributes:
+      label: 最小 HTML 示例
+      description: 若问题与页面结构有关，请提供剥离业务逻辑的最小片段

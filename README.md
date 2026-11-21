@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![CI](https://github.com/gujiangwen/PinFix/actions/workflows/ci.yml/badge.svg)](https://github.com/gujiangwen/PinFix/actions/workflows/ci.yml)
 
 > **PinFix 是给智能体用的前端页面定位器**：把一句“这里有问题”，变成精确定位到**文件、行号、选择器和屏幕坐标**的可执行修复指令。
 

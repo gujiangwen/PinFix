@@ -12,6 +12,7 @@
 - 可选 SightLoop 连接、问题提交、状态显示和人工处理操作。
 - Chromium、Firefox 和 Safari 浏览器专用构建。
 - 构建产物、浏览器清单和凭据隔离自检。
+- Issue 与 Pull Request 模板，以及在 Node.js 22 上运行自检的 CI。
 
 ### 已知限制
 
