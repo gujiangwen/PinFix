@@ -2,6 +2,8 @@
 
 PinFix 默认使用提示词模式，不需要 SightLoop。接入兼容服务后，结构化锚点会直接进入问题工单，由服务侧的智能体完成定位、修复与验证，同时支持人工确认、批准与回撤。PinFix 通过公开 DOM 和 HTTP 协议集成，不引用 SightLoop 源码。
 
+SightLoop 本身是什么、它和 PinFix 如何分工，见 [SightLoop 是什么](sightloop.md)。
+
 ## 页面显式配置
 
 在页面脚本中设置：

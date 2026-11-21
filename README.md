@@ -133,6 +133,20 @@ node scripts/build.js chromium
 
 浏览器内部页面、扩展商店和 PDF 阅读器等受限页面不能注入。移动端不在当前支持范围。
 
+## SightLoop 是什么
+
+SightLoop 是一个本地运行的「研发自愈」平台。在真实页面上发现问题之后,由本机守护进程驱动智能体定位源码、修改代码、执行校验、生成 diff,再交给人确认或回撤,最终把这次修复沉淀进可检索的知识库。
+
+PinFix 负责闭环的第一环——**在浏览器里把问题定位到具体元素**;SightLoop 负责剩下的部分——**方案、实施、验证、评审、沉淀**。二者通过一套公开的 DOM 与 HTTP 协议对接,也可以各自独立使用。
+
+| | PinFix | SightLoop |
+| --- | --- | --- |
+| 职责 | 定位问题、采集证据 | 推理改码、验证与评审 |
+| 形态 | 浏览器扩展 | 本地守护进程 + Admin 控制台 |
+| 是否必需 | 提示词模式只需它 | 闭环模式才需要 |
+
+只想让智能体更快找到问题,装 PinFix 就够了;需要自动改代码、可验证、可回滚,再搭配 SightLoop。完整说明见 [SightLoop 是什么](docs/sightloop.md)。
+
 ## SightLoop 接入
 
 不需要服务时无需任何配置。需要闭环修复时，页面可以提供：
@@ -164,6 +178,7 @@ node scripts/build.js chromium
 
 - [开发与验证](docs/development.md)：目录、构建、测试和发布检查。
 - [架构与迁移边界](docs/architecture.md)：模块职责、浏览器目标和兼容边界。
+- [SightLoop 是什么](docs/sightloop.md)：自愈平台定位、组成与它和 PinFix 的分工。
 - [SightLoop 接入](docs/sightloop-integration.md)：连接配置、源码标记和 HTTP/SSE 协议。
 - [隐私与权限](docs/privacy.md)：数据处理、权限用途与清除方式。
 - [贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · [更新日志](CHANGELOG.md)
