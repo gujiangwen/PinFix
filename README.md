@@ -224,6 +224,7 @@ document.documentElement.dispatchEvent(new Event("sightloop-ready"));
 - [架构与迁移边界](docs/architecture.md)：模块职责、浏览器目标和兼容边界。
 - [SightLoop 是什么](docs/sightloop.md)：自愈平台定位、组成与它和 PinFix 的分工。
 - [SightLoop 接入](docs/sightloop-integration.md)：连接配置、源码标记和 HTTP/SSE 协议。
+- [生产环境源码标记](docs/production-source-mark.md)：构建期注入 `data-sl-file`，让生产页面直达源码。
 - [隐私与权限](docs/privacy.md)：数据处理、权限用途与清除方式。
 - [贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · [更新日志](CHANGELOG.md)
 

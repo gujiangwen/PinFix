@@ -36,6 +36,7 @@
 - 提示词新增：可选「期望」行、Vue 组件链（2~4 层）、布局快照（视口/尺寸/display/父容器）
 - 提示词精简：空字段自动省略；有源码坐标或组件链时不再输出冗长选择器；截图与提示词可一起复制进剪贴板
 - React 源码定位：开发态经 fiber `_debugSource` 识别 `文件:行号` 与组件名，与 Vue 支持对齐
+- 生产构建源码标记插件 `plugins/vite-source-mark.mjs`：构建期注入 `data-sl-file`/`data-sl-line`
 
 [0.4.0]: https://github.com/gujiangwen/PinFix/releases/tag/v0.4.0
 
