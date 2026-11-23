@@ -220,6 +220,7 @@ document.documentElement.dispatchEvent(new Event("sightloop-ready"));
 
 ## 文档
 
+- [快速上手](docs/quickstart.md)：30 秒走完一次标注，含输出示例与快捷键。
 - [开发与验证](docs/development.md)：目录、构建、测试和发布检查。
 - [架构与迁移边界](docs/architecture.md)：模块职责、浏览器目标和兼容边界。
 - [SightLoop 是什么](docs/sightloop.md)：自愈平台定位、组成与它和 PinFix 的分工。
