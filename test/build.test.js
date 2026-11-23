@@ -55,7 +55,6 @@ test("screenshot flow wires settings bridge and prompt", async () => {
   assert.match(bridge, /pinfixSettings/);
   assert.match(widget, /captureScreenshot/);
   assert.match(widget, /drawScreenshot/);
-  assert.match(widget, /screenshotName/);
   assert.match(widget, /ClipboardItem/);
   assert.match(widget, /copyTextAndImage/);
   assert.match(optionsHtml, /screenshot-enabled/);

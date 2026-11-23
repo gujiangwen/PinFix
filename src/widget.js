@@ -987,18 +987,11 @@ $("draft-submit").addEventListener("click", async () => {
     }
   }
   try {
-    let screenshotName = "";
-    if (screenshot) {
-      screenshotName = `pinfix-${Date.now()}.png`;
-      downloadDataUrl(screenshotName, screenshot);
-    }
-    const copiedWithImage = await copyTextAndImage(buildPrompt({ description, anchor, rect, href: location.href, title: document.title, screenshotName }), screenshot);
+    const copiedWithImage = await copyTextAndImage(buildPrompt({ description, anchor, rect, href: location.href, title: document.title }), screenshot);
     announceDraft(
       copiedWithImage
         ? "已复制提示词与截图到剪贴板"
-        : screenshotName
-          ? `已复制提示词，截图已保存到下载目录：${screenshotName}`
-          : "已复制带页面与位置信息的提示词到剪贴板"
+        : "已复制带页面与位置信息的提示词到剪贴板"
     );
     setTimeout(hideDraft, 900);
   } catch (error) {
@@ -1006,14 +999,7 @@ $("draft-submit").addEventListener("click", async () => {
   }
 });
 
-function downloadDataUrl(name, dataUrl) {
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = name;
-  link.click();
-}
-
-function buildPrompt({ description, anchor = {}, rect = null, href = "", title = "", screenshotName = "" }) {
+function buildPrompt({ description, anchor = {}, rect = null, href = "", title = "" }) {
   const pos = rect ? `${Math.round(rect.left)},${Math.round(rect.top)} ${Math.round(rect.width)}×${Math.round(rect.height)}` : "";
   const lines = String(description).split("\n").filter((l) => l.trim());
   const problem = lines[0] || description;
@@ -1031,7 +1017,6 @@ function buildPrompt({ description, anchor = {}, rect = null, href = "", title =
     pos ? `位置：${pos}` : "",
     anchor.text ? `文本：${anchor.text}` : "",
     anchor.layout ? `布局：${anchor.layout}` : "",
-    screenshotName ? `截图：${screenshotName}（红框为问题区域）` : "",
   ].filter(Boolean);
   return `请定位并修复以下前端页面问题：\n${items.map((item) => `- ${item}`).join("\n")}`;
 }

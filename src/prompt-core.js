@@ -1,4 +1,4 @@
-export function buildPrompt({ description, anchor = {}, rect = null, href = "", title = "", screenshotName = "" }) {
+export function buildPrompt({ description, anchor = {}, rect = null, href = "", title = "" }) {
   const pos = rect ? `${Math.round(rect.left)},${Math.round(rect.top)} ${Math.round(rect.width)}×${Math.round(rect.height)}` : "";
   const lines = String(description).split("\n").filter((l) => l.trim());
   const problem = lines[0] || description;
@@ -16,7 +16,6 @@ export function buildPrompt({ description, anchor = {}, rect = null, href = "", 
     pos ? `位置：${pos}` : "",
     anchor.text ? `文本：${anchor.text}` : "",
     anchor.layout ? `布局：${anchor.layout}` : "",
-    screenshotName ? `截图：${screenshotName}（红框为问题区域）` : "",
   ].filter(Boolean);
   return `请定位并修复以下前端页面问题：\n${items.map((item) => `- ${item}`).join("\n")}`;
 }
