@@ -701,6 +701,7 @@ function pageConnected() {
 function buildPrompt(description, anchor, rect) {
   const pos = rect ? `${Math.round(rect.left)}, ${Math.round(rect.top)} (${Math.round(rect.width)}×${Math.round(rect.height)})` : "";
   return [
+    `- 问题：${description}`,
     "请定位并修复以下前端页面问题：",
     `- 页面：${document.title ? `${document.title} (${location.href})` : location.href}`,
     anchor.file ? `- 源码：${anchor.file}${anchor.line ? `:${anchor.line}` : ""}` : "",
@@ -708,7 +709,6 @@ function buildPrompt(description, anchor, rect) {
     anchor.path ? `- 选择器：${anchor.path}` : "",
     pos ? `- 位置：${pos}` : "",
     anchor.text ? `- 文本：${anchor.text}` : "",
-    `- 问题：${description}`,
   ].filter(Boolean).join("\n");
 }
 

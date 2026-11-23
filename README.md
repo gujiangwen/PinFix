@@ -125,13 +125,13 @@ node scripts/build.js chromium
 
 ```text
 请定位并修复以下前端页面问题：
+- 问题：按钮在窄屏下溢出容器
 - 页面：示例页面 (https://example.com/products)
 - 源码：src/ProductCard.tsx:24
 - 元素：button.checkout
 - 选择器：:scope > main > section:nth-of-type(1) > button:nth-of-type(1)
 - 位置：640, 420 (120×40)
 - 文本：立即购买
-- 问题：按钮在窄屏下溢出容器
 ```
 
 浏览器内部页面、扩展商店和 PDF 阅读器等受限页面不能注入。移动端不在当前支持范围。
