@@ -44,21 +44,27 @@ test("standalone build has no baked-in service credentials", async () => {
   assert.match(widget, /navigator\.clipboard\.writeText/);
 });
 
-test("screenshot flow wires settings bridge and prompt", async () => {
+test("screenshot flow wires annotate entry, bridge and prompt", async () => {
   const background = await readFile(path.join(root, "dist/chromium/background.js"), "utf8");
   const bridge = await readFile(path.join(root, "dist/chromium/bridge.js"), "utf8");
   const widget = await readFile(path.join(root, "dist/chromium/widget.js"), "utf8");
   const optionsJs = await readFile(path.join(root, "dist/chromium/options.js"), "utf8");
   const optionsHtml = await readFile(path.join(root, "dist/chromium/options.html"), "utf8");
+  const popupHtml = await readFile(path.join(root, "dist/chromium/popup.html"), "utf8");
+  const popupJs = await readFile(path.join(root, "dist/chromium/popup.js"), "utf8");
   assert.match(background, /captureVisibleTab/);
   assert.match(bridge, /pinfix-capture-request/);
-  assert.match(bridge, /pinfixSettings/);
+  assert.match(bridge, /pinfixShot/);
+  assert.doesNotMatch(bridge, /pinfixSettings/);
   assert.match(widget, /captureScreenshot/);
   assert.match(widget, /drawScreenshot/);
   assert.match(widget, /ClipboardItem/);
   assert.match(widget, /copyTextAndImage/);
-  assert.match(optionsHtml, /screenshot-enabled/);
-  assert.match(optionsJs, /settings\.screenshot/);
+  assert.match(widget, /wantShot/);
+  assert.doesNotMatch(optionsHtml, /screenshot-enabled/);
+  assert.doesNotMatch(optionsJs, /settings\.screenshot/);
+  assert.match(popupHtml, /id="annotate-shot"/);
+  assert.match(popupJs, /screenshot: withScreenshot/);
 });
 
 test("popup does not depend on removed generated defaults", async () => {

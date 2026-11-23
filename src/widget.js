@@ -191,6 +191,7 @@ const state = {
   openId: null,
   draft: null,
   draftRect: null,
+  wantShot: false,
   gesture: null,
   suppressClick: false,
   hoverEl: null,
@@ -210,6 +211,7 @@ function setPicking(on) {
 }
 document.documentElement.addEventListener("sightloop-command", () => {
   if (document.documentElement.dataset.sightloopCommand !== "toggle-pick") return;
+  state.wantShot = document.documentElement.dataset.pinfixShot === "1";
   setPicking(!state.picking);
   $("rubber").hidden = true;
 });
@@ -850,21 +852,6 @@ async function refresh() {
 }
 
 let lastNotice = "";
-let screenshotSetting = false;
-
-function readPinfixSettings() {
-  try {
-    const raw = document.documentElement?.dataset?.pinfixSettings;
-    screenshotSetting = raw ? Boolean(JSON.parse(raw)?.screenshot) : false;
-  } catch {
-    screenshotSetting = false;
-  }
-}
-readPinfixSettings();
-new MutationObserver(() => readPinfixSettings()).observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ["data-pinfix-settings"],
-});
 
 function requestScreenshot() {
   return new Promise((resolve) => {
@@ -931,7 +918,6 @@ function drawScreenshot(dataUrl, rect) {
 }
 
 async function captureScreenshot(rect) {
-  if (!screenshotSetting) return "";
   const raw = await requestScreenshot();
   if (!raw) return "";
   return drawScreenshot(raw, rect);
@@ -967,7 +953,8 @@ $("draft-submit").addEventListener("click", async () => {
   if (!description || !state.draft) return;
   const anchor = state.draft;
   const rect = state.draftRect;
-  const screenshot = await captureScreenshot(rect);
+  const screenshot = state.wantShot ? await captureScreenshot(rect) : "";
+  state.wantShot = false;
   if (pageConnected()) {
     try {
       const issue = await api("/api/issues", {

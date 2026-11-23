@@ -30,14 +30,6 @@ async function rememberLoop(entry) {
   } catch {}
 }
 
-async function applySettings() {
-  try {
-    const { settings = {} } = await chrome.storage.local.get("settings");
-    document.documentElement.dataset.pinfixSettings = JSON.stringify({ screenshot: Boolean(settings.screenshot) });
-  } catch {}
-}
-void applySettings();
-
 document.documentElement.addEventListener("pinfix-capture-request", () => {
   const id = document.documentElement.dataset.pinfixCaptureRequest || "";
   chrome.runtime.sendMessage({ type: "capture-screenshot" }, (resp) => {
@@ -106,7 +98,6 @@ if (document.readyState === "loading") {
 chrome.storage?.onChanged?.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes.loops) void applyConfig();
-  if (changes.settings) void applySettings();
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -123,6 +114,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message?.type !== "annotate") return;
   document.documentElement.dataset.sightloopCommand = "toggle-pick";
+  document.documentElement.dataset.pinfixShot = message?.screenshot ? "1" : "0";
   document.documentElement.dispatchEvent(new Event("sightloop-command"));
   sendResponse({ picking: document.documentElement.dataset.sightloopPicking === "1" });
 });

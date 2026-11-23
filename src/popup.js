@@ -1,5 +1,7 @@
 const annotate = document.querySelector("#annotate");
 const annotateLabel = document.querySelector("#annotate-label");
+const annotateShot = document.querySelector("#annotate-shot");
+const annotateShotLabel = document.querySelector("#annotate-shot-label");
 const status = document.querySelector("#status");
 const settingsBtn = document.querySelector("#settings");
 const shortcutDisplay = document.querySelector("#shortcut-display");
@@ -116,6 +118,7 @@ async function initPopup() {
   const page = tab?.url || "";
   if (!tab?.id || !page.startsWith("http")) {
     annotate.setAttribute("aria-disabled", "true");
+    annotateShot.setAttribute("aria-disabled", "true");
     status.textContent = "请在目标网页中使用";
     return;
   }
@@ -125,12 +128,16 @@ async function initPopup() {
     if (!state?.active) throw new Error("inactive");
   } catch {
     annotate.setAttribute("aria-disabled", "true");
+    annotateShot.setAttribute("aria-disabled", "true");
     status.textContent = "请刷新目标页面后标注";
     return;
   }
   annotate.removeAttribute("aria-disabled");
+  annotateShot.removeAttribute("aria-disabled");
   annotate.toggleAttribute("data-picking", Boolean(state.picking));
-  annotateLabel.textContent = state.picking ? "取消标注" : "开始标注";
+  annotateShot.toggleAttribute("data-picking", Boolean(state.picking));
+  annotateLabel.textContent = state.picking ? "取消标注" : "简单标注";
+  annotateShotLabel.textContent = state.picking ? "取消标注" : "截图标注";
   const origin = String(state.origin || "").replace(/\/$/, "");
   const token = String(state.token || "");
   const connected = await checkConsole(origin, token);
@@ -143,13 +150,16 @@ async function initPopup() {
 void initPopup();
 void checkUpdate();
 
-annotate.addEventListener("click", async (event) => {
-  if (annotate.getAttribute("aria-disabled") === "true") {
+async function startAnnotate(event, button, withScreenshot) {
+  if (button.getAttribute("aria-disabled") === "true") {
     event.preventDefault();
     return;
   }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
-  await chrome.tabs.sendMessage(tab.id, { type: "annotate" });
+  await chrome.tabs.sendMessage(tab.id, { type: "annotate", screenshot: withScreenshot });
   window.close();
-});
+}
+
+annotate.addEventListener("click", (event) => startAnnotate(event, annotate, false));
+annotateShot.addEventListener("click", (event) => startAnnotate(event, annotateShot, true));
