@@ -23,6 +23,20 @@ window.__SIGHTLOOP__ = {
 
 `origin` 是服务源，不包含末尾 `/`；`token` 用于 Bearer 身份验证和 SSE 连接。配置不完整时仍可使用提示词模式。
 
+### 临时调试：DevTools 手动赋值
+
+如果不想修改页面代码，可以在目标页面打开 DevTools 控制台执行：
+
+```js
+window.__SIGHTLOOP__ = {
+  origin: "http://127.0.0.1:7788",
+  token: "你的令牌"
+};
+document.documentElement.dispatchEvent(new Event("sightloop-ready"));
+```
+
+刷新后 PinFix 会读取该配置。此方式适合临时调试，刷新后需重新赋值。
+
 ## 控制台发现与自动配对
 
 SightLoop 控制台可在根元素提供连接信息，并触发事件：

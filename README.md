@@ -110,6 +110,7 @@ node scripts/build.js chromium
 
 1. 打开普通 HTTP/HTTPS 页面；首次安装后已打开的页面需要刷新。
 2. 点击 PinFix 扩展图标和“开始标注”。
+   **快捷键**：`Alt+Shift+P` 开始/取消标注，可在 `chrome://extensions/shortcuts` 或浏览器对应页面自定义。
 3. 单击元素，或拖拽选择区域；也可以先选中文字再点击。
 4. 填写问题。提示词模式点击“复制提示词”；已接入服务时点击“提交”。
 5. 把提示词交给智能体，或在 PinFix 中跟踪已提交问题的修复进度。
@@ -120,6 +121,12 @@ node scripts/build.js chromium
 | 描述中换行 | `Shift + Enter` |
 | 调整候选元素层级 | `↑` / `↓` |
 | 取消标注或关闭编辑框 | `Esc` |
+| 开始/取消标注 | `Alt+Shift+P` |
+
+扩展设置页（右键扩展图标 → 选项）提供：
+
+- **快捷键**：显示当前快捷键；修改需在 `chrome://extensions/shortcuts` 中完成（浏览器限制，扩展无法自行修改）。
+- **SightLoop 接入**：直接填写服务地址与令牌并保存，无需跳转，保存后所有页面使用此连接。
 
 ### 给智能体的提示词长什么样
 
@@ -152,7 +159,11 @@ PinFix 负责闭环的第一环——**在浏览器里把问题定位到具体�
 
 ## SightLoop 接入
 
-不需要服务时无需任何配置。需要闭环修复时，页面可以提供：
+不需要服务时无需任何配置。接入 SightLoop 有三种方式，按你的环境选择：
+
+**方式一：页面内联配置（适合本地开发页面）**
+
+在你的 HTML 或入口脚本中加入：
 
 ```html
 <script>
@@ -162,6 +173,21 @@ PinFix 负责闭环的第一环——**在浏览器里把问题定位到具体�
   };
 </script>
 ```
+
+**方式二：控制台自动发现（适合 SightLoop Admin）**
+
+SightLoop Admin 页面会在根元素提供 `data-sightloop-console` 并触发 `sightloop-console` 事件，PinFix 自动保存连接（最多 12 个 Loop）。
+
+**方式三：DevTools 手动赋值（适合临时调试）**
+
+在目标页面按 `F12` 打开控制台，执行：
+
+```js
+window.__SIGHTLOOP__ = { origin: "http://127.0.0.1:7788", token: "你的令牌" };
+document.documentElement.dispatchEvent(new Event("sightloop-ready"));
+```
+
+刷新后 PinFix 会读取该配置。
 
 也可以使用根元素 `data-sightloop`、控制台自动发现，以及 `data-sl-file` / `data-sl-line` 源码标记。连接匹配规则、接口契约和安全注意事项见 [SightLoop 接入指南](docs/sightloop-integration.md)。
 

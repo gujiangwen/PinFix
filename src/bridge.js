@@ -49,8 +49,12 @@ async function applyConfig() {
     const list = Array.isArray(loops) ? loops : [];
     const isConsole = list.some((item) => item?.origin === location.origin);
     if (isConsole) return;
-    // ponytail: 页面未显式声明 __SIGHTLOOP__ 时，仅对同主机名（如同一开发机）且带源码标记的页面自动配对最近活跃的 Agent Loop
-    if (document.querySelector("[data-sl-file]")) {
+    // 手动配置的连接（options 页保存）对所有页面生效
+    const manual = list.find((item) => item?.manual);
+    if (manual) {
+      matched = { origin: manual.origin, token: manual.token };
+    } else if (document.querySelector("[data-sl-file]")) {
+      // ponytail: 自动发现的连接仅对同主机名且带源码标记的页面自动配对
       const hit = list.find((item) => hostname(item?.origin) === location.hostname);
       if (hit) matched = { origin: hit.origin, token: hit.token };
     }

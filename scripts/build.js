@@ -26,13 +26,21 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const browsers = process.argv.slice(2).length ? process.argv.slice(2) : BROWSERS;
 const sourceDir = path.join(root, "src");
 const sourceManifest = await readFile(path.join(sourceDir, "manifest.json"), "utf8");
-const names = ["bridge.js", "widget.js", "popup.html", "popup.js", "icon-192.png"];
+const names = ["bridge.js", "widget.js", "popup.html", "popup.js", "options.html", "options.js", "icon-192.png"];
+const workerNames = ["background.js"];
 
 for (const browser of browsers) {
   const output = path.join(root, "dist", browser);
   await mkdir(output, { recursive: true });
   await Promise.all(names.map((name) => cp(path.join(sourceDir, name), path.join(output, name))));
   const manifest = manifestFor(sourceManifest, browser);
+  if (browser === "firefox") {
+    await Promise.all(workerNames.map((name) => cp(path.join(sourceDir, name), path.join(output, name))));
+    manifest.background = { scripts: workerNames };
+  } else {
+    await Promise.all(workerNames.map((name) => cp(path.join(sourceDir, name), path.join(output, name))));
+    manifest.background = { service_worker: "background.js" };
+  }
   await writeFile(path.join(output, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`built dist/${browser}`);
 }

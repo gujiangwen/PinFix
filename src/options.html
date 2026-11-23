@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>PinFix 设置</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #ffffff;
+      --ink: #1c2430;
+      --muted: #5c6b7a;
+      --line: #e2e7ee;
+      --accent: #1f6f5b;
+      --accent-ink: #ffffff;
+      @media (prefers-color-scheme: dark) {
+        --bg: #171d27;
+        --ink: #e7eef8;
+        --muted: #9aabbf;
+        --line: #2c3a4c;
+        --accent: #3dbea2;
+        --accent-ink: #06241c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.5 system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    main { max-width: 520px; margin: 32px auto; padding: 0 20px; }
+    h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin: 0 0 28px; font-size: 13px; }
+    section { margin-bottom: 28px; }
+    h2 {
+      font-size: 13px; font-weight: 600; margin: 0 0 12px;
+      text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+    }
+    .field { margin-bottom: 12px; }
+    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+    input[type="url"], input[type="password"] {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--bg); color: var(--ink); font: inherit;
+    }
+    input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+    .actions { display: flex; gap: 8px; margin-top: 16px; }
+    button {
+      padding: 8px 16px; border: 1px solid var(--accent); border-radius: 8px;
+      background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 500; cursor: pointer;
+    }
+    button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+    button.small { padding: 2px 8px; font-size: 12px; border-radius: 6px; }
+    button:hover { filter: brightness(1.06); }
+    #status {
+      min-height: 1.2em; margin-top: 12px; font-size: 13px; color: var(--accent);
+    }
+    #status.error { color: #c0392b; }
+    kbd {
+      display: inline-block; padding: 2px 6px; border: 1px solid var(--line); border-radius: 4px;
+      background: var(--bg); font: 12px/1.4 ui-monospace, monospace;
+    }
+    a { color: var(--accent); }
+    .note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>PinFix 设置</h1>
+    <p class="sub">面向智能体的前端页面标注扩展</p>
+
+    <section>
+      <h2>快捷键</h2>
+      <div class="field">
+        <label>开始/取消标注</label>
+        <p><kbd id="shortcut">Alt+Shift+P</kbd></p>
+        <p class="note">
+          浏览器不允许扩展自行修改全局快捷键。复制
+          <code>chrome://extensions/shortcuts</code>
+          <button type="button" id="copy-shortcut-url" class="ghost small">复制地址</button>
+          并粘贴到地址栏，在打开的页面中修改。
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>SightLoop 接入</h2>
+      <div class="field">
+        <label for="origin">服务地址</label>
+        <input type="url" id="origin" placeholder="http://127.0.0.1:7788">
+      </div>
+      <div class="field">
+        <label for="token">访问令牌</label>
+        <input type="password" id="token" placeholder="由 SightLoop 服务签发的令牌">
+      </div>
+      <div class="actions">
+        <button type="button" id="save">保存</button>
+        <button type="button" id="clear" class="ghost">清除</button>
+      </div>
+      <div id="status" role="status"></div>
+      <p class="note">
+        在此填写并保存即可，无需跳转。保存后所有页面都会使用此连接；
+        也可以让页面通过 <code>window.__SIGHTLOOP__</code> 或 <code>data-sightloop</code> 自行声明连接。
+      </p>
+    </section>
+
+    <section>
+      <h2>关于</h2>
+      <p>PinFix 是面向智能体的 Web 前端页面标注扩展。选中元素、文字或区域，生成包含页面 URL、源码位置、选择器、尺寸和文本的修复提示词。</p>
+      <p>
+        <a href="https://github.com/gujiangwen/PinFix" target="_blank" rel="noopener">GitHub 仓库</a> ·
+        <a href="https://github.com/gujiangwen/PinFix/blob/main/docs/sightloop-integration.md" target="_blank" rel="noopener">SightLoop 接入指南</a> ·
+        <a href="https://github.com/gujiangwen/PinFix/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新日志</a>
+      </p>
+    </section>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>
