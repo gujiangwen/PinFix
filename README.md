@@ -138,13 +138,22 @@ node scripts/build.js chromium
 ```text
 请定位并修复以下前端页面问题：
 - 问题：按钮在窄屏下溢出容器
+- 期望：按钮在窄屏下完整显示，不溢出容器
 - 页面：示例页面 (https://example.com/products)
 - 源码：src/ProductCard.tsx:24
 - 元素：button.checkout
 - 选择器：:scope > main > section:nth-of-type(1) > button:nth-of-type(1)
+- 组件链：ProductCard.vue > CheckoutBar.vue
 - 位置：640, 420 (120×40)
 - 文本：立即购买
+- 布局：视口 1920×1080 | 元素 120×40 | display:flex overflow:hidden | 父容器 360×48
 ```
+
+**说明**：
+- **期望**：交互/行为类问题建议在第二行写期望结果，避免理解偏差
+- **组件链**：Vue 项目自动输出 2~4 层父组件链，样式 Bug 常根因在父组件
+- **布局**：布局/错位/空白类问题的关键快照（视口、元素尺寸、display/overflow/height、父容器尺寸）
+- **截图**：浏览器安全限制下扩展拿不到本地绝对路径，文件名会写入提示词；如需智能体直接读图，请把截图从下载目录拖入对话，或接入 SightLoop 让截图随问题提交
 
 浏览器内部页面、扩展商店和 PDF 阅读器等受限页面不能注入。移动端不在当前支持范围。
 

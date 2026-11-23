@@ -252,10 +252,49 @@ function componentFile(element) {
   return "";
 }
 
+function componentChain(element) {
+  const chain = [];
+  const seen = new Set();
+  let node = element;
+  while (node && node.nodeType === 1 && chain.length < 4) {
+    const file = node.__vueParentComponent?.type?.__file;
+    if (typeof file === "string" && file) {
+      const name = normalizeVueFile(file).split("/").pop() || file;
+      if (!seen.has(name)) {
+        seen.add(name);
+        chain.unshift(name);
+      }
+    }
+    node = node.parentElement;
+  }
+  return chain;
+}
+
+function layoutSnapshot(element) {
+  if (!element) return "";
+  const cs = getComputedStyle(element);
+  const rect = element.getBoundingClientRect();
+  const parts = [`视口 ${window.innerWidth}×${window.innerHeight}`];
+  parts.push(`元素 ${Math.round(rect.width)}×${Math.round(rect.height)}`);
+  const layoutBits = [];
+  if (cs.display && cs.display !== "block") layoutBits.push(`display:${cs.display}`);
+  if (cs.position && cs.position !== "static") layoutBits.push(`position:${cs.position}`);
+  if (cs.overflow !== "visible") layoutBits.push(`overflow:${cs.overflow}`);
+  if (cs.height !== "auto") layoutBits.push(`height:${cs.height}`);
+  if (layoutBits.length) parts.push(layoutBits.join(" "));
+  const parent = element.parentElement;
+  if (parent) {
+    const pr = parent.getBoundingClientRect();
+    parts.push(`父容器 ${Math.round(pr.width)}×${Math.round(pr.height)}`);
+  }
+  return parts.join(" | ");
+}
+
 function anchorFrom(element, rect, kind, text) {
   const bounds = element?.getBoundingClientRect?.() || rect;
   const width = bounds.width || 1;
   const height = bounds.height || 1;
+  const chain = element ? componentChain(element) : [];
   return {
     kind,
     file: element?.getAttribute?.("data-sl-file") || componentFile(element) || "",
@@ -264,6 +303,8 @@ function anchorFrom(element, rect, kind, text) {
     path: element ? pathWithin(document.body, element) : "",
     selector: element?.tagName?.toLowerCase() || "",
     text: (text || element?.textContent || "").trim().slice(0, 80),
+    chain: chain.length ? chain : undefined,
+    layout: element ? layoutSnapshot(element) : "",
     box: {
       x: (rect.left - bounds.left) / width,
       y: (rect.top - bounds.top) / height,
@@ -673,8 +714,8 @@ function showDraft(anchor, rect) {
   const connected = pageConnected();
   $("draft-submit").textContent = connected ? "提交" : "复制提示词";
   $("draft-text").placeholder = connected
-    ? "描述问题（Enter 提交，Shift+Enter 换行）"
-    : "描述问题（Enter 复制提示词，Shift+Enter 换行）";
+    ? "问题描述（Enter 提交，Shift+Enter 换行）\n可选：第二行写期望，如「点击无响应，期望：弹出弹窗」"
+    : "问题描述（Enter 复制提示词，Shift+Enter 换行）\n可选：第二行写期望，如「点击无响应，期望：弹出弹窗」";
   $("draft-text").value = "";
   const width = 320;
   let left = rect.left;
@@ -713,6 +754,31 @@ async function copyText(text) {
   } catch {
     if (!legacyCopy(text)) throw new Error("复制失败，请检查剪贴板权限");
   }
+}
+
+function dataUrlToBlob(dataUrl) {
+  const [header, body] = dataUrl.split(",");
+  const mime = header.match(/data:([^;]+)/)?.[1] || "image/png";
+  const bin = atob(body);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+async function copyTextAndImage(text, imageDataUrl) {
+  if (imageDataUrl && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+    try {
+      const blob = dataUrlToBlob(imageDataUrl);
+      const item = new ClipboardItem({
+        "text/plain": new Blob([text], { type: "text/plain" }),
+        "image/png": blob,
+      });
+      await navigator.clipboard.write([item]);
+      return true;
+    } catch {}
+  }
+  await copyText(text);
+  return false;
 }
 
 async function refresh() {
@@ -812,15 +878,21 @@ async function captureScreenshot(rect) {
 
 function buildPrompt(description, anchor, rect, screenshotName) {
   const pos = rect ? `${Math.round(rect.left)}, ${Math.round(rect.top)} (${Math.round(rect.width)}×${Math.round(rect.height)})` : "";
+  const lines = description.split("\n").filter((l) => l.trim());
+  const problem = lines[0] || description;
+  const expected = lines.length > 1 ? lines.slice(1).join(" ") : "";
   return [
-    `- 问题：${description}`,
+    `- 问题：${problem}`,
+    expected ? `- 期望：${expected}` : "",
     "请定位并修复以下前端页面问题：",
     `- 页面：${document.title ? `${document.title} (${location.href})` : location.href}`,
     anchor.file ? `- 源码：${anchor.file}${anchor.line ? `:${anchor.line}` : ""}` : "",
     anchor.label || anchor.selector ? `- 元素：${anchor.label || anchor.selector}` : "",
     anchor.path ? `- 选择器：${anchor.path}` : "",
+    anchor.chain?.length ? `- 组件链：${anchor.chain.join(" > ")}` : "",
     pos ? `- 位置：${pos}` : "",
     anchor.text ? `- 文本：${anchor.text}` : "",
+    anchor.layout ? `- 布局：${anchor.layout}` : "",
     screenshotName ? `- 截图：${screenshotName}（红框为问题区域）` : "",
   ].filter(Boolean).join("\n");
 }
@@ -879,8 +951,14 @@ $("draft-submit").addEventListener("click", async () => {
       screenshotName = `pinfix-${Date.now()}.png`;
       downloadDataUrl(screenshotName, screenshot);
     }
-    await copyText(buildPrompt(description, anchor, rect, screenshotName));
-    announceDraft(screenshotName ? `已复制提示词，截图已保存到下载目录：${screenshotName}` : "已复制带页面与位置信息的提示词到剪贴板");
+    const copiedWithImage = await copyTextAndImage(buildPrompt(description, anchor, rect, screenshotName), screenshot);
+    announceDraft(
+      copiedWithImage
+        ? "已复制提示词与截图到剪贴板"
+        : screenshotName
+          ? `已复制提示词，截图已保存到下载目录：${screenshotName}`
+          : "已复制带页面与位置信息的提示词到剪贴板"
+    );
     setTimeout(hideDraft, 900);
   } catch (error) {
     announceDraft(error instanceof Error ? error.message : String(error));
