@@ -135,6 +135,7 @@ node scripts/build.js chromium
 - **快捷键**：显示当前快捷键；修改需在 `chrome://extensions/shortcuts` 中完成（浏览器限制，扩展无法自行修改）。
 - **SightLoop 接入**：直接填写服务地址与令牌并保存，无需跳转，保存后所有页面使用此连接。
 - **截图标注**：截图无需设置——弹窗里选「截图标注」即可。截图以问题元素为中心裁剪上下文（各方向外扩约 2 倍，夹在可视区内）并画上红框，图小、信号集中，便于智能体定位。
+- **关于**：版本信息、项目链接与作者（gujiangwen，francodeyvison183@gmail.com）。
 
 ### 给智能体的提示词长什么样
 
@@ -251,4 +252,4 @@ docs/             开发、集成与隐私文档
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 PinFix contributors。
+[MIT](LICENSE) © 2026 [gujiangwen](mailto:francodeyvison183@gmail.com)。
