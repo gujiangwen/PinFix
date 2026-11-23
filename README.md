@@ -91,6 +91,8 @@ node scripts/build.js chromium
 
 当前通过源码构建和开发者模式安装，尚未发布浏览器商店安装包。
 
+**更新提醒**：扩展每次打开弹窗时会检查 GitHub 最新 Release，发现新版本会在弹窗顶部显示橙色升级横幅，点击直达下载页。无需手动去仓库查看是否有更新。
+
 **Chrome / Edge / Brave / Opera**
 
 1. 打开 `chrome://extensions` 或对应的扩展管理页。

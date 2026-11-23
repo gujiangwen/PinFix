@@ -2,6 +2,43 @@ const annotate = document.querySelector("#annotate");
 const annotateLabel = document.querySelector("#annotate-label");
 const status = document.querySelector("#status");
 const settingsBtn = document.querySelector("#settings");
+const updateBtn = document.querySelector("#update");
+const updateVersion = document.querySelector("#update-version");
+
+const CURRENT_VERSION = chrome.runtime.getManifest().version;
+const RELEASE_API = "https://api.github.com/repos/gujiangwen/PinFix/releases/latest";
+
+function compareVersions(a, b) {
+  const pa = a.replace(/^v/, "").split(".").map(Number);
+  const pb = b.replace(/^v/, "").split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+async function checkUpdate() {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(RELEASE_API, { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } });
+    clearTimeout(timer);
+    if (!res.ok) return;
+    const data = await res.json();
+    const latest = String(data.tag_name || "").replace(/^v/, "");
+    if (latest && compareVersions(latest, CURRENT_VERSION) > 0) {
+      updateVersion.textContent = `v${latest}`;
+      updateBtn.dataset.url = data.html_url || "https://github.com/gujiangwen/PinFix/releases";
+      updateBtn.dataset.show = "true";
+    }
+  } catch {}
+}
+
+updateBtn.addEventListener("click", () => {
+  chrome.tabs.create({ url: updateBtn.dataset.url || "https://github.com/gujiangwen/PinFix/releases" });
+  window.close();
+});
 
 settingsBtn.addEventListener("click", () => {
   chrome.runtime.openOptionsPage();
@@ -78,6 +115,7 @@ async function initPopup() {
 }
 
 void initPopup();
+void checkUpdate();
 
 annotate.addEventListener("click", async (event) => {
   if (annotate.getAttribute("aria-disabled") === "true") {
