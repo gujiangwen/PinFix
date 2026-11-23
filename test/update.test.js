@@ -27,3 +27,11 @@ test("update banner hidden by default and links to release", () => {
   assert.match(popupJs, /updateBtn\.dataset\.url/);
   assert.match(popupJs, /chrome\.tabs\.create/);
 });
+
+test("popup surfaces shortcut conflict with fix entry", () => {
+  assert.match(popupHtml, /shortcut-hint/);
+  assert.match(popupHtml, /shortcut-fix/);
+  assert.match(popupJs, /chrome\.commands\.getAll/);
+  assert.match(popupJs, /shortcutDisplay\.textContent/);
+  assert.match(popupJs, /extensions\/shortcuts/);
+});

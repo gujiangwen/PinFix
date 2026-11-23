@@ -2,6 +2,8 @@ const annotate = document.querySelector("#annotate");
 const annotateLabel = document.querySelector("#annotate-label");
 const status = document.querySelector("#status");
 const settingsBtn = document.querySelector("#settings");
+const shortcutDisplay = document.querySelector("#shortcut-display");
+const shortcutFix = document.querySelector("#shortcut-fix");
 const updateBtn = document.querySelector("#update");
 const updateVersion = document.querySelector("#update-version");
 
@@ -47,6 +49,26 @@ updateBtn.addEventListener("click", () => {
 settingsBtn.addEventListener("click", () => {
   chrome.runtime.openOptionsPage();
   window.close();
+});
+
+async function showShortcut() {
+  try {
+    const commands = await chrome.commands.getAll();
+    const cmd = commands.find((c) => c.name === "toggle-annotation");
+    shortcutDisplay.textContent = cmd?.shortcut || "未设置";
+  } catch {
+    shortcutDisplay.textContent = "Alt+Shift+P";
+  }
+}
+void showShortcut();
+
+shortcutFix.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText("chrome://extensions/shortcuts");
+    shortcutFix.textContent = "已复制地址，粘贴到地址栏打开";
+  } catch {
+    shortcutFix.textContent = "请手动输入 chrome://extensions/shortcuts";
+  }
 });
 
 if (!("focusGroup" in HTMLElement.prototype)) {

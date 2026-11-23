@@ -128,6 +128,8 @@ node scripts/build.js chromium
 | 取消标注或关闭编辑框 | `Esc` |
 | 开始/取消标注 | `Alt+Shift+P` |
 
+**快捷键冲突**：浏览器不会提示快捷键被占用。若 `Alt+Shift+P` 无效，打开扩展弹窗底部会显示当前快捷键与「修改快捷键」入口（复制 `chrome://extensions/shortcuts` 到地址栏），或右键扩展图标 → 选项 → 查看快捷键。
+
 扩展设置页（右键扩展图标 → 选项）提供：
 
 - **快捷键**：显示当前快捷键；修改需在 `chrome://extensions/shortcuts` 中完成（浏览器限制，扩展无法自行修改）。
