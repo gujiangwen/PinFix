@@ -3,6 +3,7 @@ const annotateLabel = document.querySelector("#annotate-label");
 const annotateShot = document.querySelector("#annotate-shot");
 const annotateShotLabel = document.querySelector("#annotate-shot-label");
 const status = document.querySelector("#status");
+const statusText = document.querySelector("#status-text");
 const settingsBtn = document.querySelector("#settings");
 const shortcutDisplay = document.querySelector("#shortcut-display");
 const shortcutFix = document.querySelector("#shortcut-fix");
@@ -119,7 +120,7 @@ async function initPopup() {
   if (!tab?.id || !page.startsWith("http")) {
     annotate.setAttribute("aria-disabled", "true");
     annotateShot.setAttribute("aria-disabled", "true");
-    status.textContent = "请在目标网页中使用";
+    statusText.textContent = "请在目标网页中使用";
     return;
   }
   let state;
@@ -128,7 +129,7 @@ async function initPopup() {
     if (!state?.active) throw new Error("inactive");
   } catch {
     // 内容脚本未注入（多为安装/更新后未刷新页面）：自动刷新后用户重开弹窗即可标注
-    status.textContent = "正在刷新页面以启用标注…";
+    statusText.textContent = "正在刷新页面以启用标注…";
     await chrome.tabs.reload(tab.id);
     setTimeout(() => window.close(), 400);
     return;
@@ -143,7 +144,7 @@ async function initPopup() {
   const token = String(state.token || "");
   const connected = await checkConsole(origin, token);
   status.dataset.mode = connected ? "live" : "copy";
-  status.textContent = connected
+  statusText.textContent = connected
     ? `已接入 · ${loopHost(origin)}`
     : "提示词模式 · 标注后复制";
 }
