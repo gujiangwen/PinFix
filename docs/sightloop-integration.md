@@ -105,7 +105,7 @@ PinFix 优先使用这些标记定位源码，也会尝试读取 Vue 组件的 `
 }
 ```
 
-若用户在扩展设置中开启了「标注时自动截图」，`context` 会额外携带 `screenshot`（PNG data URL），内容为可视区截图并在问题区域画有红框。服务端可按需保存或忽略。
+若用户在扩展设置中开启了「标注时自动截图」，`context` 会额外携带 `screenshot`（PNG data URL）。截图以问题元素为中心裁剪上下文（各方向外扩约 2 倍，夹在可视区内），并在元素位置画有红框，而非整页截图。服务端可按需保存或忽略。
 
 创建接口应返回包含 `id` 的问题对象。列表项可包含 `id`、`title`、`description`、`status`、`anchor`、`source`、`error`、`plan`、`change`、`review`、`events` 和 `patch_applied`。PinFix 显示 `pending`、`analyzing`、`awaiting_plan_approval`、`ready_to_fix`、`fixing`、`reviewing`、`awaiting_confirm`、`needs_human` 和 `reverted` 状态。
 

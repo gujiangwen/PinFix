@@ -763,19 +763,39 @@ function drawScreenshot(dataUrl, rect) {
     const img = new Image();
     img.onload = () => {
       const scale = img.width / window.innerWidth || 1;
+      // 以问题区域为中心裁剪上下文，各方向外扩约 2 倍，夹在可视区内
+      const padX = Math.max(rect.width * 1.5, 80);
+      const padY = Math.max(rect.height * 1.5, 60);
+      const cropLeft = Math.max(0, rect.left - padX);
+      const cropTop = Math.max(0, rect.top - padY);
+      const cropRight = Math.min(window.innerWidth, rect.left + rect.width + padX);
+      const cropBottom = Math.min(window.innerHeight, rect.top + rect.height + padY);
+      const cropW = Math.max(1, cropRight - cropLeft);
+      const cropH = Math.max(1, cropBottom - cropTop);
       const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = Math.round(cropW * scale);
+      canvas.height = Math.round(cropH * scale);
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
-      ctx.lineWidth = 3 * scale;
+      ctx.drawImage(
+        img,
+        cropLeft * scale, cropTop * scale, cropW * scale, cropH * scale,
+        0, 0, canvas.width, canvas.height
+      );
+      ctx.lineWidth = Math.max(2, 2 * scale);
       ctx.strokeStyle = "#e5484d";
-      ctx.strokeRect(rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale);
+      ctx.strokeRect(
+        (rect.left - cropLeft) * scale,
+        (rect.top - cropTop) * scale,
+        rect.width * scale,
+        rect.height * scale
+      );
       ctx.fillStyle = "#e5484d";
-      ctx.font = `${13 * scale}px system-ui, sans-serif`;
+      const fontSize = Math.max(12, 12 * scale);
+      ctx.font = `${fontSize}px system-ui, sans-serif`;
       ctx.textBaseline = "bottom";
-      const labelY = Math.max(14 * scale, rect.top * scale - 6 * scale);
-      ctx.fillText("PinFix", rect.left * scale, labelY);
+      const labelX = (rect.left - cropLeft) * scale;
+      const labelY = Math.max(fontSize, (rect.top - cropTop) * scale - 4 * scale);
+      ctx.fillText("PinFix", labelX, labelY);
       resolve(canvas.toDataURL("image/png"));
     };
     img.onerror = () => resolve("");
