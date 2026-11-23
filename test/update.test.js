@@ -15,6 +15,12 @@ test("popup checks latest release and compares versions", () => {
   assert.match(popupJs, /AbortController/);
 });
 
+test("update check runs at most once per day", () => {
+  assert.match(popupJs, /updateCheckedAt/);
+  assert.match(popupJs, /chrome\.storage\.local\.get\("updateCheckedAt"\)/);
+  assert.match(popupJs, /chrome\.storage\.local\.set\(\{ updateCheckedAt/);
+});
+
 test("update banner hidden by default and links to release", () => {
   assert.match(popupHtml, /id="update"/);
   assert.match(popupHtml, /data-show="false"/);

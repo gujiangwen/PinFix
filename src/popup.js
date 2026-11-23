@@ -20,11 +20,15 @@ function compareVersions(a, b) {
 
 async function checkUpdate() {
   try {
+    const { updateCheckedAt = "" } = await chrome.storage.local.get("updateCheckedAt");
+    const today = new Date().toISOString().slice(0, 10);
+    if (updateCheckedAt === today) return;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(RELEASE_API, { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } });
     clearTimeout(timer);
     if (!res.ok) return;
+    await chrome.storage.local.set({ updateCheckedAt: today });
     const data = await res.json();
     const latest = String(data.tag_name || "").replace(/^v/, "");
     if (latest && compareVersions(latest, CURRENT_VERSION) > 0) {
