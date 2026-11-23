@@ -234,14 +234,41 @@ function projectPrefix() {
   return "";
 }
 
-function normalizeVueFile(file) {
+function normalizeFile(file) {
   const norm = String(file || "").replace(/\\/g, "/");
-  const known = norm.match(/(?:^|\/)((?:frontend|mobile)\/.*\.(?:vue|tsx|jsx))$/);
+  const known = norm.match(/(?:^|\/)((?:frontend|mobile)\/.*\.(?:vue|tsx|jsx|ts|js))$/);
   if (known) return known[1];
-  const src = norm.match(/\/src\/.+\.(?:vue|tsx|jsx)$/);
-  if (!src) return norm;
+  const src = norm.match(/\/(?:src|pages|app|components)\/.+\.(?:vue|tsx|jsx|ts|js)$/);
+  if (!src) return norm.split("/").slice(-2).join("/");
   const prefix = projectPrefix();
   return prefix ? `${prefix}${src[0]}` : src[0].slice(1);
+}
+
+function normalizeVueFile(file) {
+  return normalizeFile(file);
+}
+
+function reactFiberKey(element) {
+  if (!element) return "";
+  return Object.keys(element).find((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$")) || "";
+}
+
+function reactSource(element) {
+  const key = reactFiberKey(element);
+  if (!key) return null;
+  let fiber = element[key];
+  while (fiber) {
+    const src = fiber._debugSource || fiber._debugInfo?.source || null;
+    if (src?.fileName) {
+      return {
+        file: normalizeFile(src.fileName),
+        line: Number(src.lineNumber || 0),
+        name: fiber.type?.displayName || fiber.type?.name || "",
+      };
+    }
+    fiber = fiber.return;
+  }
+  return null;
 }
 
 function componentFile(element) {
@@ -249,9 +276,22 @@ function componentFile(element) {
   while (node && node.nodeType === 1) {
     const file = node.__vueParentComponent?.type?.__file;
     if (typeof file === "string" && file) return normalizeVueFile(file);
+    const react = reactSource(node);
+    if (react) return react.file;
     node = node.parentElement;
   }
   return "";
+}
+
+function componentLine(element) {
+  let node = element;
+  while (node && node.nodeType === 1) {
+    if (node.__vueParentComponent?.type?.__file) return 0;
+    const react = reactSource(node);
+    if (react) return react.line;
+    node = node.parentElement;
+  }
+  return 0;
 }
 
 function componentChain(element) {
@@ -260,8 +300,13 @@ function componentChain(element) {
   let node = element;
   while (node && node.nodeType === 1 && chain.length < 4) {
     const file = node.__vueParentComponent?.type?.__file;
-    if (typeof file === "string" && file) {
-      const name = normalizeVueFile(file).split("/").pop() || file;
+    let name = "";
+    if (typeof file === "string" && file) name = normalizeVueFile(file).split("/").pop() || file;
+    if (!name) {
+      const react = reactSource(node);
+      if (react) name = react.name || react.file.split("/").pop();
+    }
+    if (name) {
       if (!seen.has(name)) {
         seen.add(name);
         chain.unshift(name);
@@ -297,10 +342,11 @@ function anchorFrom(element, rect, kind, text) {
   const width = bounds.width || 1;
   const height = bounds.height || 1;
   const chain = element ? componentChain(element) : [];
+  const markedLine = Number(element?.getAttribute?.("data-sl-line") || 0);
   return {
     kind,
     file: element?.getAttribute?.("data-sl-file") || componentFile(element) || "",
-    line: Number(element?.getAttribute?.("data-sl-line") || 0),
+    line: markedLine || (element ? componentLine(element) : 0),
     label: element ? nodeName(element) : "",
     path: element ? pathWithin(document.body, element) : "",
     selector: element?.tagName?.toLowerCase() || "",
