@@ -140,10 +140,17 @@ shadow.innerHTML = `
   .crumbs button {
     border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-weight: 400;
     padding: 3px 7px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    cursor: pointer;
   }
-  .crumbs button:hover { color: var(--ink); filter: none; }
+  .crumbs button:hover { color: var(--ink); background: var(--select); filter: none; text-decoration: underline; }
   .crumbs button.has-source { color: var(--ink); }
   .crumbs button.current { background: var(--accent); color: var(--accent-ink); font-weight: 500; }
+  .pick-hint {
+    position: fixed; z-index: 2147483004; left: 50%; bottom: 52px; transform: translateX(-50%);
+    background: var(--bg); color: var(--muted); border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 12px; font: 11px/1.5 system-ui, sans-serif; box-shadow: var(--shadow); user-select: none;
+  }
+  .pick-hint[hidden] { display: none; }
 </style>
 <div class="layer" id="layer">
   <div class="hover" id="hover" hidden></div>
@@ -174,6 +181,7 @@ shadow.innerHTML = `
 <div class="box content" id="box-content" hidden></div>
 <div class="tip" id="tip" hidden></div>
 <nav class="crumbs" id="crumbs" hidden aria-label="元素层次"></nav>
+<div class="pick-hint" id="pick-hint" hidden>↑↓ 调整层级 · Enter 确认 · Esc 取消 · 点击层次链可选父级</div>
 `;
 
 const $ = (id) => shadow.getElementById(id);
@@ -197,6 +205,7 @@ function setPicking(on) {
   state.picking = on;
   document.documentElement.dataset.sightloopPicking = on ? "1" : "0";
   document.documentElement.classList.toggle("sightloop-picking", on);
+  $("pick-hint").hidden = !on;
   if (!on) clearHover();
 }
 document.documentElement.addEventListener("sightloop-command", () => {

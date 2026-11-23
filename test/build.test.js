@@ -71,3 +71,11 @@ test("popup does not depend on removed generated defaults", async () => {
   assert.match(html, /id="settings"/);
   assert.match(popupJs, /openOptionsPage/);
 });
+
+test("picking shows clickable crumbs hint and crumbs are interactive", async () => {
+  const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
+  assert.match(widget, /pick-hint/);
+  assert.match(widget, /调整层级 · Enter 确认/);
+  assert.match(widget, /crumbs button:hover.*cursor: pointer|cursor: pointer/s);
+  assert.match(widget, /button\.addEventListener\("click"[\s\S]*?selectElement\(node\)/);
+});
