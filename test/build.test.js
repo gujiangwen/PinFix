@@ -62,7 +62,10 @@ test("screenshot flow wires settings bridge and prompt", async () => {
 
 test("popup does not depend on removed generated defaults", async () => {
   const html = await readFile(path.join(root, "dist/chromium/popup.html"), "utf8");
+  const popupJs = await readFile(path.join(root, "dist/chromium/popup.js"), "utf8");
   assert.match(html, /<title>PinFix 页面标注<\/title>/);
   assert.doesNotMatch(html, /defaults\.js|SIGHTLOOP_DEFAULTS/);
   assert.equal(JSON.parse(source).name, "PinFix 页面标注");
+  assert.match(html, /id="settings"/);
+  assert.match(popupJs, /openOptionsPage/);
 });

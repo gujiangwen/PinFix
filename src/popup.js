@@ -1,6 +1,12 @@
 const annotate = document.querySelector("#annotate");
 const annotateLabel = document.querySelector("#annotate-label");
 const status = document.querySelector("#status");
+const settingsBtn = document.querySelector("#settings");
+
+settingsBtn.addEventListener("click", () => {
+  chrome.runtime.openOptionsPage();
+  window.close();
+});
 
 if (!("focusGroup" in HTMLElement.prototype)) {
   document.querySelectorAll('[focusgroup~="menu"]').forEach((group) => {
