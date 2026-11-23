@@ -77,6 +77,13 @@ test("popup does not depend on removed generated defaults", async () => {
   assert.match(popupJs, /openOptionsPage/);
 });
 
+test("popup auto reloads page when content script is missing", async () => {
+  const popupJs = await readFile(path.join(root, "src/popup.js"), "utf8");
+  assert.match(popupJs, /tabs\.reload\(tab\.id\)/);
+  assert.match(popupJs, /正在刷新页面以启用标注/);
+  assert.doesNotMatch(popupJs, /请刷新目标页面后标注/);
+});
+
 test("picking shows clickable crumbs hint and crumbs are interactive", async () => {
   const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
   assert.match(widget, /pick-hint/);

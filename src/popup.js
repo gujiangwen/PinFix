@@ -127,9 +127,10 @@ async function initPopup() {
     state = await chrome.tabs.sendMessage(tab.id, { type: "annotate-state" });
     if (!state?.active) throw new Error("inactive");
   } catch {
-    annotate.setAttribute("aria-disabled", "true");
-    annotateShot.setAttribute("aria-disabled", "true");
-    status.textContent = "请刷新目标页面后标注";
+    // 内容脚本未注入（多为安装/更新后未刷新页面）：自动刷新后用户重开弹窗即可标注
+    status.textContent = "正在刷新页面以启用标注…";
+    await chrome.tabs.reload(tab.id);
+    setTimeout(() => window.close(), 400);
     return;
   }
   annotate.removeAttribute("aria-disabled");
