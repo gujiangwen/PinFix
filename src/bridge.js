@@ -89,6 +89,27 @@ if (document.readyState === "loading") {
 } else {
   void applyConfig();
 }
+
+// 弹窗触发刷新后直接进入标注态，省掉用户再点一次图标
+async function pickAfterLoad() {
+  let hit = "";
+  try {
+    const data = await chrome.storage.session.get();
+    hit = Object.keys(data).find((k) => k.startsWith("pickAfterLoad:")) || "";
+    if (!hit) return;
+    await chrome.storage.session.remove(hit);
+  } catch {
+    return;
+  }
+  document.documentElement.dataset.sightloopCommand = "toggle-pick";
+  document.documentElement.dataset.pinfixShot = "0";
+  document.documentElement.dispatchEvent(new Event("sightloop-command"));
+}
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => void pickAfterLoad(), { once: true });
+} else {
+  void pickAfterLoad();
+}
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => { void settleConsole(); }, { once: true });
   } else {

@@ -27,7 +27,7 @@ const browsers = process.argv.slice(2).length ? process.argv.slice(2) : BROWSERS
 const sourceDir = path.join(root, "src");
 const sourceManifest = await readFile(path.join(sourceDir, "manifest.json"), "utf8");
 // prompt-core.js 是 buildPrompt 的单一事实来源，仅供 node:test 引用；widget.js 内联同一份实现，避免 content script module 化带来的启动时序问题
-const names = ["bridge.js", "widget.js", "popup.html", "popup.js", "options.html", "options.js", "icon-192.png"];
+const names = ["bridge.js", "widget.js", "popup.html", "popup.js", "options.html", "options.js", "welcome.html", "icon-192.png"];
 const workerNames = ["background.js"];
 
 for (const browser of browsers) {

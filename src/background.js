@@ -5,6 +5,12 @@ chrome.commands.onCommand.addListener(async (command) => {
   await chrome.tabs.sendMessage(tab.id, { type: "annotate" });
 });
 
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install" || details.reason === "update") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
+  }
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type !== "capture-screenshot") return;
   chrome.tabs.captureVisibleTab(sender.tab?.windowId, { format: "png" })

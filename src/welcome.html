@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>欢迎使用 PinFix</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #ffffff;
+      --ink: #1c2430;
+      --muted: #5c6b7a;
+      --line: #e2e7ee;
+      --accent: #1f6f5b;
+      --accent-ink: #ffffff;
+      @media (prefers-color-scheme: dark) {
+        --bg: #171d27;
+        --ink: #e7eef8;
+        --muted: #9aabbf;
+        --line: #2c3a4c;
+        --accent: #3dbea2;
+        --accent-ink: #06241c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.6 system-ui, -apple-system, sans-serif; color: var(--ink); background: var(--bg); }
+    main { max-width: 460px; margin: 0 auto; padding: 56px 24px; }
+    h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 28px; font-size: 13px; }
+    ol { margin: 0 0 28px; padding: 0; list-style: none; counter-reset: step; }
+    li { counter-increment: step; display: flex; gap: 12px; margin-bottom: 16px; }
+    li::before {
+      content: counter(step); flex: none; width: 22px; height: 22px; border-radius: 99px;
+      background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; margin-top: 1px;
+    }
+    li strong { display: block; font-weight: 600; }
+    li p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+    kbd {
+      padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px;
+      background: var(--bg); font: 11px/1.4 ui-monospace, monospace;
+    }
+    button {
+      padding: 8px 20px; border: 1px solid var(--accent); border-radius: 8px;
+      background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 500; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.06); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>欢迎使用 PinFix</h1>
+    <p class="sub">把页面问题定位成智能体能直接修复的指令</p>
+    <ol>
+      <li>
+        <div>
+          <strong>固定到工具栏</strong>
+          <p>点浏览器右上角的拼图图标，把 PinFix 📌 固定住，随时可用。</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>在目标页面点图标开始标注</strong>
+          <p>选「简单标注」生成定位提示词，或「截图标注」额外附一张带红框的截图；快捷键 <kbd>Alt+Shift+P</kbd> 也能直接开始。</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>粘贴给智能体</strong>
+          <p>提示词（与截图）已在剪贴板，粘贴给 Claude / Cursor / Codex 即可一步定位修复。</p>
+        </div>
+      </li>
+    </ol>
+    <button type="button" id="go">知道了，去体验</button>
+  </main>
+  <script>
+    document.querySelector("#go").addEventListener("click", () => window.close());
+  </script>
+</body>
+</html>

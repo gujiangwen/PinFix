@@ -128,8 +128,9 @@ async function initPopup() {
     state = await chrome.tabs.sendMessage(tab.id, { type: "annotate-state" });
     if (!state?.active) throw new Error("inactive");
   } catch {
-    // 内容脚本未注入（多为安装/更新后未刷新页面）：自动刷新后用户重开弹窗即可标注
-    statusText.textContent = "正在刷新页面以启用标注…";
+    // 内容脚本未注入（多为安装/更新后未刷新页面）：刷新后自动注入并直接进入标注态
+    statusText.textContent = "正在刷新页面，稍后自动开始标注…";
+    await chrome.storage.session.set({ [`pickAfterLoad:${tab.id}`]: true });
     await chrome.tabs.reload(tab.id);
     setTimeout(() => window.close(), 400);
     return;

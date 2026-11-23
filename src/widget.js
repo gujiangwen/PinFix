@@ -991,10 +991,10 @@ $("draft-submit").addEventListener("click", async () => {
     const copiedWithImage = await copyTextAndImage(buildPrompt({ description, anchor, rect, href: location.href, title: document.title }), screenshot);
     announceDraft(
       wantShot && !screenshot
-        ? "截图不可用，已仅复制文字提示词"
+        ? "截图不可用，已仅复制文字提示词，粘贴给智能体即可"
         : copiedWithImage
-          ? "已复制提示词与截图，可继续标注下一个"
-          : "已复制提示词，可继续标注下一个"
+          ? "已复制提示词与截图，粘贴给智能体即可"
+          : "已复制提示词，粘贴给智能体即可"
     );
     setTimeout(hideDraftAndResume, 900);
   } catch (error) {

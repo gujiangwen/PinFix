@@ -80,7 +80,8 @@ test("popup does not depend on removed generated defaults", async () => {
 test("popup auto reloads page when content script is missing", async () => {
   const popupJs = await readFile(path.join(root, "src/popup.js"), "utf8");
   assert.match(popupJs, /tabs\.reload\(tab\.id\)/);
-  assert.match(popupJs, /正在刷新页面以启用标注/);
+  assert.match(popupJs, /正在刷新页面，稍后自动开始标注/);
+  assert.match(popupJs, /pickAfterLoad:/);
   assert.doesNotMatch(popupJs, /请刷新目标页面后标注/);
 });
 
@@ -104,8 +105,27 @@ test("picking shows clickable crumbs hint and crumbs are interactive", async () 
 test("draft submission resumes picking and reports screenshot fallback", async () => {
   const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
   assert.match(widget, /function hideDraftAndResume\(\)[\s\S]*?setPicking\(true\)/);
-  assert.match(widget, /截图不可用，已仅复制文字提示词/);
-  assert.match(widget, /可继续标注下一个/);
+  assert.match(widget, /截图不可用，已仅复制文字提示词，粘贴给智能体即可/);
+  assert.match(widget, /已复制提示词与截图，粘贴给智能体即可/);
   assert.match(widget, /截图并复制/);
   assert.match(widget, /请先描述问题/);
+});
+
+test("welcome page is bundled and opened on install", async () => {
+  const background = await readFile(path.join(root, "src/background.js"), "utf8");
+  const output = path.join(root, "dist/chromium/welcome.html");
+  assert.match(background, /onInstalled/);
+  assert.match(background, /welcome\.html/);
+  assert.ok((await stat(output)).isFile());
+  const welcome = await readFile(output, "utf8");
+  assert.match(welcome, /固定到工具栏/);
+  assert.match(welcome, /Alt\+Shift\+P/);
+});
+
+test("bridge resumes picking after popup-triggered reload", async () => {
+  const bridge = await readFile(path.join(root, "src/bridge.js"), "utf8");
+  assert.match(bridge, /pickAfterLoad/);
+  assert.match(bridge, /storage\.session/);
+  const manifest = JSON.parse(await readFile(path.join(root, "dist/chromium/manifest.json"), "utf8"));
+  assert.ok(manifest.permissions.includes("scripting"));
 });
