@@ -1,3 +1,5 @@
+import { buildPrompt } from "./prompt-core.js";
+
 function bootSightloop(cfg) {
 let origin = String(cfg.origin || "").replace(/\/$/, "");
 let token = String(cfg.token || "");
@@ -876,26 +878,6 @@ async function captureScreenshot(rect) {
   return drawScreenshot(raw, rect);
 }
 
-function buildPrompt(description, anchor, rect, screenshotName) {
-  const pos = rect ? `${Math.round(rect.left)}, ${Math.round(rect.top)} (${Math.round(rect.width)}×${Math.round(rect.height)})` : "";
-  const lines = description.split("\n").filter((l) => l.trim());
-  const problem = lines[0] || description;
-  const expected = lines.length > 1 ? lines.slice(1).join(" ") : "";
-  return [
-    `- 问题：${problem}`,
-    expected ? `- 期望：${expected}` : "",
-    "请定位并修复以下前端页面问题：",
-    `- 页面：${document.title ? `${document.title} (${location.href})` : location.href}`,
-    anchor.file ? `- 源码：${anchor.file}${anchor.line ? `:${anchor.line}` : ""}` : "",
-    anchor.label || anchor.selector ? `- 元素：${anchor.label || anchor.selector}` : "",
-    anchor.path ? `- 选择器：${anchor.path}` : "",
-    anchor.chain?.length ? `- 组件链：${anchor.chain.join(" > ")}` : "",
-    pos ? `- 位置：${pos}` : "",
-    anchor.text ? `- 文本：${anchor.text}` : "",
-    anchor.layout ? `- 布局：${anchor.layout}` : "",
-    screenshotName ? `- 截图：${screenshotName}（红框为问题区域）` : "",
-  ].filter(Boolean).join("\n");
-}
 function announceDraft(msg) {
   let text = msg;
   if (text === lastNotice) text += "\u00A0";
@@ -951,7 +933,7 @@ $("draft-submit").addEventListener("click", async () => {
       screenshotName = `pinfix-${Date.now()}.png`;
       downloadDataUrl(screenshotName, screenshot);
     }
-    const copiedWithImage = await copyTextAndImage(buildPrompt(description, anchor, rect, screenshotName), screenshot);
+    const copiedWithImage = await copyTextAndImage(buildPrompt({ description, anchor, rect, href: location.href, title: document.title, screenshotName }), screenshot);
     announceDraft(
       copiedWithImage
         ? "已复制提示词与截图到剪贴板"

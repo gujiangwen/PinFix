@@ -15,9 +15,10 @@ test("build emits self-contained packages for all browsers", async () => {
     const scripts = manifest.content_scripts.flatMap((entry) => entry.js);
     assert.deepEqual(scripts, ["bridge.js", "widget.js"]);
     assert.equal(manifest.content_scripts[1].world, "MAIN");
+    assert.equal(manifest.content_scripts[1].type, "module");
     assert.ok(manifest.background, `${browser} has background`);
     const bgFiles = browser === "firefox" ? manifest.background.scripts : [manifest.background.service_worker];
-    for (const file of [...new Set(scripts), ...bgFiles, "popup.html", "popup.js", "options.html", "options.js", "icon-192.png"]) {
+    for (const file of [...new Set(scripts), ...bgFiles, "prompt-core.js", "popup.html", "popup.js", "options.html", "options.js", "icon-192.png"]) {
       assert.ok((await stat(path.join(output, file))).isFile(), `${browser}/${file}`);
     }
     assert.equal(manifest.commands?.["toggle-annotation"]?.suggested_key?.default, "Alt+Shift+P");
