@@ -811,12 +811,18 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: mime });
 }
 
+function escapeHtml(text) {
+  return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 async function copyTextAndImage(text, imageDataUrl) {
   if (imageDataUrl && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
     try {
       const blob = dataUrlToBlob(imageDataUrl);
+      const html = `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p><p><img src="${imageDataUrl}" alt="PinFix 截图"></p>`;
       const item = new ClipboardItem({
         "text/plain": new Blob([text], { type: "text/plain" }),
+        "text/html": new Blob([html], { type: "text/html" }),
         "image/png": blob,
       });
       await navigator.clipboard.write([item]);
