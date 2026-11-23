@@ -84,3 +84,12 @@ test("picking shows clickable crumbs hint and crumbs are interactive", async () 
   assert.match(widget, /crumbs button:hover.*cursor: pointer|cursor: pointer/s);
   assert.match(widget, /button\.addEventListener\("click"[\s\S]*?selectElement\(node\)/);
 });
+
+test("draft submission resumes picking and reports screenshot fallback", async () => {
+  const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
+  assert.match(widget, /function hideDraftAndResume\(\)[\s\S]*?setPicking\(true\)/);
+  assert.match(widget, /截图不可用，已仅复制文字提示词/);
+  assert.match(widget, /可继续标注下一个/);
+  assert.match(widget, /截图并复制/);
+  assert.match(widget, /请先描述问题/);
+});

@@ -181,7 +181,7 @@ shadow.innerHTML = `
 <div class="box content" id="box-content" hidden></div>
 <div class="tip" id="tip" hidden></div>
 <nav class="crumbs" id="crumbs" hidden aria-label="元素层次"></nav>
-<div class="pick-hint" id="pick-hint" hidden>↑↓ 调整层级 · Enter 确认 · Esc 取消 · 点击层次链可选父级</div>
+<div class="pick-hint" id="pick-hint" hidden>↑↓ 调整层级 · Enter 确认 · 可连续标注 · Esc 退出</div>
 `;
 
 const $ = (id) => shadow.getElementById(id);
@@ -769,7 +769,9 @@ function showDraft(anchor, rect) {
     anchor.file ? `${anchor.file}${anchor.line ? `:${anchor.line}` : ""}` : anchor.path,
   ].filter(Boolean).join(" · ");
   const connected = pageConnected();
-  $("draft-submit").textContent = connected ? "提交" : "复制提示词";
+  $("draft-submit").textContent = state.wantShot
+    ? (connected ? "截图并提交" : "截图并复制")
+    : (connected ? "提交" : "复制提示词");
   $("draft-text").placeholder = connected
     ? "问题描述（Enter 提交，Shift+Enter 换行）\n可选：第二行写期望，如「点击无响应，期望：弹出弹窗」"
     : "问题描述（Enter 复制提示词，Shift+Enter 换行）\n可选：第二行写期望，如「点击无响应，期望：弹出弹窗」";
@@ -790,6 +792,13 @@ function hideDraft() {
   state.draftRect = null;
   $("draft").hidden = true;
   renderMarks();
+}
+
+function hideDraftAndResume() {
+  const wantShot = state.wantShot;
+  hideDraft();
+  state.wantShot = wantShot;
+  setPicking(true);
 }
 
 function pageConnected() {
@@ -950,11 +959,16 @@ $("note").addEventListener("keydown", (event) => {
 $("draft-cancel").addEventListener("click", hideDraft);
 $("draft-submit").addEventListener("click", async () => {
   const description = $("draft-text").value.trim();
-  if (!description || !state.draft) return;
+  if (!state.draft) return;
+  if (!description) {
+    announceDraft("请先描述问题");
+    $("draft-text").focus();
+    return;
+  }
   const anchor = state.draft;
   const rect = state.draftRect;
-  const screenshot = state.wantShot ? await captureScreenshot(rect) : "";
-  state.wantShot = false;
+  const wantShot = state.wantShot;
+  const screenshot = wantShot ? await captureScreenshot(rect) : "";
   if (pageConnected()) {
     try {
       const issue = await api("/api/issues", {
@@ -965,7 +979,7 @@ $("draft-submit").addEventListener("click", async () => {
           context: { url: location.href, diagnostics: diagnostics.slice(-10), ...(screenshot ? { screenshot } : {}) },
         }),
       });
-      hideDraft();
+      hideDraftAndResume();
       await refresh();
       openCard(issue.id);
       return;
@@ -976,11 +990,13 @@ $("draft-submit").addEventListener("click", async () => {
   try {
     const copiedWithImage = await copyTextAndImage(buildPrompt({ description, anchor, rect, href: location.href, title: document.title }), screenshot);
     announceDraft(
-      copiedWithImage
-        ? "已复制提示词与截图到剪贴板"
-        : "已复制带页面与位置信息的提示词到剪贴板"
+      wantShot && !screenshot
+        ? "截图不可用，已仅复制文字提示词"
+        : copiedWithImage
+          ? "已复制提示词与截图，可继续标注下一个"
+          : "已复制提示词，可继续标注下一个"
     );
-    setTimeout(hideDraft, 900);
+    setTimeout(hideDraftAndResume, 900);
   } catch (error) {
     announceDraft(error instanceof Error ? error.message : String(error));
   }
