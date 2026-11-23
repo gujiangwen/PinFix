@@ -5,6 +5,7 @@ const shortcutEl = document.querySelector("#shortcut");
 const copyShortcutBtn = document.querySelector("#copy-shortcut-url");
 const saveBtn = document.querySelector("#save");
 const clearBtn = document.querySelector("#clear");
+const screenshotBox = document.querySelector("#screenshot-enabled");
 
 async function loadShortcut() {
   try {
@@ -33,8 +34,20 @@ async function load() {
       originInput.value = first.origin || "";
       tokenInput.value = first.token || "";
     }
+    const { settings = {} } = await chrome.storage.local.get("settings");
+    screenshotBox.checked = Boolean(settings.screenshot);
   } catch {}
 }
+
+screenshotBox.addEventListener("change", async () => {
+  try {
+    const { settings = {} } = await chrome.storage.local.get("settings");
+    await chrome.storage.local.set({ settings: { ...settings, screenshot: screenshotBox.checked } });
+    showStatus(screenshotBox.checked ? "已开启自动截图" : "已关闭自动截图");
+  } catch (e) {
+    showStatus("保存失败：" + (e?.message || e), true);
+  }
+});
 
 function showStatus(text, isError = false) {
   status.textContent = text;

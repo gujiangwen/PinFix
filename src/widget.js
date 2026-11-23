@@ -698,20 +698,6 @@ function pageConnected() {
   return Boolean(origin && token);
 }
 
-function buildPrompt(description, anchor, rect) {
-  const pos = rect ? `${Math.round(rect.left)}, ${Math.round(rect.top)} (${Math.round(rect.width)}×${Math.round(rect.height)})` : "";
-  return [
-    `- 问题：${description}`,
-    "请定位并修复以下前端页面问题：",
-    `- 页面：${document.title ? `${document.title} (${location.href})` : location.href}`,
-    anchor.file ? `- 源码：${anchor.file}${anchor.line ? `:${anchor.line}` : ""}` : "",
-    anchor.label || anchor.selector ? `- 元素：${anchor.label || anchor.selector}` : "",
-    anchor.path ? `- 选择器：${anchor.path}` : "",
-    pos ? `- 位置：${pos}` : "",
-    anchor.text ? `- 文本：${anchor.text}` : "",
-  ].filter(Boolean).join("\n");
-}
-
 function legacyCopy(text) {
   const field = Object.assign(document.createElement("textarea"), { value: text });
   field.setAttribute("readonly", "");
@@ -737,6 +723,87 @@ async function refresh() {
 }
 
 let lastNotice = "";
+let screenshotSetting = false;
+
+function readPinfixSettings() {
+  try {
+    const raw = document.documentElement?.dataset?.pinfixSettings;
+    screenshotSetting = raw ? Boolean(JSON.parse(raw)?.screenshot) : false;
+  } catch {
+    screenshotSetting = false;
+  }
+}
+readPinfixSettings();
+new MutationObserver(() => readPinfixSettings()).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["data-pinfix-settings"],
+});
+
+function requestScreenshot() {
+  return new Promise((resolve) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const root = document.documentElement;
+    const onDone = () => {
+      root.removeEventListener("pinfix-capture-done", onDone);
+      if (root.dataset.pinfixCaptureId !== id) return;
+      resolve(root.dataset.pinfixCapture || "");
+      delete root.dataset.pinfixCapture;
+      delete root.dataset.pinfixCaptureId;
+      delete root.dataset.pinfixCaptureRequest;
+    };
+    root.addEventListener("pinfix-capture-done", onDone);
+    root.dataset.pinfixCaptureRequest = id;
+    root.dispatchEvent(new Event("pinfix-capture-request"));
+    setTimeout(onDone, 4000);
+  });
+}
+
+function drawScreenshot(dataUrl, rect) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = img.width / window.innerWidth || 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      ctx.lineWidth = 3 * scale;
+      ctx.strokeStyle = "#e5484d";
+      ctx.strokeRect(rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale);
+      ctx.fillStyle = "#e5484d";
+      ctx.font = `${13 * scale}px system-ui, sans-serif`;
+      ctx.textBaseline = "bottom";
+      const labelY = Math.max(14 * scale, rect.top * scale - 6 * scale);
+      ctx.fillText("PinFix", rect.left * scale, labelY);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => resolve("");
+    img.src = dataUrl;
+  });
+}
+
+async function captureScreenshot(rect) {
+  if (!screenshotSetting) return "";
+  const raw = await requestScreenshot();
+  if (!raw) return "";
+  return drawScreenshot(raw, rect);
+}
+
+function buildPrompt(description, anchor, rect, screenshotName) {
+  const pos = rect ? `${Math.round(rect.left)}, ${Math.round(rect.top)} (${Math.round(rect.width)}×${Math.round(rect.height)})` : "";
+  return [
+    `- 问题：${description}`,
+    "请定位并修复以下前端页面问题：",
+    `- 页面：${document.title ? `${document.title} (${location.href})` : location.href}`,
+    anchor.file ? `- 源码：${anchor.file}${anchor.line ? `:${anchor.line}` : ""}` : "",
+    anchor.label || anchor.selector ? `- 元素：${anchor.label || anchor.selector}` : "",
+    anchor.path ? `- 选择器：${anchor.path}` : "",
+    pos ? `- 位置：${pos}` : "",
+    anchor.text ? `- 文本：${anchor.text}` : "",
+    screenshotName ? `- 截图：${screenshotName}（红框为问题区域）` : "",
+  ].filter(Boolean).join("\n");
+}
 function announceDraft(msg) {
   let text = msg;
   if (text === lastNotice) text += "\u00A0";
@@ -767,6 +834,7 @@ $("draft-submit").addEventListener("click", async () => {
   if (!description || !state.draft) return;
   const anchor = state.draft;
   const rect = state.draftRect;
+  const screenshot = await captureScreenshot(rect);
   if (pageConnected()) {
     try {
       const issue = await api("/api/issues", {
@@ -774,7 +842,7 @@ $("draft-submit").addEventListener("click", async () => {
         body: JSON.stringify({
           description,
           anchor,
-          context: { url: location.href, diagnostics: diagnostics.slice(-10) },
+          context: { url: location.href, diagnostics: diagnostics.slice(-10), ...(screenshot ? { screenshot } : {}) },
         }),
       });
       hideDraft();
@@ -786,13 +854,25 @@ $("draft-submit").addEventListener("click", async () => {
     }
   }
   try {
-    await copyText(buildPrompt(description, anchor, rect));
-    announceDraft("已复制带页面与位置信息的提示词到剪贴板");
+    let screenshotName = "";
+    if (screenshot) {
+      screenshotName = `pinfix-${Date.now()}.png`;
+      downloadDataUrl(screenshotName, screenshot);
+    }
+    await copyText(buildPrompt(description, anchor, rect, screenshotName));
+    announceDraft(screenshotName ? `已复制提示词，截图已保存到下载目录：${screenshotName}` : "已复制带页面与位置信息的提示词到剪贴板");
     setTimeout(hideDraft, 900);
   } catch (error) {
     announceDraft(error instanceof Error ? error.message : String(error));
   }
 });
+
+function downloadDataUrl(name, dataUrl) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = name;
+  link.click();
+}
 
 document.addEventListener("pointermove", (event) => {
   if (!state.picking || state.gesture) return;

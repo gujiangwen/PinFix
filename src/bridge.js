@@ -30,6 +30,24 @@ async function rememberLoop(entry) {
   } catch {}
 }
 
+async function applySettings() {
+  try {
+    const { settings = {} } = await chrome.storage.local.get("settings");
+    document.documentElement.dataset.pinfixSettings = JSON.stringify({ screenshot: Boolean(settings.screenshot) });
+  } catch {}
+}
+void applySettings();
+
+document.documentElement.addEventListener("pinfix-capture-request", () => {
+  const id = document.documentElement.dataset.pinfixCaptureRequest || "";
+  chrome.runtime.sendMessage({ type: "capture-screenshot" }, (resp) => {
+    const root = document.documentElement;
+    root.dataset.pinfixCapture = !chrome.runtime.lastError && resp?.dataUrl ? resp.dataUrl : "";
+    root.dataset.pinfixCaptureId = id;
+    root.dispatchEvent(new Event("pinfix-capture-done"));
+  });
+});
+
 document.documentElement.addEventListener("sightloop-console", () => {
   const info = parseJson(document.documentElement.dataset.sightloopConsole);
   if (info?.origin && info?.token) void rememberLoop(info);
@@ -86,8 +104,9 @@ if (document.readyState === "loading") {
   }
 
 chrome.storage?.onChanged?.addListener((changes, area) => {
-  if (area !== "local" || !changes.loops) return;
-  void applyConfig();
+  if (area !== "local") return;
+  if (changes.loops) void applyConfig();
+  if (changes.settings) void applySettings();
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
