@@ -39,6 +39,31 @@
 - 生产构建源码标记插件 `plugins/vite-source-mark.mjs`：构建期注入 `data-sl-file`/`data-sl-line`
 - 更新提醒：弹窗启动时检查 GitHub 最新 Release，有新版时显示升级横幅并直达下载页
 
+## [0.5.0] - 2026-11-23
+
+### 新增
+
+- 全局快捷键 `Alt+Shift+P`：开始/取消标注
+- 设置页：SightLoop 接入配置、自动截图开关、快捷键显示
+- 可选的标注时自动截图：以问题元素为中心裁剪上下文并画红框
+- Vue + React 源码定位：组件链与行号，Vue 经 `__vueParentComponent`，React 经 fiber `_debugSource`
+- 生产构建源码标记插件 `plugins/vite-source-mark.mjs`
+- 更新提醒：每天首次打开弹窗时检查 GitHub 最新 Release，有新版显示升级横幅
+- 弹窗右上角设置入口按钮
+- 快速上手指南
+
+### 调整
+
+- 提示词精简：空字段省略；有源码坐标或组件链时不再输出冗长选择器；新增可选「期望」行、组件链与布局快照
+- 截图与提示词可一起复制进剪贴板（支持富文本的输入框直接收到图文）
+- 扩展工具栏图标更新为「开始标注」同款选择框+光标
+
+### 修复
+
+- 回退 content script module 化，修复「开始标注」后无法选中页面的回归
+
+[0.5.0]: https://github.com/gujiangwen/PinFix/releases/tag/v0.5.0
+
 [0.4.0]: https://github.com/gujiangwen/PinFix/releases/tag/v0.4.0
 
 [0.3.0]: https://github.com/gujiangwen/PinFix/releases/tag/v0.3.0
