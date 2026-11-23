@@ -1,8 +1,8 @@
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "toggle-annotation") return;
+  if (command !== "toggle-annotation" && command !== "toggle-annotation-shot") return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
-  await chrome.tabs.sendMessage(tab.id, { type: "annotate" });
+  await chrome.tabs.sendMessage(tab.id, { type: "annotate", screenshot: command === "toggle-annotation-shot" });
 });
 
 chrome.runtime.onInstalled.addListener((details) => {

@@ -3,12 +3,14 @@ export function buildPrompt({ description, anchor = {}, rect = null, href = "", 
   const lines = String(description).split("\n").filter((l) => l.trim());
   const problem = lines[0] || description;
   const expected = lines.length > 1 ? lines.slice(1).join(" ").replace(/^期望[：:]\s*/, "") : "";
+  // 附 #pinfix 锚点：智能体打开链接时页面自动滚动到目标并红框闪烁
+  const pageHref = rect ? `${href.split("#")[0]}#pinfix=${Math.round(rect.left)},${Math.round(rect.top)}` : href;
   // 有源码坐标或 Vue 组件链时省略冗长的 nth-of-type 选择器：智能体靠 源码+文本 即可锁定行号
   const hasPrecise = Boolean(anchor.file) || anchor.chain?.length;
   const items = [
     `问题：${problem}`,
     expected ? `期望：${expected}` : "",
-    `页面：${title ? `${title} (${href})` : href}`,
+    `页面：${title ? `${title} (${pageHref})` : pageHref}`,
     anchor.file ? `源码：${anchor.file}${anchor.line ? `:${anchor.line}` : ""}` : "",
     anchor.label || anchor.selector ? `元素：${anchor.label || anchor.selector}` : "",
     !hasPrecise && anchor.path ? `选择器：${anchor.path}` : "",

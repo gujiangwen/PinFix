@@ -38,6 +38,12 @@
         "default": "Alt+Shift+P"
       },
       "description": "开始/取消标注"
+    },
+    "toggle-annotation-shot": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "开始/取消截图标注"
     }
   }
 }

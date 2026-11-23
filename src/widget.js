@@ -927,7 +927,16 @@ function drawScreenshot(dataUrl, rect) {
 }
 
 async function captureScreenshot(rect) {
+  // 截图前隐藏标注 UI（高亮框/层次链/提示条），避免把工具自身拍进交付给智能体的图
+  const overlayIds = ["box-margin", "box-border", "box-padding", "box-content", "tip", "hover", "crumbs", "pick-hint", "layer"];
+  const restore = overlayIds.map((id) => {
+    const node = $(id);
+    const was = node.hidden;
+    node.hidden = true;
+    return () => { node.hidden = was; };
+  });
   const raw = await requestScreenshot();
+  restore.forEach((fn) => fn());
   if (!raw) return "";
   return drawScreenshot(raw, rect);
 }
@@ -1007,12 +1016,14 @@ function buildPrompt({ description, anchor = {}, rect = null, href = "", title =
   const lines = String(description).split("\n").filter((l) => l.trim());
   const problem = lines[0] || description;
   const expected = lines.length > 1 ? lines.slice(1).join(" ").replace(/^期望[：:]\s*/, "") : "";
+  // 附 #pinfix 锚点：智能体打开链接时页面自动滚动到目标并红框闪烁
+  const pageHref = rect ? `${href.split("#")[0]}#pinfix=${Math.round(rect.left)},${Math.round(rect.top)}` : href;
   // 有源码坐标或 Vue 组件链时省略冗长的 nth-of-type 选择器：智能体靠 源码+文本 即可锁定行号
   const hasPrecise = Boolean(anchor.file) || anchor.chain?.length;
   const items = [
     `问题：${problem}`,
     expected ? `期望：${expected}` : "",
-    `页面：${title ? `${title} (${href})` : href}`,
+    `页面：${title ? `${title} (${pageHref})` : pageHref}`,
     anchor.file ? `源码：${anchor.file}${anchor.line ? `:${anchor.line}` : ""}` : "",
     anchor.label || anchor.selector ? `元素：${anchor.label || anchor.selector}` : "",
     !hasPrecise && anchor.path ? `选择器：${anchor.path}` : "",
@@ -1177,3 +1188,23 @@ function startSightloop() {
 
 document.documentElement.addEventListener("sightloop-ready", startSightloop);
 startSightloop();
+
+// 智能体打开带 #pinfix=x,y 的链接时，滚动到目标位置并红框闪烁，省去人工查找
+(function flashPinfixTarget() {
+  const match = location.hash.match(/#pinfix=(\d+),(\d+)/);
+  if (!match) return;
+  const x = Number(match[1]);
+  const y = Number(match[2]);
+  window.scrollTo({ left: Math.max(0, x - window.innerWidth / 2), top: Math.max(0, y - window.innerHeight / 2), behavior: "instant" });
+  const box = document.createElement("div");
+  box.style.cssText = `position:absolute;z-index:2147483005;pointer-events:none;border:3px solid #e5484d;border-radius:4px;left:${x + window.scrollX - 6}px;top:${y + window.scrollY - 6}px;width:12px;height:12px;box-shadow:0 0 0 4px rgba(229,72,77,.25);transition:opacity .4s`;
+  document.documentElement.appendChild(box);
+  let count = 0;
+  const timer = setInterval(() => {
+    box.style.opacity = count % 2 ? "1" : "0.25";
+    if (++count > 7) {
+      clearInterval(timer);
+      box.remove();
+    }
+  }, 450);
+})();

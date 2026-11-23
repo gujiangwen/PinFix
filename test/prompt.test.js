@@ -23,7 +23,14 @@ test("prompt leads with problem and optional expectation", () => {
   assert.equal(lines[0], "请定位并修复以下前端页面问题：");
   assert.equal(lines[1], "- 问题：点击无响应");
   assert.equal(lines[2], "- 期望：弹出当日证据弹窗");
-  assert.match(out, /- 页面：交易记录 \(https:\/\/example\.com\/trades\)/);
+  assert.match(out, /- 页面：交易记录 \(https:\/\/example\.com\/trades#pinfix=100,200\)/);
+});
+
+test("prompt appends pinfix hash so agent page auto-scrolls to target", () => {
+  const out = buildPrompt({ description: "按钮错位", anchor: {}, rect, href: "https://example.com/trades?tab=all", title: "" });
+  assert.match(out, /https:\/\/example\.com\/trades\?tab=all#pinfix=100,200/);
+  const noRect = buildPrompt({ description: "问题", anchor: {}, rect: null, href: "https://example.com", title: "" });
+  assert.doesNotMatch(noRect, /pinfix=/);
 });
 
 test("prompt omits long selector when precise source info exists", () => {

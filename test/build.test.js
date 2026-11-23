@@ -129,3 +129,23 @@ test("bridge resumes picking after popup-triggered reload", async () => {
   const manifest = JSON.parse(await readFile(path.join(root, "dist/chromium/manifest.json"), "utf8"));
   assert.ok(manifest.permissions.includes("scripting"));
 });
+
+test("screenshot hides pinfix overlay UI before capture", async () => {
+  const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
+  const capture = widget.match(/async function captureScreenshot[\s\S]*?\n}/)?.[0] || "";
+  assert.match(capture, /pick-hint/);
+  assert.match(capture, /hidden = true/);
+});
+
+test("manifest exposes screenshot annotation shortcut", async () => {
+  const manifest = JSON.parse(await readFile(path.join(root, "dist/chromium/manifest.json"), "utf8"));
+  assert.equal(manifest.commands?.["toggle-annotation-shot"]?.suggested_key?.default, "Alt+Shift+S");
+  const background = await readFile(path.join(root, "dist/chromium/background.js"), "utf8");
+  assert.match(background, /toggle-annotation-shot/);
+});
+
+test("widget flashes pinfix hash target on load", async () => {
+  const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
+  assert.match(widget, /#pinfix=\(\\d\+\),\(\\d\+\)/);
+  assert.match(widget, /scrollTo/);
+});

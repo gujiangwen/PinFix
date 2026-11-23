@@ -113,7 +113,7 @@ node scripts/build.js chromium
 
 1. 打开普通 HTTP/HTTPS 页面；若内容脚本未注入（如安装前已打开的页面），点开弹窗时会自动刷新该页面并直接进入标注态。
 2. 点击 PinFix 扩展图标，按需选择「简单标注」或「截图标注」（后者会在提交时截取带红框的上下文截图一并交付）。
-   **快捷键**：`Alt+Shift+P` 开始/取消标注（等价于「简单标注」），可在 `chrome://extensions/shortcuts` 或浏览器对应页面自定义。
+   **快捷键**：`Alt+Shift+P` 简单标注、`Alt+Shift+S` 截图标注，可在 `chrome://extensions/shortcuts` 或浏览器对应页面自定义。
 3. 单击元素，或拖拽选择区域；也可以先选中文字再点击。
 4. 填写问题。提示词模式点击“复制提示词”；已接入服务时点击“提交”。
 5. 把提示词交给智能体，或在 PinFix 中跟踪已提交问题的修复进度。
@@ -127,6 +127,7 @@ node scripts/build.js chromium
 | 调整候选元素层级 | `↑` / `↓` |
 | 取消标注或关闭编辑框 | `Esc` |
 | 开始/取消标注 | `Alt+Shift+P` |
+| 开始/取消截图标注 | `Alt+Shift+S` |
 
 **快捷键冲突**：浏览器不会提示快捷键被占用。若 `Alt+Shift+P` 无效，打开扩展弹窗底部会显示当前快捷键与「修改快捷键」入口（复制 `chrome://extensions/shortcuts` 到地址栏），或右键扩展图标 → 选项 → 查看快捷键。
 
@@ -143,7 +144,7 @@ node scripts/build.js chromium
 请定位并修复以下前端页面问题：
 - 问题：按钮在窄屏下溢出容器
 - 期望：按钮在窄屏下完整显示，不溢出容器
-- 页面：示例页面 (https://example.com/products)
+- 页面：示例页面 (https://example.com/products#pinfix=640,420)
 - 源码：src/ProductCard.tsx:24
 - 元素：button.checkout
 - 组件链：ProductCard.vue > CheckoutBar.vue
@@ -158,6 +159,7 @@ node scripts/build.js chromium
 - **组件链**：Vue 项目自动输出 2~4 层父组件链，样式 Bug 常根因在父组件。
 - **框架适配**：开发态自动识别 Vue（`__vueParentComponent`）与 React（fiber `_debugSource`，含行号）的源码文件；其他框架或无源码标记时退化为选择器+文本模式。生产环境建议构建期注入 `data-sl-file` / `data-sl-line`。
 - **布局**：布局/错位/空白类问题的关键快照（视口、元素尺寸、display/overflow/height、父容器尺寸）。
+- **页面锚点**：提示词中的页面链接带 `#pinfix=x,y`；智能体或人打开该链接时，页面会自动滚动到目标位置并红框闪烁，无需人工寻找。
 - **截图**：用「截图标注」入口发起时，提示词与截图会一起写入剪贴板（支持富文本粘贴的输入框可直接收到图文），不产生下载文件。浏览器安全限制下扩展拿不到本地绝对路径。
 
 浏览器内部页面、扩展商店和 PDF 阅读器等受限页面不能注入。移动端不在当前支持范围。

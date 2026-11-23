@@ -12,7 +12,7 @@
 
 ## 3. 开始标注
 
-点工具栏的 PinFix 图标 → 「简单标注」（纯文字提示词）或「截图标注」（额外附一张带红框的上下文截图），或直接按 `Alt+Shift+P`（等价于简单标注）。光标变成十字，页面进入标注态。
+点工具栏的 PinFix 图标 → 「简单标注」（纯文字提示词）或「截图标注」（额外附一张带红框的上下文截图）；快捷键 `Alt+Shift+P` 简单标注、`Alt+Shift+S` 截图标注。光标变成十字，页面进入标注态。
 
 ## 4. 选中问题元素
 
@@ -45,7 +45,7 @@
 请定位并修复以下前端页面问题：
 - 问题：底部空白太多
 - 期望：图表区域占满剩余空间，不留死空白
-- 页面：交易记录 (https://example.com/trades)
+- 页面：交易记录 (https://example.com/trades#pinfix=100,200)
 - 源码：frontend/src/views/PerformanceCharts.vue:42
 - 元素：div.charts-body.mode-split
 - 组件链：TradeRecords.vue > PerformanceCharts.vue
@@ -70,6 +70,7 @@
 | 操作 | 快捷键 |
 | --- | --- |
 | 开始/取消标注 | `Alt+Shift+P` |
+| 开始/取消截图标注 | `Alt+Shift+S` |
 | 确认元素 / 提交 | `Enter` |
 | 描述中换行 | `Shift+Enter` |
 | 调整候选元素层级 | `↑` / `↓` |
