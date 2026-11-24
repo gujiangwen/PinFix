@@ -90,8 +90,8 @@ test("popup shows stacked annotate entries with shortcut hints", async () => {
   const popupJs = await readFile(path.join(root, "src/popup.js"), "utf8");
   assert.match(html, /id="annotate-group"/);
   assert.match(html, /#annotate-group \{[\s\S]*?flex-direction: column/);
-  assert.match(html, /id="annotate-label">文字标注/);
-  assert.match(html, /id="annotate-shot-label">文字\+截图标注/);
+  assert.match(html, /id="annotate-label">普通标注/);
+  assert.match(html, /id="annotate-shot-label">截图标注/);
   assert.match(html, /id="annotate-kbd"/);
   assert.match(html, /id="annotate-shot-kbd"/);
   assert.match(html, /id="status-text"/);

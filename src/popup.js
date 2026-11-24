@@ -156,8 +156,8 @@ async function initPopup() {
   annotateShot.removeAttribute("aria-disabled");
   annotate.toggleAttribute("data-picking", Boolean(state.picking));
   annotateShot.toggleAttribute("data-picking", Boolean(state.picking));
-  annotateLabel.textContent = state.picking ? "取消标注" : "文字标注";
-  annotateShotLabel.textContent = state.picking ? "取消标注" : "文字+截图标注";
+  annotateLabel.textContent = state.picking ? "取消标注" : "普通标注";
+  annotateShotLabel.textContent = state.picking ? "取消标注" : "截图标注";
   const origin = String(state.origin || "").replace(/\/$/, "");
   const token = String(state.token || "");
   const connected = await checkConsole(origin, token);
