@@ -111,6 +111,13 @@ test("popup warns when shortcut is unavailable", async () => {
   assert.match(html, /#shortcut-hint\[data-warn="true"\]/);
 });
 
+test("options page shows current version", async () => {
+  const html = await readFile(path.join(root, "src/options.html"), "utf8");
+  const optionsJs = await readFile(path.join(root, "src/options.js"), "utf8");
+  assert.match(html, /id="version"/);
+  assert.match(optionsJs, /getManifest\(\)\.version/);
+});
+
 test("picking shows clickable crumbs hint and crumbs are interactive", async () => {
   const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
   assert.match(widget, /pick-hint/);

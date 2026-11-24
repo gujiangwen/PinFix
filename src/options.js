@@ -6,6 +6,8 @@ const copyShortcutBtn = document.querySelector("#copy-shortcut-url");
 const saveBtn = document.querySelector("#save");
 const clearBtn = document.querySelector("#clear");
 
+document.querySelector("#version").textContent = `v${chrome.runtime.getManifest().version}`;
+
 async function loadShortcut() {
   try {
     const commands = await chrome.commands.getAll();
