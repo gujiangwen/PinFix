@@ -32,6 +32,6 @@ test("popup surfaces shortcut conflict with fix entry", () => {
   assert.match(popupHtml, /shortcut-hint/);
   assert.match(popupHtml, /shortcut-fix/);
   assert.match(popupJs, /chrome\.commands\.getAll/);
-  assert.match(popupJs, /shortcutDisplay\.textContent/);
+  assert.match(popupJs, /shortcutHintText\.textContent/);
   assert.match(popupJs, /extensions\/shortcuts/);
 });

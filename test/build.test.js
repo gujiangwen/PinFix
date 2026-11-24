@@ -85,17 +85,27 @@ test("popup auto reloads page when content script is missing", async () => {
   assert.doesNotMatch(popupJs, /请刷新目标页面后标注/);
 });
 
-test("popup shows two side-by-side annotate entries", async () => {
+test("popup shows stacked annotate entries with shortcut hints", async () => {
   const html = await readFile(path.join(root, "src/popup.html"), "utf8");
   const popupJs = await readFile(path.join(root, "src/popup.js"), "utf8");
   assert.match(html, /id="annotate-group"/);
-  assert.match(html, /#annotate-group > button \{\s*flex: 1/);
-  assert.match(html, /id="annotate-label">简单标注/);
-  assert.match(html, /id="annotate-shot-label">截图标注/);
+  assert.match(html, /#annotate-group \{[\s\S]*?flex-direction: column/);
+  assert.match(html, /id="annotate-label">文字标注/);
+  assert.match(html, /id="annotate-shot-label">文字\+截图标注/);
+  assert.match(html, /id="annotate-kbd"/);
+  assert.match(html, /id="annotate-shot-kbd"/);
   assert.match(html, /id="status-text"/);
   assert.match(popupJs, /#status-text/);
   // 默认提示词模式不显示状态文字，避免干扰
   assert.match(popupJs, /connected \? `已接入 · \$\{loopHost\(origin\)\}` : ""/);
+});
+
+test("popup warns when shortcut is unavailable", async () => {
+  const popupJs = await readFile(path.join(root, "src/popup.js"), "utf8");
+  const html = await readFile(path.join(root, "src/popup.html"), "utf8");
+  assert.match(popupJs, /shortcutHint\.dataset\.warn = "true"/);
+  assert.match(popupJs, /快捷键不可用/);
+  assert.match(html, /#shortcut-hint\[data-warn="true"\]/);
 });
 
 test("picking shows clickable crumbs hint and crumbs are interactive", async () => {

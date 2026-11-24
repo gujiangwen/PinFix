@@ -2,9 +2,13 @@ const annotate = document.querySelector("#annotate");
 const annotateLabel = document.querySelector("#annotate-label");
 const annotateShot = document.querySelector("#annotate-shot");
 const annotateShotLabel = document.querySelector("#annotate-shot-label");
+const annotateKbd = document.querySelector("#annotate-kbd");
+const annotateShotKbd = document.querySelector("#annotate-shot-kbd");
 const status = document.querySelector("#status");
 const statusText = document.querySelector("#status-text");
 const settingsBtn = document.querySelector("#settings");
+const shortcutHint = document.querySelector("#shortcut-hint");
+const shortcutHintText = document.querySelector("#shortcut-hint-text");
 const shortcutDisplay = document.querySelector("#shortcut-display");
 const shortcutFix = document.querySelector("#shortcut-fix");
 const updateBtn = document.querySelector("#update");
@@ -57,10 +61,23 @@ settingsBtn.addEventListener("click", () => {
 async function showShortcut() {
   try {
     const commands = await chrome.commands.getAll();
-    const cmd = commands.find((c) => c.name === "toggle-annotation");
-    shortcutDisplay.textContent = cmd?.shortcut || "未设置";
+    const pick = commands.find((c) => c.name === "toggle-annotation");
+    const shot = commands.find((c) => c.name === "toggle-annotation-shot");
+    const pickKey = pick?.shortcut || "";
+    const shotKey = shot?.shortcut || "";
+    annotateKbd.textContent = pickKey || "—";
+    annotateShotKbd.textContent = shotKey || "—";
+    if (!pickKey) {
+      shortcutHint.dataset.warn = "true";
+      shortcutHintText.innerHTML = "快捷键不可用";
+      shortcutFix.textContent = "点击设置";
+      return;
+    }
+    shortcutHint.dataset.warn = "false";
+    shortcutHintText.textContent = `${pickKey} 无效？`;
   } catch {
-    shortcutDisplay.textContent = "Alt+Shift+P";
+    annotateKbd.textContent = "⌘P";
+    annotateShotKbd.textContent = "⌘S";
   }
 }
 void showShortcut();
@@ -139,8 +156,8 @@ async function initPopup() {
   annotateShot.removeAttribute("aria-disabled");
   annotate.toggleAttribute("data-picking", Boolean(state.picking));
   annotateShot.toggleAttribute("data-picking", Boolean(state.picking));
-  annotateLabel.textContent = state.picking ? "取消标注" : "简单标注";
-  annotateShotLabel.textContent = state.picking ? "取消标注" : "截图标注";
+  annotateLabel.textContent = state.picking ? "取消标注" : "文字标注";
+  annotateShotLabel.textContent = state.picking ? "取消标注" : "文字+截图标注";
   const origin = String(state.origin || "").replace(/\/$/, "");
   const token = String(state.token || "");
   const connected = await checkConsole(origin, token);
