@@ -8,8 +8,6 @@ const status = document.querySelector("#status");
 const statusText = document.querySelector("#status-text");
 const settingsBtn = document.querySelector("#settings");
 const shortcutHint = document.querySelector("#shortcut-hint");
-const shortcutHintText = document.querySelector("#shortcut-hint-text");
-const shortcutDisplay = document.querySelector("#shortcut-display");
 const shortcutFix = document.querySelector("#shortcut-fix");
 const updateBtn = document.querySelector("#update");
 const updateVersion = document.querySelector("#update-version");
@@ -70,14 +68,11 @@ async function showShortcut() {
     if (!pickKey) {
       // 确定性检测：shortcut 为空说明快捷键被系统或其他扩展抢占
       shortcutHint.dataset.warn = "true";
-      shortcutHintText.textContent = "快捷键未生效";
-      shortcutFix.textContent = "点击设置";
+      shortcutFix.textContent = "快捷键未生效 · 点击设置";
       return;
     }
     shortcutHint.dataset.warn = "false";
-    // shortcut 有值即已生效，正常展示即可；网页自身拦截按键无法检测，不做猜测式提示
-    shortcutHintText.textContent = pickKey;
-    shortcutFix.textContent = "修改";
+    shortcutFix.textContent = "修改快捷键";
   } catch {
     annotateKbd.textContent = "⌘P";
     annotateShotKbd.textContent = "⌘S";
