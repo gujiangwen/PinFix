@@ -85,13 +85,17 @@ test("popup auto reloads page when content script is missing", async () => {
   assert.doesNotMatch(popupJs, /请刷新目标页面后标注/);
 });
 
-test("popup uses compact segmented annotate control", async () => {
+test("popup shows two side-by-side annotate entries", async () => {
   const html = await readFile(path.join(root, "src/popup.html"), "utf8");
   const popupJs = await readFile(path.join(root, "src/popup.js"), "utf8");
   assert.match(html, /id="annotate-group"/);
-  assert.match(html, /#annotate-group > #annotate \{ flex: 1/);
+  assert.match(html, /#annotate-group > button \{\s*flex: 1/);
+  assert.match(html, /id="annotate-label">简单标注/);
+  assert.match(html, /id="annotate-shot-label">截图标注/);
   assert.match(html, /id="status-text"/);
   assert.match(popupJs, /#status-text/);
+  // 默认提示词模式不显示状态文字，避免干扰
+  assert.match(popupJs, /connected \? `已接入 · \$\{loopHost\(origin\)\}` : ""/);
 });
 
 test("picking shows clickable crumbs hint and crumbs are interactive", async () => {

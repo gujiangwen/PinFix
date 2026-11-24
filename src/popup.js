@@ -145,9 +145,8 @@ async function initPopup() {
   const token = String(state.token || "");
   const connected = await checkConsole(origin, token);
   status.dataset.mode = connected ? "live" : "copy";
-  statusText.textContent = connected
-    ? `已接入 · ${loopHost(origin)}`
-    : "提示词模式 · 标注后复制";
+  // 默认提示词模式不显示文字，避免干扰；仅接入 SightLoop 时提示去向
+  statusText.textContent = connected ? `已接入 · ${loopHost(origin)}` : "";
 }
 
 void initPopup();
