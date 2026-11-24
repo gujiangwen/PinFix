@@ -199,7 +199,8 @@ const state = {
   downStack: [],
 };
 const cursorStyle = document.createElement("style");
-cursorStyle.textContent = "html.sightloop-picking, html.sightloop-picking * { cursor: crosshair !important; }";
+// 标注态页面元素强制十字光标；但工具自身的 UI（描述框/卡片等）还原默认光标，textarea 才能显示 I 形光标
+cursorStyle.textContent = "html.sightloop-picking, html.sightloop-picking * { cursor: crosshair !important; } html.sightloop-picking [id$='-host'], html.sightloop-picking [id$='-host'] * { cursor: auto !important; }";
 document.head.appendChild(cursorStyle);
 
 function setPicking(on) {
