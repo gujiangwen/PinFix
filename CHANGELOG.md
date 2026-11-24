@@ -2,6 +2,12 @@
 
 本项目记录值得用户和贡献者注意的变更。版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.3] - 2026-11-24
+
+### 新增
+
+- 设置页「关于」区块显示当前扩展版本号（从 manifest 动态读取）
+
 ## [0.7.2] - 2026-11-24
 
 ### 修复
@@ -119,6 +125,8 @@
 ### 修复
 
 - 回退 content script module 化，修复「开始标注」后无法选中页面的回归
+
+[0.7.3]: https://github.com/gujiangwen/PinFix/releases/tag/v0.7.3
 
 [0.7.2]: https://github.com/gujiangwen/PinFix/releases/tag/v0.7.2
 
