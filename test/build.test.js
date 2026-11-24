@@ -121,11 +121,19 @@ test("picking shows clickable crumbs hint and crumbs are interactive", async () 
 
 test("draft submission resumes picking and reports screenshot fallback", async () => {
   const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
-  assert.match(widget, /function hideDraftAndResume\(\)[\s\S]*?setPicking\(true\)/);
+  // 提交/复制后关闭描述框，不自动回到标注态
+  assert.doesNotMatch(widget, /hideDraftAndResume/);
   assert.match(widget, /截图不可用，已仅复制文字提示词，粘贴给智能体即可/);
   assert.match(widget, /已复制提示词与截图，粘贴给智能体即可/);
   assert.match(widget, /截图并复制/);
   assert.match(widget, /请先描述问题/);
+});
+
+test("screenshot hides draft and card overlays from capture", async () => {
+  const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
+  const capture = widget.match(/async function captureScreenshot[\s\S]*?\n}/)?.[0] || "";
+  assert.match(capture, /"draft"/);
+  assert.match(capture, /"card"/);
 });
 
 test("welcome page is bundled and opened on install", async () => {

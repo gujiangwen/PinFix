@@ -182,7 +182,7 @@ shadow.innerHTML = `
 <div class="box content" id="box-content" hidden></div>
 <div class="tip" id="tip" hidden></div>
 <nav class="crumbs" id="crumbs" hidden aria-label="元素层次"></nav>
-<div class="pick-hint" id="pick-hint" hidden>↑↓ 调整层级 · Enter 确认 · 可连续标注 · Esc 退出</div>
+<div class="pick-hint" id="pick-hint" hidden>↑↓ 调整层级 · Enter 确认 · Esc 退出</div>
 `;
 
 const $ = (id) => shadow.getElementById(id);
@@ -797,12 +797,6 @@ function hideDraft() {
   renderMarks();
 }
 
-function hideDraftAndResume() {
-  const wantShot = state.wantShot;
-  hideDraft();
-  state.wantShot = wantShot;
-  setPicking(true);
-}
 
 function pageConnected() {
   return Boolean(origin && token);
@@ -931,7 +925,7 @@ function drawScreenshot(dataUrl, rect) {
 
 async function captureScreenshot(rect) {
   // 截图前隐藏标注 UI（高亮框/层次链/提示条），避免把工具自身拍进交付给智能体的图
-  const overlayIds = ["box-margin", "box-border", "box-padding", "box-content", "tip", "hover", "crumbs", "pick-hint", "layer"];
+  const overlayIds = ["box-margin", "box-border", "box-padding", "box-content", "tip", "hover", "crumbs", "pick-hint", "layer", "draft", "card"];
   const restore = overlayIds.map((id) => {
     const node = $(id);
     const was = node.hidden;
@@ -995,7 +989,7 @@ $("draft-submit").addEventListener("click", async () => {
           context: { url: location.href, diagnostics: diagnostics.slice(-10), ...(screenshot ? { screenshot } : {}) },
         }),
       });
-      hideDraftAndResume();
+      hideDraft();
       await refresh();
       openCard(issue.id);
       return;
@@ -1012,7 +1006,7 @@ $("draft-submit").addEventListener("click", async () => {
           ? "已复制提示词与截图，粘贴给智能体即可"
           : "已复制提示词，粘贴给智能体即可"
     );
-    setTimeout(hideDraftAndResume, 900);
+    setTimeout(hideDraft, 900);
   } catch (error) {
     announceDraft(error instanceof Error ? error.message : String(error));
   }
