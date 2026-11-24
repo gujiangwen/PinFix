@@ -2,6 +2,12 @@
 
 本项目记录值得用户和贡献者注意的变更。版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.1] - 2026-11-24
+
+### 修复
+
+- 修复标注态下描述输入框文本插入符（caret）与鼠标光标不可见的问题：textarea 在 Shadow DOM 内，需在组件样式内显式声明 `cursor: text` 与 `caret-color`，页面级样式无法穿透
+
 ## [0.7.0] - 2026-11-24
 
 ### 新增
@@ -103,6 +109,8 @@
 ### 修复
 
 - 回退 content script module 化，修复「开始标注」后无法选中页面的回归
+
+[0.7.1]: https://github.com/gujiangwen/PinFix/releases/tag/v0.7.1
 
 [0.7.0]: https://github.com/gujiangwen/PinFix/releases/tag/v0.7.0
 
