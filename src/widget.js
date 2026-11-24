@@ -103,6 +103,7 @@ shadow.innerHTML = `
   textarea {
     display: block; width: 100%; height: auto; field-sizing: content; min-block-size: 2.8lh; max-block-size: 8lh;
     resize: none; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: inherit; padding: 8px 10px;
+    cursor: text; caret-color: var(--ink);
   }
   .card textarea { margin-top: 8px; min-block-size: 2.2lh; }
   .meta {
@@ -200,7 +201,8 @@ const state = {
 };
 const cursorStyle = document.createElement("style");
 // 标注态页面元素强制十字光标；但工具自身的 UI（描述框/卡片等）还原默认光标，textarea 才能显示 I 形光标
-cursorStyle.textContent = "html.sightloop-picking, html.sightloop-picking * { cursor: crosshair !important; } html.sightloop-picking [id$='-host'], html.sightloop-picking [id$='-host'] * { cursor: auto !important; }";
+// 注意：此样式表在页面级，管不到 Shadow DOM 内部；textarea 的 cursor/caret 由 shadow 内样式负责
+cursorStyle.textContent = "html.sightloop-picking, html.sightloop-picking * { cursor: crosshair !important; } html.sightloop-picking [id$='-host'] { cursor: auto !important; }";
 document.head.appendChild(cursorStyle);
 
 function setPicking(on) {
@@ -955,6 +957,10 @@ $("draft-text").addEventListener("keydown", (event) => {
     if (event.isComposing || event.keyCode === 229) return;
     $("draft-submit").click();
   }
+});
+$("draft-text").addEventListener("dblclick", (event) => {
+  // 双击选词不应被全局 pointer 手势拦截
+  event.stopPropagation();
 });
 
 $("note").addEventListener("keydown", (event) => {

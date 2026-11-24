@@ -171,4 +171,6 @@ test("picking crosshair cursor spares pinfix own UI", async () => {
   const widget = await readFile(path.join(root, "src/widget.js"), "utf8");
   assert.match(widget, /sightloop-picking.*cursor: crosshair/);
   assert.match(widget, /-host.*cursor: auto/);
+  // textarea 在 Shadow DOM 内，需显式声明 caret/cursor，页面级样式管不到
+  assert.match(widget, /cursor: text; caret-color/);
 });
