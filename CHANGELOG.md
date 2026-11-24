@@ -2,6 +2,16 @@
 
 本项目记录值得用户和贡献者注意的变更。版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.2] - 2026-11-24
+
+### 修复
+
+- 修复截图时描述框与标注详情卡被拍进画面的问题：`captureScreenshot` 隐藏列表补上 `draft` 与 `card`
+
+### 移除
+
+- 回退连续标注：提交/复制后不再自动回到标注态，恢复为单次标注流程
+
 ## [0.7.1] - 2026-11-24
 
 ### 修复
@@ -109,6 +119,8 @@
 ### 修复
 
 - 回退 content script module 化，修复「开始标注」后无法选中页面的回归
+
+[0.7.2]: https://github.com/gujiangwen/PinFix/releases/tag/v0.7.2
 
 [0.7.1]: https://github.com/gujiangwen/PinFix/releases/tag/v0.7.1
 
