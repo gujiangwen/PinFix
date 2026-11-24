@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PinFix 页面标注",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "面向智能体的前端标注工具：生成精确定位的修复指令，可接入 SightLoop 闭环修复。",
   "author": "gujiangwen <francodeyvison183@gmail.com>",
   "background": {
