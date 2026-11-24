@@ -137,7 +137,7 @@ async function initPopup() {
   if (!tab?.id || !page.startsWith("http")) {
     annotate.setAttribute("aria-disabled", "true");
     annotateShot.setAttribute("aria-disabled", "true");
-    statusText.textContent = "请在目标网页中使用";
+    annotate.title = annotateShot.title = "请在目标网页中使用";
     return;
   }
   let state;
@@ -146,7 +146,7 @@ async function initPopup() {
     if (!state?.active) throw new Error("inactive");
   } catch {
     // 内容脚本未注入（多为安装/更新后未刷新页面）：刷新后自动注入并直接进入标注态
-    statusText.textContent = "正在刷新页面，稍后自动开始标注…";
+    annotate.title = annotateShot.title = "正在刷新页面，稍后自动开始标注…";
     await chrome.storage.session.set({ [`pickAfterLoad:${tab.id}`]: true });
     await chrome.tabs.reload(tab.id);
     setTimeout(() => window.close(), 400);
@@ -162,8 +162,11 @@ async function initPopup() {
   const token = String(state.token || "");
   const connected = await checkConsole(origin, token);
   status.dataset.mode = connected ? "live" : "copy";
-  // 默认提示词模式不显示文字，避免干扰；仅接入 SightLoop 时提示去向
-  statusText.textContent = connected ? `已接入 · ${loopHost(origin)}` : "";
+  // 仅接入 SightLoop 时显示状态行；默认提示词模式隐藏，保持弹窗精简
+  if (connected) {
+    statusText.textContent = `已接入 · ${loopHost(origin)}`;
+    status.hidden = false;
+  }
 }
 
 void initPopup();

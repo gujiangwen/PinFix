@@ -96,8 +96,11 @@ test("popup shows stacked annotate entries with shortcut hints", async () => {
   assert.match(html, /id="annotate-shot-kbd"/);
   assert.match(html, /id="status-text"/);
   assert.match(popupJs, /#status-text/);
-  // 默认提示词模式不显示状态文字，避免干扰
-  assert.match(popupJs, /connected \? `已接入 · \$\{loopHost\(origin\)\}` : ""/);
+  // 默认提示词模式隐藏状态行，仅接入 SightLoop 时显示
+  assert.match(popupJs, /if \(connected\) \{[\s\S]*?status\.hidden = false/);
+  assert.match(html, /id="status"[^>]*hidden/);
+  // 设置入口挪进快捷键信息行
+  assert.match(html, /id="shortcut-hint"[\s\S]*?id="settings"/);
 });
 
 test("popup warns when shortcut is unavailable", async () => {
