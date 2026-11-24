@@ -129,7 +129,7 @@ node scripts/build.js chromium
 | 开始/取消标注 | `Alt+Shift+P` |
 | 开始/取消截图标注 | `Alt+Shift+S` |
 
-**快捷键冲突**：浏览器不会提示快捷键被占用。若 `Alt+Shift+P` 无效，打开扩展弹窗底部会显示当前快捷键与「修改快捷键」入口（复制 `chrome://extensions/shortcuts` 到地址栏），或右键扩展图标 → 选项 → 查看快捷键。
+**快捷键冲突**：快捷键被系统或其他扩展抢占时，扩展弹窗底部会显示红色「快捷键未生效 · 点击设置」。修改需在 `chrome://extensions/shortcuts` 中完成（浏览器限制，扩展无法自行修改）。
 
 扩展设置页（右键扩展图标 → 选项）提供：
 

@@ -107,7 +107,7 @@ test("popup warns when shortcut is unavailable", async () => {
   const popupJs = await readFile(path.join(root, "src/popup.js"), "utf8");
   const html = await readFile(path.join(root, "src/popup.html"), "utf8");
   assert.match(popupJs, /shortcutHint\.dataset\.warn = "true"/);
-  assert.match(popupJs, /快捷键不可用/);
+  assert.match(popupJs, /快捷键未生效/);
   assert.match(html, /#shortcut-hint\[data-warn="true"\]/);
 });
 

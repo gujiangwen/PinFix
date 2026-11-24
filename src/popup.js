@@ -68,13 +68,16 @@ async function showShortcut() {
     annotateKbd.textContent = pickKey || "—";
     annotateShotKbd.textContent = shotKey || "—";
     if (!pickKey) {
+      // 确定性检测：shortcut 为空说明快捷键被系统或其他扩展抢占
       shortcutHint.dataset.warn = "true";
-      shortcutHintText.innerHTML = "快捷键不可用";
+      shortcutHintText.textContent = "快捷键未生效";
       shortcutFix.textContent = "点击设置";
       return;
     }
     shortcutHint.dataset.warn = "false";
-    shortcutHintText.textContent = `${pickKey} 无效？`;
+    // shortcut 有值即已生效，正常展示即可；网页自身拦截按键无法检测，不做猜测式提示
+    shortcutHintText.textContent = pickKey;
+    shortcutFix.textContent = "修改";
   } catch {
     annotateKbd.textContent = "⌘P";
     annotateShotKbd.textContent = "⌘S";
